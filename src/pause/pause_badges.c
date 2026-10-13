@@ -292,6 +292,20 @@ typedef enum BadgeEquipResult {
     EQUIP_RESULT_NOT_OWNED,
 } BadgeEquipResult;
 
+static b32 pause_badges_can_stack(s16 badgeID) {
+    // Allow only badge effects translated and verified against TTYD64.
+    switch (badgeID) {
+        case ITEM_LAST_STAND:
+        case ITEM_PITY_FLOWER:
+        case ITEM_DEFEND_PLUS_A:
+        case ITEM_DEFEND_PLUS_X:
+        case ITEM_DEFEND_PLUS_Y:
+            return true;
+        default:
+            return false;
+    }
+}
+
 s32 pause_badges_try_equip(s16 badgeID) {
     PlayerData* playerData = &gPlayerData;
     s16 *badgeSlot = &playerData->equippedBadges[0];
@@ -317,7 +331,7 @@ s32 pause_badges_try_equip(s16 badgeID) {
     }
 
     // Only translated TTYD64 badge effects support identical equipped copies.
-    if (equippedCount > 0 && badgeID != ITEM_LAST_STAND && badgeID != ITEM_PITY_FLOWER) {
+    if (equippedCount > 0 && !pause_badges_can_stack(badgeID)) {
         return EQUIP_RESULT_ALREADY_EQUIPPED;
     }
     for (i = 0; i < ARRAY_COUNT(playerData->badges); i++) {

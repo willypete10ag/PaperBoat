@@ -702,7 +702,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_DEFENSE_UP,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 6,
+        .costBP = 5, // TTYD64 globals/Moves.xml, DefendPlus (0x045).
     },
     {   // 0x46: LastStand
         .nameMsg = MSG_MoveName_LastStand,

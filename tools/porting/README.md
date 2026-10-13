@@ -145,7 +145,8 @@ Further cases replay only the compiled popup block, forcing RNG returns to check
 the 32/33 boundary, independent per-copy rolls, FP caps, high-FP signed overflow,
 and upstream exclusions. These are controlled fixtures, not a playthrough or a
 probability-distribution test. `rand_int(100) < 33` is preserved exactly; native
-`rand_int(100)` is inclusive and biased, so this is not exactly 33%.
+`rand_int(100)` spans 0..100; the predicate accepts 0..32. These checks validate
+the boundary and controlled seed, rather than measuring a distribution.
 
 Upstream hooks the primary damage popup: zero damage, suppressed popups, multiple
 popups/SMASH and non-player targets bypass it. A lethal hit still reaches it.
@@ -224,3 +225,41 @@ over twelve frames at full scale. The rendered green flower and number 1 were
 visually confirmed beside the damage popup. This fixture intentionally slows
 gameplay after that point; it is not an input-timing or hardware-audio check.
 Stop the recorded process when finished.
+
+## Defend Plus
+
+Defend Plus uses its existing native A/X/Y item IDs (`0xFB`, `0x13E`, `0x13F`),
+shared move `0x45` and ability `0x1B`. TTYD64's move table charges 5 BP per copy;
+the native table now matches that cost. Its defensive damage code already subtracts
+the ability count before Last Stand and blocking. The port enables independent
+same-ID copies for all three variants using the existing copy-aware menu/save
+implementation. Other identical effect IDs remain restricted. Existing IDs,
+ownership/save fields, graphics, reward placement and shop prices are unchanged.
+
+`defend_plus_gdb.py` passes 38 writer checks and 15 checks in each fresh-process
+variant: unblocked, forced blocked and low incoming damage. It covers variant
+identity/counting, same-ID and distinct-ID stacks, 4/5/9/10-BP boundaries, owned
+copy limits, native menu input, native JSON save/load, nine compiled defensive
+branches and a loaded-copy native HP application. The script supplies inventory
+through `add_item`; it does not add normal-game extra-copy rewards.
+
+```bash
+export SHIP_HOME=/workspace/.paperboat-setup/defend-plus/runtime
+mkdir -p "$SHIP_HOME"
+export DEFEND_PLUS_LOAD_ONLY=0 DEFEND_PLUS_BLOCKED=0 DEFEND_PLUS_INPUT=6
+export DEFEND_PLUS_RESULT=/workspace/.paperboat-setup/defend-plus/writer.json
+timeout 120s gdb -q -batch -x /workspace/PaperBoat/tools/porting/defend_plus_gdb.py ./Paperboat
+
+export DEFEND_PLUS_LOAD_ONLY=1
+export DEFEND_PLUS_RESULT=/workspace/.paperboat-setup/defend-plus/fresh-load.json
+timeout 90s gdb -q -batch -x /workspace/PaperBoat/tools/porting/defend_plus_gdb.py ./Paperboat
+```
+
+Use the same display/audio/debugger prerequisites as above. For blocking, set
+`DEFEND_PLUS_BLOCKED=1` with input 6 and a separate result path. For clamping,
+set blocked back to 0 and `DEFEND_PLUS_INPUT=1`. The writer refuses an existing
+fixture slot 3 save. Two saved copies reduce controlled post-defense damage 6
+to 4 (HP 10 → 6), then native blocking reduces it to 3 (HP 10 → 7). A one-damage
+input is clamped to zero after mitigation, leaving HP 10. The Last Stand
+combination is checked in the compiled branch; non-player class checks are
+synthetic. No controller timing or complete playthrough is claimed.
