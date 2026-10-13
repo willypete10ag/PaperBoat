@@ -419,8 +419,11 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
         damage += player_team_is_ability_active(target, ABILITY_P_UP_D_DOWN);
 
         if (target->curHP <= 5) {
-            if (player_team_is_ability_active(target, ABILITY_LAST_STAND)) {
-                damage /= 2;
+            s32 lastStandCount = player_team_is_ability_active(target, ABILITY_LAST_STAND);
+
+            if (lastStandCount > 0) {
+                // TTYD64: TTYD_BadgeSystem.patch, Last Stand hook (80277950).
+                damage /= lastStandCount + 1;
             }
         }
     }
