@@ -205,3 +205,22 @@ and suppressing the description window. The native transition fixture resolves
 that limitation: Pity Flower's name, icon, description, pickup popup and normal
 pause-menu copy toggles were all visually verified. This does not establish a
 complete campaign playthrough or migrate TTYD64's Pit maps.
+
+`pity_flower_animation.gdb` loads the world-acquired pair in a real demo attack
+and stops after twelve native flower-animation updates. It asserts HP 4, FP 1,
+flower type and popup amount 1, records a numeric report/PID under the local
+Pity Flower artifacts directory, then detaches with native game updates slowed
+to keep the effect visible for inspection. Set `SHIP_HOME` to
+`/workspace/.paperboat-setup/pity-flower/animation-runtime`; copy the generated
+`acquisition-runtime/saves/file3.json` into its `saves/` directory first. Do not
+use a user save. Run it with the same display/debugger settings:
+
+```bash
+timeout 90s gdb -q -batch -x /workspace/PaperBoat/tools/porting/pity_flower_animation.gdb ./Paperboat
+```
+
+Native update data showed the floating component rising from Y 0 to about 16.8
+over twelve frames at full scale. The rendered green flower and number 1 were
+visually confirmed beside the damage popup. This fixture intentionally slows
+gameplay after that point; it is not an input-timing or hardware-audio check.
+Stop the recorded process when finished.
