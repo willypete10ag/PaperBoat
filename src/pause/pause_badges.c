@@ -316,8 +316,8 @@ s32 pause_badges_try_equip(s16 badgeID) {
         }
     }
 
-    // Only Last Stand's duplicate gameplay has been ported and validated so far.
-    if (equippedCount > 0 && badgeID != ITEM_LAST_STAND) {
+    // Only translated TTYD64 badge effects support identical equipped copies.
+    if (equippedCount > 0 && badgeID != ITEM_LAST_STAND && badgeID != ITEM_PITY_FLOWER) {
         return EQUIP_RESULT_ALREADY_EQUIPPED;
     }
     for (i = 0; i < ARRAY_COUNT(playerData->badges); i++) {

@@ -458,6 +458,8 @@ add_dependencies(${PROJECT_NAME} libultraship)
 
 # The engine's own archive: everything under port/ zipped up. A target rather
 # than a POST_BUILD step because the web build preloads it at link time.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set(PAPERBOAT_BADGE_ASSET_BUILDER "${CMAKE_SOURCE_DIR}/tools/porting/build_badge_assets.py")
 set(PAPERBOAT_PORT_O2R "${CMAKE_BINARY_DIR}/paperboat.o2r")
 set(PAPERBOAT_PORT_STAGING "${CMAKE_BINARY_DIR}/port_staging")
 set(PAPERBOAT_LUS_SHADERS "${CMAKE_SOURCE_DIR}/external/libultraship/src/fast/shaders")
@@ -467,10 +469,11 @@ add_custom_command(
     COMMENT "Generating paperboat.o2r shader archive..."
     COMMAND ${CMAKE_COMMAND} -E rm -rf "${PAPERBOAT_PORT_STAGING}"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/port" "${PAPERBOAT_PORT_STAGING}"
+    COMMAND ${Python3_EXECUTABLE} "${PAPERBOAT_BADGE_ASSET_BUILDER}" "${CMAKE_SOURCE_DIR}/port/ttyd64" "${PAPERBOAT_PORT_STAGING}"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${PAPERBOAT_LUS_SHADERS}" "${PAPERBOAT_PORT_STAGING}/shaders"
     COMMAND ${CMAKE_COMMAND} -E chdir "${PAPERBOAT_PORT_STAGING}" ${CMAKE_COMMAND} -E tar cf "${PAPERBOAT_PORT_O2R}" --format=zip -- .
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-    DEPENDS ${PAPERBOAT_PORT_FILES}
+    DEPENDS ${PAPERBOAT_PORT_FILES} "${PAPERBOAT_BADGE_ASSET_BUILDER}"
     VERBATIM
 )
 add_custom_target(GeneratePortO2R DEPENDS "${PAPERBOAT_PORT_O2R}")

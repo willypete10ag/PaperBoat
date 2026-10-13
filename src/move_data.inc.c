@@ -1,6 +1,7 @@
 /* This file is auto-generated. Do not edit. */
 #include "common.h"
 #include "message_ids.h"
+#include "ttyd64_assets.h"
 
 MoveData gMoveTable[] = {
     {   // 0x00: None
@@ -1852,6 +1853,16 @@ MoveData gMoveTable[] = {
         .actionTip = (BTL_MSG_ACTION_TIP_MASH_LEFT - BTL_MSG_FIRST_ACTION_TIP),
         .costFP = 5,
         .costBP = 0,
+    },
+    {   // 0xB9: PityFlower (TTYD64)
+        .nameMsg = MSG_TTYD64_PityFlowerName,
+        .fullDescMsg = MSG_TTYD64_PityFlowerDesc,
+        .shortDescMsg = MSG_TTYD64_PityFlowerDesc,
+        .flags = TARGET_FLAG_PLAYER,
+        .category = MOVE_TYPE_NONE,
+        .actionTip = -1,
+        .costFP = 0,
+        .costBP = 3,
     },
 };
 

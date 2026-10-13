@@ -1,4 +1,4 @@
-# Last Stand native integration check
+# Native TTYD64 badge integration checks
 
 `last_stand_gdb.py` runs the compiled defensive-badge block in a real Tubba
 Blubba demo-battle attack. It checks eleven cases, then lets a controlled hit
@@ -94,5 +94,65 @@ The native save schema is unchanged. Identical copies are interchangeable across
 reloads: the menu reconstructs the first N copies as equipped. Within one open
 menu, slot mapping keeps the specific selected rows independent across tab
 switches. Duplicate equipping is currently enabled only for Last Stand; other
-identical IDs retain their existing restriction. This does not add another shop
+identical IDs retain their existing restriction, except for the separately ported
+Pity Flower below. This does not add another shop
 stock or map reward for Last Stand, or claim other TTYD64 badge effects are ported.
+
+## Pity Flower
+
+The native badge uses item `0x16D`, move `0xB9`, ability `0x38` and message
+section `0x2F`. These are appended native IDs, not Star Rod indices. Its cost
+is 3 BP per copy. The checked-in C item/move tables are the native build inputs;
+the old YAML/Python decomp generators do not contain this addition.
+
+Python 3 is now required by CMake to convert the published indexed PNG and plain
+English text under `port/ttyd64/` into resources in `paperboat.o2r`. The converter
+uses only the standard library; no new ROM extraction is required. Existing
+vanilla IDs and save fields are unchanged. Old builds cannot use this new ID.
+
+`pity_flower_gdb.py` checks resource loading, duplicate acquisition/equipping,
+3-BP copy costs, individual menu-row input, native JSON save/load, and the compiled
+effect in a real Tubba Blubba demo attack. The writer refuses an existing slot 3
+save in this exact disposable directory; preserve previous fixture saves before
+clearing only those generated test files for a repeated writer run.
+
+```bash
+source /workspace/.paperboat-setup/activate.sh
+cd /workspace/PaperBoat/build/ninja-debug
+export DISPLAY=:95 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1
+export XDG_CACHE_HOME=/workspace/.paperboat-setup/cache DEBUGINFOD_URLS=
+export SHIP_HOME=/workspace/.paperboat-setup/pity-flower/runtime
+mkdir -p "$SHIP_HOME"
+export PITY_FLOWER_LOAD_ONLY=0
+export PITY_FLOWER_BLOCKED=0
+export PITY_FLOWER_RESULT=/workspace/.paperboat-setup/pity-flower/writer.json
+timeout 90s gdb -q -batch -x /workspace/PaperBoat/tools/porting/pity_flower_gdb.py ./Paperboat
+
+export PITY_FLOWER_LOAD_ONLY=1
+export PITY_FLOWER_RESULT=/workspace/.paperboat-setup/pity-flower/fresh-load.json
+timeout 90s gdb -q -batch -x /workspace/PaperBoat/tools/porting/pity_flower_gdb.py ./Paperboat
+```
+
+The writer passes 38 checks and the fresh reader passes 28. For the blocked
+variant, keep `PITY_FLOWER_LOAD_ONLY=1`, set `PITY_FLOWER_BLOCKED=1` and choose a
+separate result path. It passes 29 checks and forces `check_block_input` to return
+success; this validates the native blocked path, not controller timing.
+
+Start Xvfb first as described above. The attack loads two equipped copies through
+`fio_load_game`, applies a controlled six-damage hit from HP 10, then runs the
+native RNG with seed 3 (rolls 9 and 91). It restores one FP and leaves HP 4.
+Further cases replay only the compiled popup block, forcing RNG returns to check
+the 32/33 boundary, independent per-copy rolls, FP caps, high-FP signed overflow,
+and upstream exclusions. These are controlled fixtures, not a playthrough or a
+probability-distribution test. `rand_int(100) < 33` is preserved exactly; native
+`rand_int(100)` is inclusive and biased, so this is not exactly 33%.
+
+Upstream hooks the primary damage popup: zero damage, suppressed popups, multiple
+popups/SMASH and non-player targets bypass it. A lethal hit still reaches it.
+Positive blocked damage retains that trigger. The native helper uses the existing
+flower recovery effect and recovery sound; software rendering/dummy audio do not
+verify physical audio output. No normal-game reward or shop stock is added.
+
+Assertions exit nonzero; a timeout, missing report or interrupted run does not
+pass. Reports contain numeric results only; fixture saves and screenshots stay
+outside version control.

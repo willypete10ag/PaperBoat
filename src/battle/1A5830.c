@@ -4,6 +4,28 @@
 #include "hud_element.h"
 #include "sprite.h"
 
+static void try_pity_flower(Actor* target) {
+    s32 copies = is_ability_active(ABILITY_PITY_FLOWER);
+    s32 recovered = 0;
+    s32 i;
+
+    // TTYD64: TTYDBadges.patch, Pity Flower hook (802781B4).
+    // Preserve the original rand_int(100) < 33 predicate, once per copy.
+    for (i = 0; i < copies; i++) {
+        if (rand_int(100) < 33) {
+            recovered++;
+        }
+    }
+    if (recovered > 0) {
+        fx_recover(1, (s32) target->curPos.x, (s32) (target->curPos.y + 35.0f),
+                   (s32) target->curPos.z, recovered);
+        sfx_play_sound(SOUND_START_RECOVERY);
+        // Native FP is signed 8-bit. Clamp before recover_fp's addition so
+        // many successful copies cannot wrap a high FP total below zero.
+        recover_fp(MIN(recovered, MAX(0, gPlayerData.curMaxFP - gPlayerData.curFP)));
+    }
+}
+
 s32 has_enchanted_part(Actor* actor) {
     ActorPart* partIt = actor->partsTable;
     s32 ret = false;
@@ -692,6 +714,12 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
                     show_next_damage_popup(state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage, 1);
                     show_damage_fx(target, state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage);
                 } else {
+                    // The Star Rod hook is at this primary-popup call, after HP
+                    // application. Zero damage, suppressed and multiple popups
+                    // bypass it; preserve that placement for source parity.
+                    if (actorClass == ACTOR_CLASS_PLAYER) {
+                        try_pity_flower(target);
+                    }
                     show_primary_damage_popup(state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage, 1);
                     show_damage_fx(target, state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage);
                     break;

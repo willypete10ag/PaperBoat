@@ -5,10 +5,11 @@
 #include "fast/Fast3dGui.h"
 
 #include "assets/ui.h"
+#include "item_enum.h"
 
 extern "C" {
-extern intptr_t gItemIconRasterOffsets[349];
-extern intptr_t gItemIconPaletteOffsets[349];
+extern intptr_t gItemIconRasterOffsets[NUM_ITEMS];
+extern intptr_t gItemIconPaletteOffsets[NUM_ITEMS];
 }
 
 typedef struct {
@@ -118,9 +119,12 @@ void LoadGuiTextures() {
     //     gui->LoadGuiTexture(asset.assetTexturePath, asset.assetTexturePath);
     // }
 
-    for (int i = 0; i < 349; i++) {
+    for (int i = 0; i < NUM_ITEMS; i++) {
         const char* rasterPath = reinterpret_cast<const char*>(gItemIconRasterOffsets[i]);
         const char* palettePath = reinterpret_cast<const char*>(gItemIconPaletteOffsets[i]);
+        if (rasterPath == nullptr || palettePath == nullptr) {
+            continue;
+        }
         gui->LoadGuiTexture(rasterPath, rasterPath, palettePath, ImVec4 { 1.0f, 1.0f, 1.0f, 1.0f });
     }
 

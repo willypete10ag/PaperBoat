@@ -16208,6 +16208,11 @@ static const char* const gMsgPaths_sec2E[] = {
     gMsg_Credits_0087,
 };
 
+static const char* const gMsgPaths_sec2F[] = {
+    "__OTR__messages/ttyd64/PityFlowerName",
+    "__OTR__messages/ttyd64/PityFlowerDesc",
+};
+
 static const char* const* const gMsgSectionPaths[] = {
     gMsgPaths_sec00,
     gMsgPaths_sec01,
@@ -16256,4 +16261,5 @@ static const char* const* const gMsgSectionPaths[] = {
     gMsgPaths_sec2C,
     gMsgPaths_sec2D,
     gMsgPaths_sec2E,
+    gMsgPaths_sec2F,
 };

@@ -189,9 +189,10 @@ enum MoveIDs {
     MOVE_OUTTA_SIGHT                        = 0x0B6,
     MOVE_SPOOK                              = 0x0B7,
     MOVE_FAN_SMACK                          = 0x0B8,
+    MOVE_PITY_FLOWER                        = 0x0B9,
 };
 
-#define NUM_MOVES 185
+#define NUM_MOVES 186
 
 #define STAR_POWER_INDEX(x) (x - MOVE_FOCUS)
 

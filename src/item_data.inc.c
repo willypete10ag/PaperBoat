@@ -1,4 +1,8 @@
 
+#include "ttyd64_assets.h"
+
+HudScript HES_Item_PityFlower = HES_TEMPLATE_ITEM(badge_PityFlower);
+HudScript HES_Item_PityFlower_disabled = HES_TEMPLATE_ITEM(badge_PityFlower_disabled);
 HudScript HES_Item_Present = HES_TEMPLATE_ITEM(key_Gift);
 HudScript HES_Item_CakeDone = HES_TEMPLATE_ITEM(key_CakeDone);
 HudScript HES_Item_CakeBare = HES_TEMPLATE_ITEM(key_CakeBare);
@@ -5344,6 +5348,19 @@ ItemData gItemTable[] = {
         .potencyA = 0,
         .potencyB = 0,
     },
+    {   // 0x16D: PityFlower (TTYD64)
+        .nameMsg = MSG_TTYD64_PityFlowerName,
+        .fullDescMsg = MSG_TTYD64_PityFlowerDesc,
+        .shortDescMsg = MSG_TTYD64_PityFlowerDesc,
+        .hudElemID = 337, // HES_Item_PityFlower
+        .sellValue = 100,
+        .sortValue = 60,
+        .targetFlags = 0,
+        .typeFlags = ITEM_TYPE_FLAG_BADGE | ITEM_TYPE_FLAG_ENTITY_FULLSIZE,
+        .moveID = MOVE_PITY_FLOWER,
+        .potencyA = 0,
+        .potencyB = 0,
+    },
 };
 
 extern HudScript HES_MoveDiamond;
@@ -5687,6 +5704,7 @@ IconHudScriptPair gItemHudScripts[] = {
     { .enabled = &HES_Item_MenuBoots2, .disabled = &HES_Item_MenuBoots2 },
     { .enabled = &HES_Item_MenuBoots3, .disabled = &HES_Item_MenuBoots3 },
     { .enabled = &HES_Item_MenuItems, .disabled = &HES_Item_MenuItems },
+    { .enabled = &HES_Item_PityFlower, .disabled = &HES_Item_PityFlower_disabled },
 };
 
 ItemScript IES_Placeholder = IES_TEMPLATE_BASIC(key_Gift);
@@ -6025,6 +6043,8 @@ ItemScript IES_StopWatch = IES_TEMPLATE_STANDARD(battle_StopWatch);
 ItemScript IES_DizzyDial = IES_TEMPLATE_STANDARD(battle_DizzyDial);
 ItemScript IES_ITEM_136 = IES_TEMPLATE_STANDARD(battle_item_136);
 ItemScript IES_ITEM_137 = IES_TEMPLATE_STANDARD(battle_item_137);
+
+ItemScript IES_PityFlower = IES_TEMPLATE_STANDARD(badge_PityFlower);
 
 // indexed by itemID
 intptr_t* gItemEntityScripts[] = {
@@ -6393,7 +6413,7 @@ intptr_t* gItemEntityScripts[] = {
     IES_MenuBoots2,
     IES_MenuBoots3,
     IES_MenuItems,
-    IES_Placeholder,
+    IES_PityFlower,
     IES_Placeholder,
     IES_Placeholder,
     IES_Placeholder,
@@ -6766,6 +6786,24 @@ intptr_t gItemIconRasterOffsets[] = {
     ICON_anim_hp_0_raster,
     ICON_anim_fp_0_raster,
     ICON_anim_star_piece_0_raster,
+    // Vanilla menu-only items 0x15D..0x16C have no item icon.
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    ICON_badge_PityFlower_raster,
 };
 
 // indexed by itemID
@@ -7119,5 +7157,23 @@ intptr_t gItemIconPaletteOffsets[] = {
     ICON_anim_hp_0_palette,
     ICON_anim_fp_0_palette,
     ICON_anim_star_piece_0_palette,
+    // Vanilla menu-only items 0x15D..0x16C have no item icon.
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    ICON_badge_PityFlower_palette,
 };
 
