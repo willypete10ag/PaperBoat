@@ -490,6 +490,7 @@ enum Abilities {
     ABILITY_PEEKABOO                = 0x00000036,
     ABILITY_HEALTHY_HEALTHY         = 0x00000037,
     ABILITY_PITY_FLOWER             = 0x00000038,
+    ABILITY_JUMPMAN                 = 0x00000039,
 };
 
 enum Emotes {

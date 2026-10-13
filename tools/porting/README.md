@@ -263,3 +263,42 @@ to 4 (HP 10 → 6), then native blocking reduces it to 3 (HP 10 → 7). A one-da
 input is clamped to zero after mitigation, leaving HP 10. The Last Stand
 combination is checked in the compiled branch; non-player class checks are
 synthetic. No controller timing or complete playthrough is claimed.
+
+## Jumpman
+
+Jumpman uses appended native item `0x16E`, move `0xBA`, ability `0x39` and message
+section `0x2F` indexes 2/3. It costs 2 BP per copy and uses its published source
+icon/text. The existing standard-library asset converter now packs both new
+badges. Existing IDs and save fields remain stable.
+
+The native battle-start path disables Hammer by clearing `BTL_MENU_ENABLED_SMASH`.
+The player attack-badge path adds one power per copy except for
+`MOVE_FIRST_STRIKE_HAMMER`, matching active upstream operands. The upstream hook
+does not test attack elements: a debugger-forced normal Hammer still receives
+the boost, while normal command selection disables Hammer. Scripted command-mask
+overrides retain their existing behavior. Hammerman/partner badges are separate
+migrations. No normal-game Jumpman reward is added in this milestone.
+
+`jumpman_gdb.py` passes 34 writer and 24 fresh-process checks: resource/identity
+loading, native duplicate/BP/menu/save handling, seven compiled attack branches,
+command-mask initialization, the actual command-wheel consumer and a loaded-copy
+enemy HP application. A controlled base-three jump with two saved copies deals
+five damage and reduces enemy HP 10 → 5. Hammer first-strike exclusion is checked
+in the compiled branch; it is not a separately played first-strike sequence.
+
+```bash
+export SHIP_HOME=/workspace/.paperboat-setup/jumpman/runtime
+mkdir -p "$SHIP_HOME"
+export JUMPMAN_LOAD_ONLY=0
+export JUMPMAN_RESULT=/workspace/.paperboat-setup/jumpman/writer.json
+timeout 120s gdb -q -batch -x /workspace/PaperBoat/tools/porting/jumpman_gdb.py ./Paperboat
+
+export JUMPMAN_LOAD_ONLY=1
+export JUMPMAN_RESULT=/workspace/.paperboat-setup/jumpman/fresh-load.json
+timeout 90s gdb -q -batch -x /workspace/PaperBoat/tools/porting/jumpman_gdb.py ./Paperboat
+```
+
+Use the same display/debugger settings and exact disposable save safeguards as
+the other fixtures. Normal world pause input also visually confirmed the icon,
+name, description, 2-BP costs and independent first/third copy highlights. This
+visual fixture loaded a prepared save; Jumpman copies were granted for testing.

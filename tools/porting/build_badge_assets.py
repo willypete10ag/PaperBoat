@@ -1,4 +1,4 @@
-"""Build the published Pity Flower source assets; Python standard library only.
+"""Build published TTYD64 badge source assets; Python standard library only.
 
 PNG input is deliberately restricted to 32x32, indexed, 8-bit, non-interlaced
 images with at most 16 used colors. Output uses PM64 Texture v0 / Blob v0 .meta
@@ -86,17 +86,18 @@ def message(text):
 
 def main():
     source, staging = map(Path, sys.argv[1:])
-    raster, colors = indexed_png(source / "pityflower.png")
-    texture(staging, "icons/badge/PityFlower", 3, 32, 32, raster)
-    for disabled in (False, True):
-        palette = bytearray()
-        for r, g, b, a in colors:
-            if disabled:
-                r = g = b = (r * 30 + g * 59 + b * 11) // 100
-            rgba16 = ((r >> 3) << 11) | ((g >> 3) << 6) | ((b >> 3) << 1) | (a >= 128)
-            palette.extend(struct.pack(">H", rgba16))
-        suffix = ".disabled.pal" if disabled else ".pal"
-        texture(staging, "icons/badge/PityFlower" + suffix, 2, 16, 1, palette)
+    for stem, name in (("pityflower", "PityFlower"), ("jumpman", "Jumpman")):
+        raster, colors = indexed_png(source / (stem + ".png"))
+        texture(staging, "icons/badge/" + name, 3, 32, 32, raster)
+        for disabled in (False, True):
+            palette = bytearray()
+            for r, g, b, a in colors:
+                if disabled:
+                    r = g = b = (r * 30 + g * 59 + b * 11) // 100
+                rgba16 = ((r >> 3) << 11) | ((g >> 3) << 6) | ((b >> 3) << 1) | (a >= 128)
+                palette.extend(struct.pack(">H", rgba16))
+            suffix = ".disabled.pal" if disabled else ".pal"
+            texture(staging, "icons/badge/" + name + suffix, 2, 16, 1, palette)
     for name, text in json.loads((source / "messages.json").read_text()).items():
         data = message(text)
         resource(staging, "messages/ttyd64/" + name, "Blob", struct.pack("<I", len(data)) + data)

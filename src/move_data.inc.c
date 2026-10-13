@@ -1864,5 +1864,15 @@ MoveData gMoveTable[] = {
         .costFP = 0,
         .costBP = 3,
     },
+    {   // 0xBA: Jumpman (TTYD64)
+        .nameMsg = MSG_TTYD64_JumpmanName,
+        .fullDescMsg = MSG_TTYD64_JumpmanDesc,
+        .shortDescMsg = MSG_TTYD64_JumpmanDesc,
+        .flags = TARGET_FLAG_PLAYER,
+        .category = MOVE_TYPE_NONE,
+        .actionTip = -1,
+        .costFP = 0,
+        .costBP = 2,
+    },
 };
 

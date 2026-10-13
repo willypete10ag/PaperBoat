@@ -114,6 +114,10 @@ void btl_state_update_normal_start(void) {
             battleStatus->maxActionQuality = 0;
             battleStatus->enabledMenusFlags = -1;
             battleStatus->enabledStarPowersFlags = -1;
+            // TTYD64 TTYDBadges.patch: Jumpman clears the Hammer command bit.
+            if (is_ability_active(ABILITY_JUMPMAN)) {
+                battleStatus->enabledMenusFlags &= ~BTL_MENU_ENABLED_SMASH;
+            }
             battleStatus->itemUsesLeft = 0;
             battleStatus->hammerCharge = 0;
             battleStatus->jumpCharge = 0;

@@ -473,6 +473,12 @@ HitResult calc_player_damage_enemy(void) {
             currentAttackDamage += 2;
         }
 
+        // TTYD64 Jumpman hook (80272044): every copy adds attack power in
+        // this badge-modifier path, except an opposing Hammer first strike.
+        if (battleStatus->selectedMoveID != MOVE_FIRST_STRIKE_HAMMER) {
+            currentAttackDamage += player_team_is_ability_active(player, ABILITY_JUMPMAN);
+        }
+
         if (player_team_is_ability_active(player, ABILITY_BERSERKER)) {
             currentAttackDamage += 2;
         }

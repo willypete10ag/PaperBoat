@@ -1896,6 +1896,11 @@ s32 is_ability_active(s32 ability) {
         badgeMoveID = gItemTable[badgeItemID].moveID;
 
         switch (ability) {
+            case ABILITY_JUMPMAN:
+                if (badgeMoveID == MOVE_JUMPMAN) {
+                    ret++;
+                }
+                break;
             case ABILITY_PITY_FLOWER:
                 if (badgeMoveID == MOVE_PITY_FLOWER) {
                     ret++;
