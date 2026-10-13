@@ -235,13 +235,6 @@ s32 remove_item(s32 itemID) {
 
     // handle badges
     if (item_is_badge(itemID)) {
-        // unequip
-        for (idx = 0; idx < ARRAY_COUNT(gPlayerData.equippedBadges); idx++) {
-            if (gPlayerData.equippedBadges[idx] == itemID) {
-                gPlayerData.equippedBadges[idx] = ITEM_NONE;
-            }
-        }
-
         for (idx = 0; idx < ARRAY_COUNT(gPlayerData.badges); idx++) {
             if (gPlayerData.badges[idx] == itemID) {
                 break;
@@ -253,6 +246,13 @@ s32 remove_item(s32 itemID) {
         }
 
         gPlayerData.badges[idx] = ITEM_NONE;
+        // TTYD64 RemoveBadge: removing one owned copy unequips at most one copy.
+        for (s32 equippedIdx = 0; equippedIdx < ARRAY_COUNT(gPlayerData.equippedBadges); equippedIdx++) {
+            if (gPlayerData.equippedBadges[equippedIdx] == itemID) {
+                gPlayerData.equippedBadges[equippedIdx] = ITEM_NONE;
+                break;
+            }
+        }
         return idx;
     }
 

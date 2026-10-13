@@ -56,3 +56,43 @@ the point after defense. It does not validate duplicate badge UI, BP accounting,
 save persistence, the enemy's original attack strength, hardware audio/graphics,
 or a full playthrough. All test state remains in the temporary process and
 isolated runtime directory.
+
+## Duplicate badge inventory, menu and save check
+
+`duplicate_badges_gdb.py` grants copies through `add_item`, uses the real badge
+menu input handler, and checks ownership/BP limits, independent All/Active row
+toggles, removal, pagination, sparse arrays, capacity and existing distinct-ID
+stacks. It saves three owned and two equipped Last Stand copies through the native
+JSON save writer, clears memory, and loads them through `fio_load_game`.
+
+Use the same display/audio/debugger prerequisites above. The fixture intentionally
+requires this exact disposable runtime path and refuses to overwrite an existing
+`saves/file3.json`. Preserve earlier fixture results before explicitly clearing
+that generated test file for another write run; do not point it at user saves.
+
+```bash
+cd /workspace/PaperBoat/build/ninja-debug
+export SHIP_HOME=/workspace/.paperboat-setup/duplicate-badges/runtime
+mkdir -p "$SHIP_HOME"
+export DUPLICATE_BADGES_LOAD_ONLY=0
+export DUPLICATE_BADGES_RESULT=/workspace/.paperboat-setup/duplicate-badges/result.json
+timeout 90s gdb -q -batch -x /workspace/PaperBoat/tools/porting/duplicate_badges_gdb.py ./Paperboat
+
+export DUPLICATE_BADGES_LOAD_ONLY=1
+export DUPLICATE_BADGES_RESULT=/workspace/.paperboat-setup/duplicate-badges/fresh-load-battle.json
+timeout 90s gdb -q -batch -x /workspace/PaperBoat/tools/porting/duplicate_badges_gdb.py ./Paperboat
+```
+
+The first process checks 35 cases. The second checks eight cases: it loads the
+saved copies in a fresh game process, reconstructs the copy rows, equips the
+remaining owned copy, and then enters the Tubba Blubba demo battle. During the
+attack it reloads the saved pair through `fio_load_game`, controls HP and incoming
+attack damage, and verifies the saved copies reduce a six-damage hit to two.
+That battle check does not directly write equipped badge entries.
+
+The native save schema is unchanged. Identical copies are interchangeable across
+reloads: the menu reconstructs the first N copies as equipped. Within one open
+menu, slot mapping keeps the specific selected rows independent across tab
+switches. Duplicate equipping is currently enabled only for Last Stand; other
+identical IDs retain their existing restriction. This does not add another shop
+stock or map reward for Last Stand, or claim other TTYD64 badge effects are ported.
