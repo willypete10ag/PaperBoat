@@ -1324,6 +1324,22 @@ b32 test_item_player_collision(ItemEntity* item) {
     f32 tmpFourteen;
     f32 tmpYTopThreshold;
 
+    // A full badge inventory must not consume a one-time field badge's flag
+    // on touch or route it through the consumable throw-away menu. Leave the
+    // pickup in the world until an owned badge slot is available.
+    if (item->itemID > ITEM_NONE && item->itemID < NUM_ITEMS && item_is_badge(item->itemID)) {
+        s32 i;
+
+        for (i = 0; i < ARRAY_COUNT(gPlayerData.badges); i++) {
+            if (gPlayerData.badges[i] == ITEM_NONE) {
+                break;
+            }
+        }
+        if (i == ARRAY_COUNT(gPlayerData.badges)) {
+            return false;
+        }
+    }
+
     if (item->flags & ITEM_ENTITY_FLAG_AUTO_COLLECT) {
         item->flags &= ~ITEM_ENTITY_FLAG_AUTO_COLLECT;
         return true;

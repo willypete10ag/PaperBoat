@@ -151,8 +151,57 @@ Upstream hooks the primary damage popup: zero damage, suppressed popups, multipl
 popups/SMASH and non-player targets bypass it. A lethal hit still reaches it.
 Positive blocked damage retains that trigger. The native helper uses the existing
 flower recovery effect and recovery sound; software rendering/dummy audio do not
-verify physical audio output. No normal-game reward or shop stock is added.
+verify physical audio output. The initial mechanic commit added no rewards or
+shop stock. The acquisition follow-up below adds two experimental field pickups.
 
 Assertions exit nonzero; a timeout, missing report or interrupted run does not
 pass. Reports contain numeric results only; fixture saves and screenshots stay
 outside version control.
+
+## World acquisition and visual checks
+
+Two one-time Pity Flower pickups appear in Goomba Village, in front of the inn
+and southwest of its save block, after meeting the innkeeper. Walk into them and
+confirm the ordinary badge popup. Each costs 3 BP to equip; both need 6 BP.
+This is an experimental native-port acquisition path, separate from TTYD64's
+original Pit floor 40 reward. Vanilla rewards and shop stock are preserved.
+Reserved game bits `0x7FE`/`0x7FF` record the copies independently without a save
+schema change. A full badge inventory leaves field badges unclaimed until a
+slot is available, before touch can consume their pickup flags.
+
+`world_badges_gdb.py` enters the world through native title cleanup, initialized
+file-select and the file-load transition. It creates a disposable NoIntro-style
+Goomba Village save, tests native map spawning and actual world pickup updates,
+then saves/reloads the acquired pair. The automated receipt uses the existing
+AUTO_COLLECT flag and A confirmation; independent keyboard-only pickup was also
+observed visually. No `add_item` call grants Pity Flower in this fixture.
+
+```bash
+# Use the same display/audio/debugger settings as the Pity Flower fixture.
+export SHIP_HOME=/workspace/.paperboat-setup/pity-flower/acquisition-runtime
+mkdir -p "$SHIP_HOME"
+export WORLD_BADGES_VISUAL=0 WORLD_BADGES_LOAD_ONLY=0
+export WORLD_BADGES_RESULT=/workspace/.paperboat-setup/pity-flower/acquisition.json
+timeout 120s gdb -q -batch -x /workspace/PaperBoat/tools/porting/world_badges_gdb.py ./Paperboat
+
+export WORLD_BADGES_LOAD_ONLY=1
+export WORLD_BADGES_RESULT=/workspace/.paperboat-setup/pity-flower/acquisition-fresh.json
+timeout 90s gdb -q -batch -x /workspace/PaperBoat/tools/porting/world_badges_gdb.py ./Paperboat
+```
+
+The writer passes 16 checks; the fresh reader passes four. As with the other
+writers, it refuses an existing fixture slot 3 save. Preserve prior generated
+fixture saves before clearing those files for a repeat. Never use user saves.
+
+For a fresh visual session, use `SHIP_HOME` ending in `world-visual-runtime`, set
+`WORLD_BADGES_VISUAL=1`, `WORLD_BADGES_LOAD_ONLY=0` and `WORLD_BADGES_PID` to a
+local PID-file path. The fixture leaves the native world running with unclaimed
+pickups. Use ordinary input (W/A/S/D stick, X A, C B, Space Start), allow pause
+animations to finish before choosing tabs, and stop only the recorded process.
+Capture its window rather than unrelated windows on the same display.
+
+The original visual fixture skipped title/file-menu cleanup, retaining curtains
+and suppressing the description window. The native transition fixture resolves
+that limitation: Pity Flower's name, icon, description, pickup popup and normal
+pause-menu copy toggles were all visually verified. This does not establish a
+complete campaign playthrough or migrate TTYD64's Pit maps.
