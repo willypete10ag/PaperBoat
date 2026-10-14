@@ -2,7 +2,7 @@
 #include "dx/versioning.h"
 
 // Translated from PartnersHP.patch: $PartnersHPTable/$updatePartnerMaxHP.
-// The Goombario combat consumer below is an unfinished, default-off prototype.
+// Goombario combat below is a validated, default-off bounded prototype.
 // HP Plus P, healing items and displayed HP remain later consumers.
 static const s16 PartnerBaseHP[TTYD64_PARTNER_HP_COUNT][3] = {
     [PARTNER_GOOMBARIO]  = { 10, 20, 30 },

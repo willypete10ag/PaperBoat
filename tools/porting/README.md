@@ -1,24 +1,73 @@
 # Native TTYD64 badge integration checks
 
-## Goombario combat checkpoint — unfinished
+## Goombario combat (guarded acceptance)
 
-Branch `port/ttyd64-goombario-combat` extends the validated partner-HP foundation
-with a default-off Goombario combat prototype. It adds guarded enemy/contact/item
-damage synchronization, zero-HP turn rejection, a death event and a Life Shroom
-script. **Compilation and existing regressions do not validate these new combat
-paths. No focused combat fixture or rendered death/revival check exists yet.**
-Keep `gTtyd64PartnerHPPrototypeEnabled` off in normal play. Other partners,
-healing/UI, source position swaps, Refund and simultaneous Mario/partner revival
-remain outside this checkpoint. Resume from the coordination repository's
-`docs/handoffs/2026-10-14-goombario-combat-checkpoint.md` for the source trace,
-open risks and the exact acceptance work still needed. The foundation fixture
-below tests persistence/binding, not this new combat implementation.
+`goombario_combat_gdb.py` validates the bound Goombario prototype in a disposable
+native Tubba Blubba battle. Keep `gTtyd64PartnerHPPrototypeEnabled` **off in normal
+play**. Other partners' combat, healing/UI, source positioning, Refund and
+simultaneous Mario/partner revival remain outside this milestone.
+
+Start from the existing FP Drain writer fixture, copied to this exact runtime.
+The combat fixture checks the copy's bytes against that known disposable writer,
+loads before Goombario creation and restores slot3 bytes after save/load checks.
+Never substitute a user save. Retain the activation/display/audio/cache setup
+below; use a free Xvfb display (this acceptance used `:96`).
+
+```bash
+source /workspace/.paperboat-setup/activate.sh
+cd /workspace/PaperBoat/build/ninja-debug
+export DISPLAY=:96 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1
+export XDG_CACHE_HOME=/workspace/.paperboat-setup/cache DEBUGINFOD_URLS=
+export SHIP_HOME=/workspace/.paperboat-setup/partner-combat/runtime
+mkdir -p "$SHIP_HOME/saves"
+cp -n /workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json "$SHIP_HOME/saves/file3.json"
+export GOOMBARIO_RESULT=/workspace/.paperboat-setup/partner-combat/acceptance.json
+export GOOMBARIO_VISUAL=0 GOOMBARIO_LETHAL=0
+timeout 300s gdb -q -batch -x /workspace/PaperBoat/tools/porting/goombario_combat_gdb.py ./Paperboat
+
+export GOOMBARIO_LETHAL=1 GOOMBARIO_VISUAL=1
+export GOOMBARIO_RESULT=/workspace/.paperboat-setup/partner-combat/lethal.json
+timeout 300s gdb -q -batch -x /workspace/PaperBoat/tools/porting/goombario_combat_gdb.py ./Paperboat
+```
+
+Run these sequentially; they share only this fixture's slot3. Visual mode uses
+non-stop GDB, pauses only the game-tick thread and captures local PNGs while
+rendering continues. Inspect them; a capture being written is not visual proof.
+The fixture kills its own process on completion, including visual mode.
+
+The default case redirects a real enemy script's test/damage target to Goombario:
+3 damage changes actor/model HP 10 → 7. Lethal mode uses 12 damage, observes
+native defeat completion and Mario's next command menu with Goombario dead.
+Further checks use compiled damage/script/state APIs between engine ticks;
+`continue` alone advances event scripts. Guard forces the input function's
+success, testing the minus-one branch rather than controller timing. Native
+full put-away/bring-out scripts execute for dead swap-away/back; revived command
+routing is exercised through native Prepare Menu with controlled state/flags.
+These are not a full controller-driven encounter or broad enemy-AI targeting
+acceptance. Model/API fixture resets do not claim general healing presentation.
+
+Final runs pass **49 nonlethal / 51 lethal checks**.
+Coverage includes zero/immune/suppressed enemy and item damage, shock backfire
+and no-contact suppression, negative contact clamps, no KO turns, script HP APIs,
+lethal collapse/status/charge cleanup, active death/revival event protection,
+zero-HP poison/shrink turn rejection, repeat-hit rejection, native dead save/load,
+full same-battle dead swap-back, exact one-of-two Life Shroom consumption,
+ten-HP recovery at ranks 0/1, pose/idle/turn restoration, shroud/item/energy
+cleanup, native partner menu entry and prototype-off sentinel/KO behavior.
+
+The expanded fixture caught a real reveal lifetime bug: the death parent killed
+its reveal child with shroud tint 48. Revival now tracks and waits for the
+20-frame reveal; accepted completion requires tint zero and no leaked item or
+energy effect. The contact KO bypass and secondary dispatcher's death tracking
+are also fixed. Numeric reports and scope are in the coordination repository's
+`docs/handoffs/2026-10-14-goombario-combat.md` and `results/goombario-combat/`.
 
 ## Partner HP foundation (guarded prototype)
 
 `partner_hp_gdb.py` validates passive native health persistence and an explicitly
 enabled actor-binding prototype. **Normal gameplay still uses native KO turns;
-partner damage/death/revival, healing items and HP UI are not ported.**
+only guarded Goombario combat is validated; other partner combat, healing items
+and HP UI remain unported.**
 `gTtyd64PartnerHPPrototypeEnabled` is false at startup/new-game, never saved and
 has no product setting. Do not enable it in normal play before those consumers
 are migrated.

@@ -49,6 +49,7 @@ void dispatch_event_partner_continue_turn(s8 lastEventType) {
     partnerActor->handleEventScript = script;
     partnerActor->handleEventScriptID = script->id;
     script->owner1.actorID = ACTOR_PARTNER;
+    ttyd64_partner_combat_event_started(partnerActor, lastEventType, script->id);
 
     if (handleEventScript != nullptr) {
         kill_script_by_ID(onHitID);
@@ -978,7 +979,10 @@ s32 dispatch_damage_event_partner(s32 damageAmount, s32 event, s32 stopMotion) {
     if (battleStatus->lastAttackDamage > 0) {
         gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS;
 
-        inflict_status(partner, STATUS_KEY_KO, battleStatus->lastAttackDamage);
+        // Contact/backfire uses the same guarded KO policy as enemy damage.
+        if (!ttyd64_partner_combat_active(partner)) {
+            inflict_status(partner, STATUS_KEY_KO, battleStatus->lastAttackDamage);
+        }
     }
 
     if (!stopMotion) {

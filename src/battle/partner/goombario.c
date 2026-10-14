@@ -596,6 +596,14 @@ API_CALLABLE(N(TtydRestoreDeadPose)) {
     return ApiStatus_DONE2;
 }
 
+// A short native Recover can finish before the 20-frame world reveal. Track
+// the reveal independently and await it before releasing the death event.
+EvtScript N(EVS_TtydRevealWorld) = {
+    Call(LifeShroomRevealWorld)
+    Return
+    End
+};
+
 // PartnersHP.patch $UseLifeShroom_Actor, scoped to Goombario. Native effects,
 // item ownership and recovery execute in the normal event interpreter.
 EvtScript N(EVS_TtydLifeShroom) = {
@@ -629,12 +637,10 @@ EvtScript N(EVS_TtydLifeShroom) = {
     Wait(25)
     PlayEffect(EFFECT_STARS_SHIMMER, 2, LVar0, LVar1, LVar2, 30, 50, 32, 30)
     Wait(26)
-    ChildThread
-        Call(LifeShroomRevealWorld)
-    EndChildThread
+    ExecGetTID(N(EVS_TtydRevealWorld), LVarE)
     Call(N(TtydLifeShroom))
     IfEq(LVar0, 0)
-        Return
+        Goto(90)
     EndIf
     Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_PLAYER_REVIVE)
     Call(SetActorRotation, ACTOR_PARTNER, 0, 0, 0)
@@ -650,6 +656,14 @@ EvtScript N(EVS_TtydLifeShroom) = {
     Set(LVar3, 0)
     ExecWait(EVS_Partner_Recover)
     Call(UseIdleAnimation, ACTOR_PARTNER, true)
+    Label(90)
+    Loop(0)
+        IsThreadRunning(LVarE, LVar0)
+        IfEq(LVar0, false)
+            BreakLoop
+        EndIf
+        Wait(1)
+    EndLoop
     Return
     End
 };
