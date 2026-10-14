@@ -1,4 +1,5 @@
 #include "inventory.h"
+#include "ttyd64_partner_hp.h"
 #include "hud_element.h"
 #include "dx/config.h"
 #include "port/Engine.h"
@@ -160,6 +161,7 @@ void clear_player_data(void) {
     playerData->smashGamePlays = 0;
     playerData->smashGameTotal = 0;
     playerData->smashGameRecord = 0;
+    ttyd64_partner_hp_new_game();
 }
 
 s32 add_item(s32 itemID) {

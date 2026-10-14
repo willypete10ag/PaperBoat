@@ -2,6 +2,7 @@
 #define _VERSIONING_H_
 
 #include "common.h"
+#include "ttyd64_partner_hp.h"
 
 void fio_deserialize_state();
 void fio_serialize_state();
@@ -142,6 +143,8 @@ typedef struct SaveFileSummary {
 
 typedef struct ShipSaveData {
     u8 hasDiedOnce;
+    // Native JSON extension, never overlaid on legacy partner unknown bytes.
+    Ttyd64PartnerHP partnerHP[TTYD64_PARTNER_HP_COUNT];
 } ShipSaveData;
 
 typedef struct SaveData {
@@ -174,7 +177,7 @@ typedef struct SaveData {
     /* 0x12EC */ SaveFileSummary summary;
     /* 0x1304 */ unsigned char unk_1304[0x7C];
     ShipSaveData shipSaveData;
-} SaveData; // size = 0x1380
+} SaveData; // Legacy prefix ends at 0x1380; native ship data follows.
 
 extern SaveData gCurrentSaveFile;
 

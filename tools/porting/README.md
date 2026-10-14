@@ -1,5 +1,69 @@
 # Native TTYD64 badge integration checks
 
+## Partner HP foundation (guarded prototype)
+
+`partner_hp_gdb.py` validates passive native health persistence and an explicitly
+enabled actor-binding prototype. **Normal gameplay still uses native KO turns;
+partner damage/death/revival, healing items and HP UI are not ported.**
+`gTtyd64PartnerHPPrototypeEnabled` is false at startup/new-game, never saved and
+has no product setting. Do not enable it in normal play before those consumers
+are migrated.
+
+Health lives in `ShipSaveData`, preserving the original eight-byte PartnerData,
+0x428-byte PlayerData and 0x1380-byte vanilla save layout. Optional native JSON
+`ship.ttyd64PartnerHP` version 1 stores twelve indexed current/max records. Old
+JSON initializes full source rank health; malformed/partial records use safe
+defaults and bounded integers. Explicit zero is preserved. Maxima derive from
+rank until HP Plus P is translated. Noncombat/no-partner getters return -1.
+
+Use the activation/display/audio/cache prerequisites below and this exact
+guarded runtime. Writer refuses existing slot3. Archive only the known fixture
+save for an intentional writer rerun; never use real saves.
+
+```bash
+source /workspace/.paperboat-setup/activate.sh
+cd /workspace/PaperBoat/build/ninja-debug
+export DISPLAY=:95 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1
+export XDG_CACHE_HOME=/workspace/.paperboat-setup/cache DEBUGINFOD_URLS=
+export SHIP_HOME=/workspace/.paperboat-setup/partner-hp/runtime
+mkdir -p "$SHIP_HOME"
+export PARTNER_HP_LOAD_ONLY=0
+export PARTNER_HP_RESULT=/workspace/.paperboat-setup/partner-hp/writer.json
+timeout 180s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_hp_gdb.py ./Paperboat
+
+export PARTNER_HP_LOAD_ONLY=1
+export PARTNER_HP_RESULT=/workspace/.paperboat-setup/partner-hp/fresh-load.json
+timeout 180s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_hp_gdb.py ./Paperboat
+```
+
+Passed **81 writer / 67 fresh-process checks**: every source rank-table entry,
+ID/rank/amount bounds, original layout sizes, new-game defaults, source-style
+rank reset, native writer/FIO load, nine legacy/malformed/partial JSON variants,
+signed/unsigned integer extremes, explicit zero, unrelated badge/ship/opaque
+partner data, and synthetic vanilla-save conversion. JSON variants temporarily
+change only this fixture's slot3 and restore exact bytes with `finally`.
+Vanilla conversion runs the compiled native converter on a synthetic host-endian
+VanillaSaveData; raw flash endianness/file-picker import is not tested here.
+
+The live-battle part loads the saved Bow state before native partner creation.
+Default actor HP remains 99 while persistent HP is 4/30. Guard checks exclude
+demo/Peach/world contexts. In a controlled battle context, the fixture explicitly
+enables and binds the prototype: loaded Bow becomes 4/30; its native health
+setter synchronizes 2/30. Another partner's setter cannot change Bow. The actual
+change-partner state's LOAD_NEW_PARTNER branch runs native deletion/creation
+for Kooper 0/15, Goombario 6/10, and Bow 2/30. This tests spawn and model ownership,
+not a full swap animation. Newly created, never-executed init scripts are removed
+before the next controlled swap; the paused attack is not resumed recursively.
+Deletion clears binding, no-partner creation is safe, and health saves without
+a live actor. Source damage/KO/event code remains outside this foundation.
+
+The persistence model owns health. Untranslated direct actor damage/setters do
+not write back to it. Rank/recruit resets are hooked into existing native world
+paths; their helper behavior is tested, but normal upgrade/recruit animations
+are not exercised. HP Plus P, displayed HP, full partner combat and patched
+TTYD64 ROM-save import remain separate work. Native old readers can ignore the
+optional block but drop it when they save.
+
 ## Flower Saver and item-dip FP costs
 
 `flower_saver_gdb.py` checks the existing Mario Flower Saver A/B identities at

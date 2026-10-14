@@ -5,6 +5,7 @@
 #include "script_api/battle.h"
 #include "model.h"
 #include "sprite.h"
+#include "ttyd64_partner_hp.h"
 
 f32 D_802938A4 = 0.0f;
 
@@ -1399,6 +1400,8 @@ void load_partner_actor(void) {
         partnerActor->hudElementDataIndex = create_status_icon_set();
         partnerActor->disableEffect = fx_disable_x(0, -142.0f, 34.0f, 1.0f, 0);
         partnerActor->icePillarEffect = nullptr;
+
+        ttyd64_partner_hp_bind_actor(partnerActor);
 
         takeTurnScript = start_script(partnerActor->takeTurnSource, EVT_PRIORITY_A, 0);
         partnerActor->takeTurnScriptID = takeTurnScript->id;

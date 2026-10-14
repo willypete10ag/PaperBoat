@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_partner_hp.h"
 #include "nu/nusys.h"
 #include "hud_element.h"
 #include "battle/battle.h"
@@ -114,6 +115,7 @@ void initialize_battle(void) {
     HudElemID hid;
     s32 i;
 
+    ttyd64_partner_hp_begin_battle();
     // TTYD64 initialize_battle hook clears FP Drain before first strikes.
     battleStatus->fpDrainCount = 0;
     gBattleStatus.flags1 = 0;
@@ -1061,6 +1063,8 @@ void btl_delete_actor(Actor* actor) {
     ActorPart* actorPartTemp;
     BattleStatus* battleStatus;
     s32 i;
+
+    ttyd64_partner_hp_unbind_actor(actor);
 
     // TODO hard-coded
     for (i = 0; i < 2; i++) {

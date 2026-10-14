@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_partner_hp.h"
 #include "map.h"
 #include "npc.h"
 
@@ -33,6 +34,9 @@ API_CALLABLE(N(ChangeNpcToPartner)) {
             break;
         case 2:
             playerData->curPartner = partnerID;
+            if (!playerData->partners[partnerID].enabled) {
+                ttyd64_reset_partner_hp(partnerID);
+            }
             playerData->partners[partnerID].enabled = true;
             partner_clear_player_tracking(npc);
             func_800EB2A4(playerData->curPartner);

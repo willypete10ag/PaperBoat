@@ -7,6 +7,8 @@
 #include <fstream>
 #include <filesystem>
 #include <regex>
+#include <cstddef>
+#include <algorithm>
 
 extern "C" {
 #include "dx/versioning.h"
@@ -19,6 +21,41 @@ s32 fio_calc_globals_checksum(void);
 using nlohmann::json;
 using nlohmann::ordered_json;
 namespace fs = std::filesystem;
+
+// The native health extension must never shift the legacy save prefix.
+static_assert(sizeof(PartnerData) == 8 && sizeof(PlayerData) == 0x428);
+static_assert(sizeof(VanillaSaveData) == 0x1380);
+static_assert(offsetof(SaveData, shipSaveData) == 0x1380);
+static_assert(TTYD64_PARTNER_HP_COUNT == MAX_PARTNERS);
+
+static void ReadPartnerHP(SaveData* save, const ordered_json& ship) {
+    auto* health = save->shipSaveData.partnerHP;
+    ttyd64_partner_hp_init(health, &save->player);
+    auto found = ship.find("ttyd64PartnerHP");
+    if (found == ship.end() || !found->is_object() || !found->contains("version")
+        || !(*found)["version"].is_number_integer() || (*found)["version"] != 1
+        || !found->contains("partners") || !(*found)["partners"].is_array()) {
+        return;
+    }
+    const auto& partners = (*found)["partners"];
+    for (size_t i = 0; i < MAX_PARTNERS && i < partners.size(); i++) {
+        const auto& entry = partners[i];
+        if (!entry.is_object() || !entry.contains("curHP") || !entry["curHP"].is_number_integer()) {
+            continue;
+        }
+        // Split signed/unsigned before comparing or narrowing: mixed JSON
+        // comparisons can reinterpret UINT64_MAX as negative health.
+        // Max HP always derives from rank.
+        const auto& current = entry["curHP"];
+        if (current.is_number_unsigned()) {
+            auto amount = current.get<uint64_t>();
+            health[i].curHP = std::min<uint64_t>(amount, health[i].maxHP);
+        } else {
+            auto amount = current.get<int64_t>();
+            health[i].curHP = std::clamp<int64_t>(amount, 0, health[i].maxHP);
+        }
+    }
+}
 
 std::string CollapsedJSONArray(const nlohmann::ordered_json& jsonFile) {
     std::string source = jsonFile.dump(4);
@@ -255,6 +292,7 @@ SaveData* ConvertJSON_to_SaveData(nlohmann::json jsonSaveFile) {
 
     ordered_json jsonShipSaveData = jsonSaveFile["ship"];
     saveData->shipSaveData.hasDiedOnce = jsonShipSaveData["hasDiedOnce"];
+    ReadPartnerHP(saveData, jsonShipSaveData);
 
     return saveData;
 }
@@ -465,6 +503,16 @@ ordered_json ConvertSaveData_to_JSON(SaveData* saveData) {
 
     ordered_json jsonShipSaveData = ordered_json::object();
     jsonShipSaveData["hasDiedOnce"] = saveData->shipSaveData.hasDiedOnce;
+
+    // Preserve the legacy JSON keys and add a versioned, optional native block.
+    Ttyd64PartnerHP health[TTYD64_PARTNER_HP_COUNT];
+    std::copy(std::begin(saveData->shipSaveData.partnerHP), std::end(saveData->shipSaveData.partnerHP), std::begin(health));
+    ttyd64_partner_hp_normalize(health, &saveData->player);
+    ordered_json partners = ordered_json::array();
+    for (const auto& entry : health) {
+        partners.push_back({ { "curHP", entry.curHP }, { "maxHP", entry.maxHP } });
+    }
+    jsonShipSaveData["ttyd64PartnerHP"] = { { "version", 1 }, { "partners", partners } };
     jsonSave["ship"] = jsonShipSaveData;
 
     return jsonSave;
