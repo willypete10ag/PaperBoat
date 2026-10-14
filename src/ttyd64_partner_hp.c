@@ -2,7 +2,8 @@
 #include "dx/versioning.h"
 
 // Translated from PartnersHP.patch: $PartnersHPTable/$updatePartnerMaxHP.
-// HP Plus P, damage/death, healing items and displayed HP are later consumers.
+// The Goombario combat consumer below is an unfinished, default-off prototype.
+// HP Plus P, healing items and displayed HP remain later consumers.
 static const s16 PartnerBaseHP[TTYD64_PARTNER_HP_COUNT][3] = {
     [PARTNER_GOOMBARIO]  = { 10, 20, 30 },
     [PARTNER_KOOPER]     = { 10, 15, 25 },
@@ -17,6 +18,8 @@ static const s16 PartnerBaseHP[TTYD64_PARTNER_HP_COUNT][3] = {
 b32 gTtyd64PartnerHPPrototypeEnabled = false;
 static Actor* BoundPartnerActor;
 static s32 BoundPartnerID = PARTNER_NONE;
+static u16 DeathHandledMask;
+static s32 DeathScriptID;
 
 s32 ttyd64_partner_base_max_hp(s32 partnerID, s32 rank) {
     if (partnerID < 0 || partnerID >= ARRAY_COUNT(PartnerBaseHP) || PartnerBaseHP[partnerID][0] == 0) {
@@ -62,9 +65,15 @@ void ttyd64_partner_hp_normalize(Ttyd64PartnerHP* health, const PlayerData* play
     }
 }
 
-void ttyd64_partner_hp_begin_battle(void) {
+static void clear_binding(void) {
     BoundPartnerActor = nullptr;
     BoundPartnerID = PARTNER_NONE;
+    DeathScriptID = 0;
+}
+
+void ttyd64_partner_hp_begin_battle(void) {
+    clear_binding();
+    DeathHandledMask = 0;
 }
 
 void ttyd64_partner_hp_new_game(void) {
@@ -117,6 +126,9 @@ s32 ttyd64_set_partner_hp(s32 partnerID, s32 amount) {
     if (amount > health->maxHP) {
         amount = health->maxHP;
     }
+    if (health->curHP == 0 && amount > 0) {
+        DeathHandledMask &= ~(1 << partnerID);
+    }
     health->curHP = amount;
     sync_bound_actor(partnerID, health);
     return amount;
@@ -125,13 +137,14 @@ s32 ttyd64_set_partner_hp(s32 partnerID, s32 amount) {
 void ttyd64_reset_partner_hp(s32 partnerID) {
     Ttyd64PartnerHP* health = get_health(partnerID);
     if (health != nullptr) {
+        DeathHandledMask &= ~(1 << partnerID);
         health->curHP = health->maxHP;
         sync_bound_actor(partnerID, health);
     }
 }
 
 void ttyd64_partner_hp_bind_actor(Actor* actor) {
-    ttyd64_partner_hp_begin_battle();
+    clear_binding();
     if (actor == nullptr || actor != gBattleStatus.partnerActor || !can_bind_actor()) {
         return;
     }
@@ -145,6 +158,91 @@ void ttyd64_partner_hp_bind_actor(Actor* actor) {
 
 void ttyd64_partner_hp_unbind_actor(Actor* actor) {
     if (actor == BoundPartnerActor) {
-        ttyd64_partner_hp_begin_battle();
+        clear_binding();
     }
+}
+
+b32 ttyd64_partner_combat_active(Actor* actor) {
+    return can_bind_actor() && actor != nullptr && actor == BoundPartnerActor
+        && actor == gBattleStatus.partnerActor && BoundPartnerID == PARTNER_GOOMBARIO
+        && gPlayerData.curPartner == PARTNER_GOOMBARIO;
+}
+
+void ttyd64_partner_combat_load_hp(Actor* actor) {
+    if (ttyd64_partner_combat_active(actor)) {
+        actor->curHP = ttyd64_get_partner_hp(PARTNER_GOOMBARIO);
+        actor->maxHP = ttyd64_get_partner_max_hp(PARTNER_GOOMBARIO);
+    }
+}
+
+void ttyd64_partner_combat_store_hp(Actor* actor) {
+    if (ttyd64_partner_combat_active(actor)) {
+        ttyd64_set_partner_hp(PARTNER_GOOMBARIO, actor->curHP);
+    }
+}
+
+b32 ttyd64_partner_combat_death_handled(Actor* actor) {
+    return ttyd64_partner_combat_active(actor) && (DeathHandledMask & (1 << PARTNER_GOOMBARIO));
+}
+
+void ttyd64_partner_combat_mark_dead(Actor* actor) {
+    if (ttyd64_partner_combat_active(actor) && actor->curHP == 0) {
+        DeathHandledMask |= 1 << PARTNER_GOOMBARIO;
+        gBattleStatus.flags2 |= BS_FLAGS2_PARTNER_TURN_USED;
+        actor->flags &= ~ACTOR_FLAG_USING_IDLE_ANIM;
+    }
+}
+
+b32 ttyd64_partner_combat_allow_event(Actor* actor, s32 event) {
+    if (!ttyd64_partner_combat_active(actor)) {
+        return true;
+    }
+    if (DeathScriptID != 0 && does_script_exist(DeathScriptID)) {
+        return false;
+    }
+    if (ttyd64_get_partner_hp(PARTNER_GOOMBARIO) == 0) {
+        return event == EVENT_DEATH && !ttyd64_partner_combat_death_handled(actor);
+    }
+    return true;
+}
+
+void ttyd64_partner_combat_event_started(Actor* actor, s32 event, s32 scriptID) {
+    if (ttyd64_partner_combat_active(actor) && event == EVENT_DEATH) {
+        DeathScriptID = scriptID;
+    }
+}
+
+b32 ttyd64_partner_combat_check_defeat(void) {
+    Actor* partner = gBattleStatus.partnerActor;
+    if (!ttyd64_partner_combat_active(partner)) {
+        return false;
+    }
+    if (DeathScriptID != 0 && does_script_exist(DeathScriptID)) {
+        return true;
+    }
+    DeathScriptID = 0;
+    if (ttyd64_get_partner_hp(PARTNER_GOOMBARIO) > 0 || ttyd64_partner_combat_death_handled(partner)) {
+        return false;
+    }
+    // Let the previous hit animation finish before the source-style death event.
+    if (partner->handleEventScript != nullptr && does_script_exist(partner->handleEventScriptID)) {
+        return true;
+    }
+    if (partner->handleEventSource == nullptr) {
+        return true;
+    }
+    dispatch_event_partner(EVENT_DEATH);
+    return true;
+}
+
+s32 ttyd64_partner_combat_use_life_shroom(Actor* actor) {
+    if (!ttyd64_partner_combat_active(actor) || ttyd64_get_partner_hp(PARTNER_GOOMBARIO) != 0
+        || gPlayerData.curHP <= 0 || find_item(ITEM_LIFE_SHROOM) < 0) {
+        return 0;
+    }
+    remove_item(ITEM_LIFE_SHROOM);
+    // PartnersHP.patch $UseLifeShroom_Actor restores ten and returns the turn.
+    s32 hp = ttyd64_set_partner_hp(PARTNER_GOOMBARIO, 10);
+    gBattleStatus.flags2 &= ~BS_FLAGS2_PARTNER_TURN_USED;
+    return hp;
 }

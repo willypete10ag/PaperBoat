@@ -1,5 +1,19 @@
 # Native TTYD64 badge integration checks
 
+## Goombario combat checkpoint — unfinished
+
+Branch `port/ttyd64-goombario-combat` extends the validated partner-HP foundation
+with a default-off Goombario combat prototype. It adds guarded enemy/contact/item
+damage synchronization, zero-HP turn rejection, a death event and a Life Shroom
+script. **Compilation and existing regressions do not validate these new combat
+paths. No focused combat fixture or rendered death/revival check exists yet.**
+Keep `gTtyd64PartnerHPPrototypeEnabled` off in normal play. Other partners,
+healing/UI, source position swaps, Refund and simultaneous Mario/partner revival
+remain outside this checkpoint. Resume from the coordination repository's
+`docs/handoffs/2026-10-14-goombario-combat-checkpoint.md` for the source trace,
+open risks and the exact acceptance work still needed. The foundation fixture
+below tests persistence/binding, not this new combat implementation.
+
 ## Partner HP foundation (guarded prototype)
 
 `partner_hp_gdb.py` validates passive native health persistence and an explicitly

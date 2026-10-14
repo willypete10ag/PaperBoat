@@ -661,7 +661,7 @@ s32 btl_check_enemies_defeated(void) {
 
 s32 btl_check_player_defeated(void) {
     if (gPlayerData.curHP > 0) {
-        return false;
+        return ttyd64_partner_combat_check_defeat();
     }
     gDefeatedBattleState = gBattleState;
     gDefeatedBattleSubstate = gBattleSubState;
@@ -1820,6 +1820,9 @@ s32 lookup_status_duration_mod(s32* statusTable, s32 statusKey) {
 }
 
 s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
+    if (statusTypeKey == STATUS_KEY_KO && ttyd64_partner_combat_active(target)) {
+        return false;
+    }
     BattleStatus* battleStatus = &gBattleStatus;
     EffectInstance* effect;
 
@@ -1939,6 +1942,9 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
 }
 
 s32 inflict_partner_ko(Actor* target, s32 statusTypeKey, s32 duration) {
+    if (ttyd64_partner_combat_active(target)) {
+        return false;
+    }
     if (statusTypeKey == STATUS_KEY_KO) {
         if (statusTypeKey != target->koStatus) {
             inflict_status(target, STATUS_KEY_KO, duration);

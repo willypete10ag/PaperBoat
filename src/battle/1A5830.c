@@ -1,4 +1,5 @@
 #include "battle/battle.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 #include "effects.h"
 #include "hud_element.h"
@@ -122,6 +123,10 @@ void play_hit_sound(Actor* actor, f32 x, f32 y, f32 z, u32 hitSound) {
 }
 
 void dispatch_event_actor(Actor* actor, s32 event) {
+    if (ttyd64_partner_combat_active(actor)) {
+        dispatch_event_partner(event);
+        return;
+    }
     Evt* handleEventScript = actor->handleEventScript;
     s32 onHitID = actor->handleEventScriptID;
 
@@ -174,7 +179,14 @@ HitResult calc_enemy_test_target(Actor* actor) {
             target->curHP = playerData->curHP;
             break;
         case ACTOR_CLASS_PARTNER:
-            target->curHP = 127;
+            if (ttyd64_partner_combat_active(target)) {
+                ttyd64_partner_combat_load_hp(target);
+                if (target->curHP == 0) {
+                    return HIT_RESULT_MISS;
+                }
+            } else {
+                target->curHP = 127;
+            }
             break;
         case ACTOR_CLASS_ENEMY:
             break;
@@ -295,7 +307,14 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
             target->curHP = gPlayerData.curHP;
             break;
         case ACTOR_CLASS_PARTNER:
-            target->curHP = 127;
+            if (ttyd64_partner_combat_active(target)) {
+                ttyd64_partner_combat_load_hp(target);
+                if (target->curHP == 0) {
+                    return HIT_RESULT_MISS;
+                }
+            } else {
+                target->curHP = 127;
+            }
             break;
         case ACTOR_CLASS_ENEMY:
             break;
@@ -482,7 +501,8 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
             if (target->stoneStatus == 0) {
                 if (target->koStatus == 0 && !(battleStatus->curAttackElement & DAMAGE_TYPE_UNBLOCKABLE)) {
                     if (check_block_input(BUTTON_A)) {
-                        damage = 0;
+                        // PartnersHP.patch 80277A20: ordinary guard saves one HP.
+                        damage = ttyd64_partner_combat_active(target) ? damage - 1 : 0;
                         sfx_play_sound_at_position(SOUND_DAMAGE_STARS, SOUND_SPACE_DEFAULT, state->goalPos.x, state->goalPos.y, state->goalPos.z);
                         show_action_rating(ACTION_RATING_NICE, target, state->goalPos.x, state->goalPos.y, state->goalPos.z);
                         gBattleStatus.flags1 |= BS_FLAGS1_ATK_BLOCKED;
@@ -677,6 +697,8 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
             }
         }
     }
+
+    ttyd64_partner_combat_store_hp(target);
 
     // dispatch events and play damage effects
 
@@ -2632,6 +2654,7 @@ API_CALLABLE(SetEnemyHP) {
     if (newHP > actor->maxHP) {
         actor->curHP = actor->maxHP;
     }
+    ttyd64_partner_combat_store_hp(actor);
 
     actor->healthFraction = (actor->curHP * 25) / actor->maxHP;
 
@@ -2659,6 +2682,9 @@ API_CALLABLE(GetActorHP) {
             break;
         case ACTOR_CLASS_PARTNER:
             outVal = 99;
+            if (ttyd64_partner_combat_active(actor)) {
+                outVal = ttyd64_get_partner_hp(PARTNER_GOOMBARIO);
+            }
             break;
         default:
             outVal = actor->curHP;

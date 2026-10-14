@@ -33,6 +33,17 @@ void ttyd64_partner_hp_begin_battle(void);
 void ttyd64_partner_hp_bind_actor(Actor* actor);
 void ttyd64_partner_hp_unbind_actor(Actor* actor);
 
+// First combat consumer: only the currently bound Goombario prototype.
+b32 ttyd64_partner_combat_active(Actor* actor);
+void ttyd64_partner_combat_load_hp(Actor* actor);
+void ttyd64_partner_combat_store_hp(Actor* actor);
+b32 ttyd64_partner_combat_check_defeat(void);
+b32 ttyd64_partner_combat_allow_event(Actor* actor, s32 event);
+void ttyd64_partner_combat_event_started(Actor* actor, s32 event, s32 scriptID);
+b32 ttyd64_partner_combat_death_handled(Actor* actor);
+void ttyd64_partner_combat_mark_dead(Actor* actor);
+s32 ttyd64_partner_combat_use_life_shroom(Actor* actor);
+
 #ifdef __cplusplus
 }
 #endif

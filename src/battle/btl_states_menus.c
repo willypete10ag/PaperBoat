@@ -1,4 +1,5 @@
 #include "battle/battle.h"
+#include "ttyd64_partner_hp.h"
 #include "battle_hud_scripts.h"
 #include "port/patches/Patches.h"
 
@@ -754,6 +755,9 @@ b32 btl_partner_can_act(void) {
     }
 
     partnerDebuff = partner->debuff;
+    if (ttyd64_partner_combat_active(partner) && ttyd64_get_partner_hp(PARTNER_GOOMBARIO) <= 0) {
+        return false;
+    }
     partnerCantMove = false;
 
     if (partner->koStatus == STATUS_KEY_KO) {
