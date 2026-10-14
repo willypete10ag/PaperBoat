@@ -372,11 +372,12 @@ enum ItemIDs {
     ITEM_PITY_FLOWER                        = 0x16D,
     ITEM_JUMPMAN                            = 0x16E,
     ITEM_HAMMERMAN                          = 0x16F,
+    ITEM_FP_DRAIN                           = 0x170,
 };
 
-#define NUM_ITEMS 368
+#define NUM_ITEMS 369
 #define ITEM_NUM_CONSUMABLES 96
-#define ITEM_NUM_BADGES 121
+#define ITEM_NUM_BADGES 122
 #define ITEM_NUM_KEYS 119
 #define ITEM_FIRST_CONSUMABLE 128
 

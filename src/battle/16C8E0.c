@@ -114,6 +114,8 @@ void initialize_battle(void) {
     HudElemID hid;
     s32 i;
 
+    // TTYD64 initialize_battle hook clears FP Drain before first strikes.
+    battleStatus->fpDrainCount = 0;
     gBattleStatus.flags1 = 0;
     gBattleStatus.flags2 = 0;
     gBattleStatus.flags1 = 0;

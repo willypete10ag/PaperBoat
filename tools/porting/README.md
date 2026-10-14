@@ -346,3 +346,93 @@ Normal keyboard input in an initialized world/pause menu visually confirmed the
 Hammerman icon, name, description and independent two-BP copy toggles, using a
 prepared fixture save. Capture the full virtual display if individual OpenGL
 window capture returns black. Screenshots and test saves stay local.
+
+## FP Drain
+
+Native item `0x170`, move `0xBC`, ability `0x3B`, message section `0x2F` indexes
+6/7; cost 3 BP. Published source icon/text and the 40x16 Adam7 recovery label
+(`ttyd64/res/misc/fp_drain.png`) are packed into the existing native archive.
+`check_badge_assets.py` compares all five source PNG conversions against
+ImageMagick's independent RGBA decoding; no ROM data is involved.
+
+The active source hook applies one flat damage penalty regardless of copies,
+counts eligible player damage calculations up to five and includes first strikes.
+Counts accrue before final defense/clamping: reaching this hook can earn FP even
+when final damage is zero. Early misses/contact hazards that return before the
+hook do not reach it. At eligible turn end, positive hit count restores
+`hits + copies - 1` FP. No hits means no FP; item-dip, Stone and Outta Sight gates
+retain the pending count until eligible recovery. Battle initialization clears
+the battle-local counter before first strikes. The counter is not saved.
+
+Native `LVarD` carries this recovery into the existing Happy phase alongside
+HP Drain (`A`), Happy Heart (`B`) and Happy Flower (`C`). FP feedback sums `C+D`;
+normal one-point increments cap actual FP safely. The distinct FP Drain label is
+created/freed in the existing HUD path; all three labels are separated by nine
+pixels. Unported partner/status patches are not prerequisites for this badge.
+
+`fp_drain_gdb.py` passed 55 writer, 45 fresh-process, 47 coexistence, 45 FP-cap and
+45 zero-damage checks. The saved pair gives controlled damage 3 → 2, enemy HP
+10 → 8 and FP 2 → 4 through the actual native turn-end state machine and script.
+Base 1 gives zero damage/unchanged enemy HP but still restores FP 2 → 4. FP 98
+caps at 99. Coexistence uses additional native test grants/equipping, with 20 test
+BP; it deals 1 damage, restores FP 2 → 5 and HP 5 → 7. Compiled branch replay
+covers the flat penalty, first-strike flag and seven hit counts ending at five;
+it does not play a full first-strike or multi-hit controller sequence.
+
+Use the shared activation/display/audio/cache prerequisites and run from
+`build/ninja-debug`. Writer refuses an existing slot3 in its exact runtime.
+Only archive/remove that known disposable fixture save for deliberate reruns.
+
+```bash
+export SHIP_HOME=/workspace/.paperboat-setup/fp-drain/runtime
+mkdir -p "$SHIP_HOME"
+export FP_DRAIN_LOAD_ONLY=0 FP_DRAIN_COEXIST=0 FP_DRAIN_FP_START=2 FP_DRAIN_BASE_DAMAGE=3
+export FP_DRAIN_RESULT=/workspace/.paperboat-setup/fp-drain/writer.json
+timeout 180s gdb -q -batch -x /workspace/PaperBoat/tools/porting/fp_drain_gdb.py ./Paperboat
+
+export FP_DRAIN_LOAD_ONLY=1
+export FP_DRAIN_RESULT=/workspace/.paperboat-setup/fp-drain/fresh-load.json
+timeout 180s gdb -q -batch -x /workspace/PaperBoat/tools/porting/fp_drain_gdb.py ./Paperboat
+```
+
+For each following variant, copy only the writer's disposable `saves/file3.json`
+into its distinct runtime first, preserving any existing variant saves. Reset
+all other mode variables to their defaults above before selecting a variant.
+
+| Variant | Exact SHIP_HOME suffix under `.paperboat-setup/fp-drain/` | Mode setting |
+| --- | --- | --- |
+| HP Drain/Happy Heart/Happy Flower coexistence | `coexist-runtime` | `FP_DRAIN_COEXIST=1` |
+| Near-full FP | `cap-runtime` | `FP_DRAIN_FP_START=98` |
+| Zero final damage | `zero-runtime` | `FP_DRAIN_BASE_DAMAGE=1` |
+
+Keep `FP_DRAIN_LOAD_ONLY=1` and use a separate `FP_DRAIN_RESULT` for each run.
+The exact runtime and valid mode combinations are guarded. Debugger scheduling
+is locked only for short compiled-block replay; native function calls and whole
+attack/recovery progression let rendering/audio threads run. The fixture clears
+the demo playback exit flag so the real native player-turn state machine can
+reach recovery.
+
+Normal keyboard input visually confirmed the badge's name, artwork, description
+and independent 3-BP toggles using a prepared test save. No normal FP Drain reward
+is added. Native inventory grants are development fixtures.
+
+For feedback inspection, copy the writer save into
+`/workspace/.paperboat-setup/fp-drain/animation-runtime/saves/file3.json`, then:
+
+```bash
+export SHIP_HOME=/workspace/.paperboat-setup/fp-drain/animation-runtime
+timeout 120s gdb -q -batch -x /workspace/PaperBoat/tools/porting/fp_drain_animation.gdb ./Paperboat
+```
+
+This uses the real title/file-select/world lifecycle and native Hammer demo,
+then captures the label and green flower/number 2 after eighteen native recovery
+updates. GDB non-stop mode pauses only game-tick while rendering threads present
+the preceding frame; the script explicitly selects the paused thread. The
+capture is timing-controlled, with software rendering/dummy audio. It detaches
+and records `animation.pid`; stop only that fixture process when finished.
+Screenshots/save files stay local, numeric `animation.json` is publishable.
+
+```bash
+BADGE_ASSETS_RESULT=/workspace/.paperboat-setup/fp-drain/assets.json \
+  python3 /workspace/PaperBoat/tools/porting/check_badge_assets.py
+```

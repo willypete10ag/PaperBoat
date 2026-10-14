@@ -2,6 +2,7 @@
 #include "hud_element.h"
 #include "sparkle_script.h"
 #include "assets/ui.h"
+#include "ttyd64_assets.h"
 
 Gfx D_801041A0[] = {
     gsSPEndDisplayList(),
@@ -1487,6 +1488,7 @@ HudScript HES_Refund = {
 HudScript HES_Happy = HES_TEMPLATE_CI_ENUM_SIZE(ui_battle_status_happy, 40, 16);
 
 HudScript HES_HPDrain = HES_TEMPLATE_CI_ENUM_SIZE(ui_battle_status_hp_drain, 40, 16);
+HudScript HES_FPDrain = HES_TEMPLATE_CI_ENUM_SIZE(ui_battle_status_fp_drain, 40, 16);
 
 #if VERSION_PAL
 // German

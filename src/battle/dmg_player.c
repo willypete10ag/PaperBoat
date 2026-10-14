@@ -503,6 +503,16 @@ HitResult calc_player_damage_enemy(void) {
 
         currentAttackDamage += player->attackBoost;
 
+        // TTYD64 FP Drain hook (8027208C): one flat power penalty and one
+        // counted calculation per hit, capped at five. First strikes count;
+        // the upstream exclusion is commented out. Zero final damage still counts.
+        if (player_team_is_ability_active(player, ABILITY_FP_DRAIN)) {
+            currentAttackDamage--;
+            if (battleStatus->fpDrainCount < 5) {
+                battleStatus->fpDrainCount++;
+            }
+        }
+
         if (player_team_is_ability_active(player, ABILITY_HP_DRAIN)) {
             battleStatus->hpDrainCount++;
             currentAttackDamage--;

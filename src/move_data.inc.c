@@ -1884,5 +1884,15 @@ MoveData gMoveTable[] = {
         .costFP = 0,
         .costBP = 2,
     },
+    {   // 0xBC: FPDrain (TTYD64)
+        .nameMsg = MSG_TTYD64_FPDrainName,
+        .fullDescMsg = MSG_TTYD64_FPDrainDesc,
+        .shortDescMsg = MSG_TTYD64_FPDrainDesc,
+        .flags = TARGET_FLAG_PLAYER,
+        .category = MOVE_TYPE_NONE,
+        .actionTip = -1,
+        .costFP = 0,
+        .costBP = 3,
+    },
 };
 

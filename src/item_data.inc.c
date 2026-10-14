@@ -5,6 +5,8 @@ HudScript HES_Item_Jumpman = HES_TEMPLATE_ITEM(badge_Jumpman);
 HudScript HES_Item_Jumpman_disabled = HES_TEMPLATE_ITEM(badge_Jumpman_disabled);
 HudScript HES_Item_Hammerman = HES_TEMPLATE_ITEM(badge_Hammerman);
 HudScript HES_Item_Hammerman_disabled = HES_TEMPLATE_ITEM(badge_Hammerman_disabled);
+HudScript HES_Item_FPDrain = HES_TEMPLATE_ITEM(badge_FPDrain);
+HudScript HES_Item_FPDrain_disabled = HES_TEMPLATE_ITEM(badge_FPDrain_disabled);
 HudScript HES_Item_PityFlower = HES_TEMPLATE_ITEM(badge_PityFlower);
 HudScript HES_Item_PityFlower_disabled = HES_TEMPLATE_ITEM(badge_PityFlower_disabled);
 HudScript HES_Item_Present = HES_TEMPLATE_ITEM(key_Gift);
@@ -5391,6 +5393,19 @@ ItemData gItemTable[] = {
         .potencyA = 0,
         .potencyB = 0,
     },
+    {   // 0x170: FPDrain (TTYD64)
+        .nameMsg = MSG_TTYD64_FPDrainName,
+        .fullDescMsg = MSG_TTYD64_FPDrainDesc,
+        .shortDescMsg = MSG_TTYD64_FPDrainDesc,
+        .hudElemID = 340, // HES_Item_FPDrain
+        .sellValue = 50,
+        .sortValue = 63,
+        .targetFlags = 0,
+        .typeFlags = ITEM_TYPE_FLAG_BADGE | ITEM_TYPE_FLAG_ENTITY_FULLSIZE,
+        .moveID = MOVE_FP_DRAIN,
+        .potencyA = 0,
+        .potencyB = 0,
+    },
 };
 
 extern HudScript HES_MoveDiamond;
@@ -5737,6 +5752,7 @@ IconHudScriptPair gItemHudScripts[] = {
     { .enabled = &HES_Item_PityFlower, .disabled = &HES_Item_PityFlower_disabled },
     { .enabled = &HES_Item_Jumpman, .disabled = &HES_Item_Jumpman_disabled },
     { .enabled = &HES_Item_Hammerman, .disabled = &HES_Item_Hammerman_disabled },
+    { .enabled = &HES_Item_FPDrain, .disabled = &HES_Item_FPDrain_disabled },
 };
 
 ItemScript IES_Placeholder = IES_TEMPLATE_BASIC(key_Gift);
@@ -6078,6 +6094,7 @@ ItemScript IES_ITEM_137 = IES_TEMPLATE_STANDARD(battle_item_137);
 
 ItemScript IES_Jumpman = IES_TEMPLATE_STANDARD(badge_Jumpman);
 ItemScript IES_Hammerman = IES_TEMPLATE_STANDARD(badge_Hammerman);
+ItemScript IES_FPDrain = IES_TEMPLATE_STANDARD(badge_FPDrain);
 ItemScript IES_PityFlower = IES_TEMPLATE_STANDARD(badge_PityFlower);
 
 // indexed by itemID
@@ -6450,7 +6467,7 @@ intptr_t* gItemEntityScripts[] = {
     IES_PityFlower,
     IES_Jumpman,
     IES_Hammerman,
-    IES_Placeholder,
+    IES_FPDrain,
     IES_Placeholder,
     IES_Placeholder,
     IES_Placeholder,
@@ -6840,6 +6857,7 @@ intptr_t gItemIconRasterOffsets[] = {
     ICON_badge_PityFlower_raster,
     ICON_badge_Jumpman_raster,
     ICON_badge_Hammerman_raster,
+    ICON_badge_FPDrain_raster,
 };
 
 // indexed by itemID
@@ -7213,5 +7231,6 @@ intptr_t gItemIconPaletteOffsets[] = {
     ICON_badge_PityFlower_palette,
     ICON_badge_Jumpman_palette,
     ICON_badge_Hammerman_palette,
+    ICON_badge_FPDrain_palette,
 };
 

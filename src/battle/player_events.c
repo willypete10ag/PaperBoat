@@ -11,6 +11,7 @@
 
 extern HudScript HES_Happy;
 extern HudScript HES_HPDrain;
+extern HudScript HES_FPDrain;
 
 extern EvtScript EVS_Player_Celebrate;
 extern EvtScript EVS_Player_SimpleHit;
@@ -27,6 +28,7 @@ BSS HudElemID HID_Refund;
 BSS s16 BattleMerleeEffectsState;
 BSS HudElemID HID_Happy;
 BSS HudElemID HID_HPDrain;
+BSS HudElemID HID_FPDrain;
 BSS s32 D_8029FBB0[3];
 
 enum {
@@ -493,6 +495,11 @@ API_CALLABLE(SpawnTurnEndFX) {
     if (script->varTable[11] > 0 || script->varTable[12] > 0) {
         HID_Happy = hud_element_create(&HES_Happy);
         hud_element_set_render_pos(HID_Happy, screenX, screenY);
+        screenY += 9;
+    }
+    if (script->varTable[13] > 0) {
+        HID_FPDrain = hud_element_create(&HES_FPDrain);
+        hud_element_set_render_pos(HID_FPDrain, screenX, screenY);
     }
     return ApiStatus_DONE2;
 }
@@ -503,6 +510,9 @@ API_CALLABLE(RemoveTurnEndFX) {
     }
     if (script->varTable[11] > 0 || script->varTable[12] > 0) {
         hud_element_free(HID_Happy);
+    }
+    if (script->varTable[13] > 0) {
+        hud_element_free(HID_FPDrain);
     }
     return ApiStatus_DONE2;
 }
@@ -1754,8 +1764,10 @@ EvtScript EVS_PlayerHappy = {
     Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
     Add(LVar0, 20)
     Add(LVar1, 25)
-    IfGt(LVarC, 0)
-        Call(SpawnRecoverFlowerFX, LVar0, LVar1, LVar2, LVarC)
+    Set(LVar3, LVarC)
+    Add(LVar3, LVarD)
+    IfGt(LVar3, 0)
+        Call(SpawnRecoverFlowerFX, LVar0, LVar1, LVar2, LVar3)
     EndIf
     Set(LVar3, LVarA)
     Add(LVar3, LVarB)
@@ -1778,6 +1790,7 @@ EvtScript EVS_PlayerHappy = {
         EndLoop
     EndIf
     Set(LVar0, LVarC)
+    Add(LVar0, LVarD)
     IfGt(LVar0, 0)
         Loop(LVar0)
             Call(IncrementPlayerFP)

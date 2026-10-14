@@ -492,6 +492,7 @@ enum Abilities {
     ABILITY_PITY_FLOWER             = 0x00000038,
     ABILITY_JUMPMAN                 = 0x00000039,
     ABILITY_HAMMERMAN               = 0x0000003A,
+    ABILITY_FP_DRAIN                = 0x0000003B,
 };
 
 enum Emotes {
