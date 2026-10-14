@@ -118,6 +118,10 @@ void btl_state_update_normal_start(void) {
             if (is_ability_active(ABILITY_JUMPMAN)) {
                 battleStatus->enabledMenusFlags &= ~BTL_MENU_ENABLED_SMASH;
             }
+            // The paired Hammerman hook clears the Jump command bit.
+            if (is_ability_active(ABILITY_HAMMERMAN)) {
+                battleStatus->enabledMenusFlags &= ~BTL_MENU_ENABLED_JUMP;
+            }
             battleStatus->itemUsesLeft = 0;
             battleStatus->hammerCharge = 0;
             battleStatus->jumpCharge = 0;

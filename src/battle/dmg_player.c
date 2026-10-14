@@ -479,6 +479,12 @@ HitResult calc_player_damage_enemy(void) {
             currentAttackDamage += player_team_is_ability_active(player, ABILITY_JUMPMAN);
         }
 
+        // Paired Hammerman boost excludes Jump first strikes. Both bonuses
+        // accumulate when both badges are equipped, matching the source hook.
+        if (battleStatus->selectedMoveID != MOVE_FIRST_STRIKE_JUMP) {
+            currentAttackDamage += player_team_is_ability_active(player, ABILITY_HAMMERMAN);
+        }
+
         if (player_team_is_ability_active(player, ABILITY_BERSERKER)) {
             currentAttackDamage += 2;
         }

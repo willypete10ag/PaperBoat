@@ -276,8 +276,8 @@ The player attack-badge path adds one power per copy except for
 `MOVE_FIRST_STRIKE_HAMMER`, matching active upstream operands. The upstream hook
 does not test attack elements: a debugger-forced normal Hammer still receives
 the boost, while normal command selection disables Hammer. Scripted command-mask
-overrides retain their existing behavior. Hammerman/partner badges are separate
-migrations. No normal-game Jumpman reward is added in this milestone.
+overrides retain their existing behavior. The paired Hammerman port is described
+below; partner badges remain separate migrations. No normal-game Jumpman reward is added in this milestone.
 
 `jumpman_gdb.py` passes 34 writer and 24 fresh-process checks: resource/identity
 loading, native duplicate/BP/menu/save handling, seven compiled attack branches,
@@ -302,3 +302,47 @@ Use the same display/debugger settings and exact disposable save safeguards as
 the other fixtures. Normal world pause input also visually confirmed the icon,
 name, description, 2-BP costs and independent first/third copy highlights. This
 visual fixture loaded a prepared save; Jumpman copies were granted for testing.
+
+## Hammerman
+
+Hammerman appends native item `0x16F`, move `0xBB`, ability `0x3A` and message
+section `0x2F` indexes 4/5. It uses the published source icon/text and costs 2 BP
+per copy. The native start path clears `BTL_MENU_ENABLED_JUMP`; the attack path
+adds its copy count except for `MOVE_FIRST_STRIKE_JUMP`. A forced ordinary Jump
+still gets the bonus, matching the source hook, while normal Jump selection is
+disabled. Equipping both Jumpman and Hammerman disables both commands; both
+bonuses add on ordinary forced calculations and each retains its own first-strike
+exclusion. Later scripted menu overrides retain native behavior.
+
+`hammerman_gdb.py` passes 45 writer and 35 fresh-process checks covering
+resource/identity, copy/BP/menu/save and fresh loading,
+eleven compiled attack cases and the actual command-wheel builder. It enters the
+native Hammer demo rather than changing a Jump attack into a Hammer calculation.
+The final saved-pair hit uses controlled base damage, defense, immunity and enemy
+HP for comparison. First strikes are compiled-branch checks, not natural timing
+sequences. Paired command-wheel checks reuse the combined mask captured from the
+compiled start path in the same initialized battle. Inventory grants are native
+fixture grants; no normal Hammerman reward is added.
+
+Use the shared runtime prerequisites above and run from `build/ninja-debug`:
+
+```bash
+export SHIP_HOME=/workspace/.paperboat-setup/hammerman/runtime
+mkdir -p "$SHIP_HOME"
+export HAMMERMAN_LOAD_ONLY=0
+export HAMMERMAN_RESULT=/workspace/.paperboat-setup/hammerman/writer.json
+timeout 120s gdb -q -batch -x /workspace/PaperBoat/tools/porting/hammerman_gdb.py ./Paperboat
+
+export HAMMERMAN_LOAD_ONLY=1
+export HAMMERMAN_RESULT=/workspace/.paperboat-setup/hammerman/fresh-load.json
+timeout 120s gdb -q -batch -x /workspace/PaperBoat/tools/porting/hammerman_gdb.py ./Paperboat
+```
+
+The exact runtime path is guarded. Writer runs refuse an existing file3 save;
+archive/remove only that known disposable fixture file before a deliberate rerun.
+Keep normal user saves and other SHIP_HOME paths untouched.
+
+Normal keyboard input in an initialized world/pause menu visually confirmed the
+Hammerman icon, name, description and independent two-BP copy toggles, using a
+prepared fixture save. Capture the full virtual display if individual OpenGL
+window capture returns black. Screenshots and test saves stay local.

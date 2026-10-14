@@ -1874,5 +1874,15 @@ MoveData gMoveTable[] = {
         .costFP = 0,
         .costBP = 2,
     },
+    {   // 0xBB: Hammerman (TTYD64)
+        .nameMsg = MSG_TTYD64_HammermanName,
+        .fullDescMsg = MSG_TTYD64_HammermanDesc,
+        .shortDescMsg = MSG_TTYD64_HammermanDesc,
+        .flags = TARGET_FLAG_PLAYER,
+        .category = MOVE_TYPE_NONE,
+        .actionTip = -1,
+        .costFP = 0,
+        .costBP = 2,
+    },
 };
 

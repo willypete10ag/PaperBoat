@@ -16213,6 +16213,8 @@ static const char* const gMsgPaths_sec2F[] = {
     "__OTR__messages/ttyd64/PityFlowerDesc",
     "__OTR__messages/ttyd64/JumpmanName",
     "__OTR__messages/ttyd64/JumpmanDesc",
+    "__OTR__messages/ttyd64/HammermanName",
+    "__OTR__messages/ttyd64/HammermanDesc",
 };
 
 static const char* const* const gMsgSectionPaths[] = {

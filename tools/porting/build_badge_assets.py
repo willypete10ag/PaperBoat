@@ -86,7 +86,7 @@ def message(text):
 
 def main():
     source, staging = map(Path, sys.argv[1:])
-    for stem, name in (("pityflower", "PityFlower"), ("jumpman", "Jumpman")):
+    for stem, name in (("pityflower", "PityFlower"), ("jumpman", "Jumpman"), ("hammerman", "Hammerman")):
         raster, colors = indexed_png(source / (stem + ".png"))
         texture(staging, "icons/badge/" + name, 3, 32, 32, raster)
         for disabled in (False, True):
