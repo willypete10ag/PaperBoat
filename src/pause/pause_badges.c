@@ -300,6 +300,8 @@ static b32 pause_badges_can_stack(s16 badgeID) {
         case ITEM_JUMPMAN:
         case ITEM_HAMMERMAN:
         case ITEM_FP_DRAIN:
+        case ITEM_FLOWER_SAVER_A:
+        case ITEM_FLOWER_SAVER_B:
         case ITEM_DEFEND_PLUS_A:
         case ITEM_DEFEND_PLUS_X:
         case ITEM_DEFEND_PLUS_Y:

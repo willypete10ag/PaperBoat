@@ -590,8 +590,16 @@ void btl_state_update_player_menu(void) {
                                 battleStatus->submenuIcons[entryIdx] = playerData->equippedBadges[i];
                                 battleStatus->submenuStatus[entryIdx] = 1;
 
-                                cost -= player_team_is_ability_active(playerActor, ABILITY_FLOWER_SAVER);
-                                cost -= 2 * player_team_is_ability_active(playerActor, ABILITY_FLOWER_FANATIC);
+                                // TTYD64 Fix_DoubleDip_FlowerSavers.patch: match
+                                // the minimum paid by deduct_current_move_fp.
+                                // Free moves still cost zero, as in other menus.
+                                if (cost != 0) {
+                                    cost -= player_team_is_ability_active(playerActor, ABILITY_FLOWER_SAVER);
+                                    cost -= 2 * player_team_is_ability_active(playerActor, ABILITY_FLOWER_FANATIC);
+                                    if (cost < 1) {
+                                        cost = 1;
+                                    }
+                                }
 
                                 if (playerData->curFP < cost) {
                                     battleStatus->submenuStatus[entryIdx] = 0;

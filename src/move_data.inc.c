@@ -541,8 +541,8 @@ MoveData gMoveTable[] = {
         .flags = 0,
         .category = MOVE_TYPE_ITEMS,
         .actionTip = -1,
-        .costFP = 3,
-        .costBP = 1,
+        .costFP = 4,
+        .costBP = 3,
     },
     {   // 0x36: TripleDip
         .nameMsg = MSG_PlayerMoveName_TripleDip,
@@ -551,7 +551,7 @@ MoveData gMoveTable[] = {
         .flags = 0,
         .category = MOVE_TYPE_ITEMS,
         .actionTip = -1,
-        .costFP = 6,
+        .costFP = 8,
         .costBP = 3,
     },
     {   // 0x37: ChangePartner
@@ -992,7 +992,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_NONE,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 6,
+        .costBP = 4,
     },
     {   // 0x63: PayOff
         .nameMsg = MSG_ItemName_PayOff,

@@ -1,5 +1,71 @@
 # Native TTYD64 badge integration checks
 
+## Flower Saver and item-dip FP costs
+
+`flower_saver_gdb.py` checks the existing Mario Flower Saver A/B identities at
+4 BP per copy, independent rows, native save/load and shared counted discounts.
+Double Dip now costs 4 FP/3 BP and Triple Dip 8 FP/3 BP, matching TTYD64's
+`globals/Moves.xml`. The active `Fix_DoubleDip_FlowerSavers.patch` supplies the
+item-dip menu minimum: a nonfree move costs at least one FP after discounts,
+matching actual native payment. Free ordinary attacks stay free.
+
+Prerequisites and display/audio/cache activation are described below. Run from
+`build/ninja-debug` with this exact isolated runtime; writer refuses slot3 if it
+exists. Archive the known fixture save before a deliberate writer rerun.
+
+```bash
+source /workspace/.paperboat-setup/activate.sh
+cd /workspace/PaperBoat/build/ninja-debug
+export DISPLAY=:95 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1
+export XDG_CACHE_HOME=/workspace/.paperboat-setup/cache DEBUGINFOD_URLS=
+export SHIP_HOME=/workspace/.paperboat-setup/flower-saver/runtime
+mkdir -p "$SHIP_HOME"
+export FLOWER_SAVER_BASELINE=0 FLOWER_SAVER_LOAD_ONLY=0
+export FLOWER_SAVER_RESULT=/workspace/.paperboat-setup/flower-saver/writer.json
+timeout 180s gdb -q -batch -x /workspace/PaperBoat/tools/porting/flower_saver_gdb.py ./Paperboat
+
+export FLOWER_SAVER_LOAD_ONLY=1
+export FLOWER_SAVER_RESULT=/workspace/.paperboat-setup/flower-saver/fresh-load.json
+timeout 180s gdb -q -batch -x /workspace/PaperBoat/tools/porting/flower_saver_gdb.py ./Paperboat
+```
+
+Passed **114 writer** and **99 fresh-process** checks. Seven equipment variants
+(none, one, pair, mixed A/B, four, nine and Flower Fanatic coexistence) exercise
+real item-menu construction, submenu cost/discount data, eligibility just below
+and at cost, and actual `deduct_current_move_fp()`. Native Power Jump/Power Smash
+menus and payment also agree. The final Double Dip menu/payment loads the saved
+pair through FIO, then natively grants/equips the item-dip badges with a test BP
+budget: FP 2 → 0. Choosing Items is controlled through the native main-menu
+update return, not controller input. This does not play a complete two/three-item
+turn or validate partner Flower Saver. Raw equipment in the branch matrix is
+controlled state, not normal acquisition or legal loadouts at starting BP.
+
+`FLOWER_SAVER_BASELINE=1`, with load-only zero and a **matching prior FP Drain
+executable**, observes pre-change behavior without saving. That preceding build
+passed 96 observations and reproduced zero-FP item-dip eligibility despite a
+one-FP payment. Do not run baseline mode against the updated executable.
+
+For keyboard pause-menu inspection, copy only the writer's disposable save to
+`.paperboat-setup/flower-saver/visual-runtime/saves/file3.json`, preserving an
+existing copy. Set `SHIP_HOME` to that strict runtime and run
+`flower_saver_visual.gdb`. It performs native title/file-select cleanup, loads
+the pair into Goomba Village, records numeric state and a PID, then detaches.
+Raise/focus the window belonging to that PID; use Space for pause, A/D for tabs,
+X for N64 A and C for B. Capture the full display (`import -window root`), not
+only the OpenGL window. Stop only the recorded game PID afterward. Screenshots
+and saves stay local. The normal input inspection is separate from menu-choice
+control in the cost fixture.
+
+The existing unused X variant remains single-equip. The native ability counter
+already counts all same-move variants; the source's explicit Double Dip fix
+mentions A/B only. Native Flower Fanatic and unused-X discount behavior are
+retained; neither is claimed as newly translated gameplay. Source partner-only
+Flower Saver P and the source's removal of Mario discounts from partners are
+not yet ported. No new IDs, artwork, rewards or save fields are added. Double
+Dip's higher BP cost can make an old native equipped loadout exceed its budget;
+remove/re-equip badges under the new cost. Do not regenerate native tables from
+the old YAML without preserving all appended TTYD64 entries.
+
 `last_stand_gdb.py` runs the compiled defensive-badge block in a real Tubba
 Blubba demo-battle attack. It checks eleven cases, then lets a controlled hit
 apply damage to Mario and verifies both actor HP and `gPlayerData.curHP`.
