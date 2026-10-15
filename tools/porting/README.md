@@ -3,6 +3,33 @@
 Run capture/controller fixtures serially on one display; parallel runtime
 fixtures need separate displays to preserve window focus.
 
+## Playable-slice work in progress
+
+Branch `port/ttyd64-goombario-playable-slice` batches pause Party HP, pause/world
+ownership, battle swap HP, world item recipients and ordinary-input encounter
+acceptance. Pause/list changes compile; **runtime acceptance has not run**.
+Normal activation remains off. Comprehensive regressions are deferred to the
+subsystem checkpoint, following the user's throughput preference.
+
+Extend `partner_playable_slice_gdb.py` as a shared driver rather than adding a
+new standalone harness for each remaining consumer. Its pause phase currently
+covers native keyboard tabs/carousel/abilities, owned-heart cleanup and world
+return. Battle/recipient/ordinary-input encounter phases remain to be added.
+The last GDB launch was rejected by automatic approval review because of the
+usage limit; it did not execute or establish a safety rejection.
+
+Run that phase when runtime access resumes, using the normal activation,
+display/audio/cache prerequisites and working directory below:
+
+```bash
+export SHIP_HOME=/workspace/.paperboat-setup/partner-playable-slice/runtime
+mkdir -p "$SHIP_HOME/saves"
+cp -n /workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json "$SHIP_HOME/saves/file3.json"
+cp -n /workspace/.paperboat-setup/partner-combat/runtime/paperboat.cfg.json "$SHIP_HOME/paperboat.cfg.json"
+export PARTNER_SLICE_RESULT=/workspace/.paperboat-setup/partner-playable-slice/acceptance.json
+timeout 300s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_playable_slice_gdb.py ./Paperboat
+```
+
 ## Guarded Goombario world swap list
 
 `partner_world_swap_gdb.py` translates the world list geometry/HP consumer in

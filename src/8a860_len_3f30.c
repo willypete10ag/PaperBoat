@@ -149,15 +149,21 @@ void popup_draw_cost_icon(s32* userData, s32 x, s32 y);
 void popup_draw_already_have_partner(s32* userData, s32 x, s32 y);
 void popup_draw_star_pieces_content(s32* userData, s32 x, s32 y);
 
-// PartnersHP.patch world-list consumer. Other partners' combat/UI and the
-// battle list remain separate migrations; ordinary play retains native layout.
-static b32 popup_world_partner_hp_active(void) {
-    return gTtyd64PartnerHPPrototypeEnabled && PopupNotBattle && gPopupMenu != nullptr
+// PartnersHP.patch world/battle list consumers share the typed HP model.
+// Other partners' HP rows remain pending; ordinary play retains native layout.
+static b32 popup_partner_hp_active(void) {
+    return gTtyd64PartnerHPPrototypeEnabled && gPopupMenu != nullptr
         && gPopupMenu->popupType == POPUP_MENU_SWITCH_PARTNER
-        && gGameStatusPtr->context == CONTEXT_WORLD
+        && ((PopupNotBattle && gGameStatusPtr->context == CONTEXT_WORLD)
+            || (!PopupNotBattle && gGameStatusPtr->context == CONTEXT_BATTLE
+                && !(gGameStatusPtr->demoBattleFlags & DEMO_BTL_FLAG_ENABLED)))
         && gGameStatusPtr->demoState == DEMO_STATE_NONE
         && !(gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
         && gPlayerData.partners[PARTNER_GOOMBARIO].enabled;
+}
+
+static b32 popup_world_partner_hp_active(void) {
+    return PopupNotBattle && popup_partner_hp_active();
 }
 
 static void popup_draw_goombario_hp(s32 entry, s32 x, s32 y, s32 palette) {
@@ -794,11 +800,12 @@ s32 popup_menu_update(void) {
             }
 #endif
 
-            if (popup_world_partner_hp_active()) {
-                set_window_properties(WIN_POPUP_CONTENT, 91, PopupWinY, 208,
+            if (popup_partner_hp_active()) {
+                set_window_properties(WIN_POPUP_CONTENT, PopupNotBattle ? 91 : PopupWinX,
+                                      PopupWinY, PopupNotBattle ? 208 : 181,
                                       PopupMenu_DisplayedEntryCount * LINE_HEIGHT + 26,
                                       WINDOW_PRIORITY_20, popup_draw_menu_content, nullptr, -1);
-                set_window_properties(WIN_POPUP_TITLE_B, 45, -6, 114, 16,
+                set_window_properties(WIN_POPUP_TITLE_B, PopupNotBattle ? 45 : 37, -6, 114, 16,
                                       WINDOW_PRIORITY_21, popup_draw_title_content, nullptr, WIN_POPUP_CONTENT);
                 set_window_update(WIN_POPUP_TITLE_B, WINDOW_UPDATE_SHOW);
             }
@@ -1556,7 +1563,7 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
 #else
     gDPSetScissor(gMainGfxPos++, G_SC_NON_INTERLACE, OTRGetScissorCoordX(x), y, OTRGetScissorCoordX(x + PopupContentScissorWidths[gPopupMenu->popupType]), y1);
 #endif
-    if (popup_world_partner_hp_active()) {
+    if (popup_partner_hp_active()) {
         gDPSetScissor(gMainGfxPos++, G_SC_NON_INTERLACE, OTRGetScissorCoordX(x), y, OTRGetScissorCoordX(x + 202), y1);
     }
 
@@ -1598,7 +1605,7 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
                 case POPUP_MENU_SWITCH_PARTNER:
                 case POPUP_MENU_UPGRADE_PARTNER:
                     draw_msg(gPopupMenu->nameMsg[t], x, y, PopupMenu_Alpha, msgPal, DRAW_MSG_STYLE_MENU);
-                    if (popup_world_partner_hp_active()) {
+                    if (popup_partner_hp_active()) {
                         popup_draw_goombario_hp(t, x, y, msgPal);
                     }
                     break;
@@ -1630,6 +1637,11 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
             switch (gPopupMenu->popupType) {
                 case POPUP_MENU_SWITCH_PARTNER:
                 case POPUP_MENU_UPGRADE_PARTNER:
+                    // Source battle width leaves room for HP rather than rank
+                    // pips. Keep rank values/ownership for native/off menus.
+                    if (!PopupNotBattle && popup_partner_hp_active()) {
+                        break;
+                    }
                     for (j = 0; j < ARRAY_COUNT(D_80109890); j++) {
                         id = PopupMenu_PartnerLevelHID;
 
@@ -1639,12 +1651,12 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
                             hud_element_set_script(id, D_80109898[j]);
                         }
                         if (gPopupMenu->popupType == POPUP_MENU_SWITCH_PARTNER) {
-                            hud_element_set_render_pos(id, x + (popup_world_partner_hp_active() ? 154 : PARTNER_LIST_X1) + j * 13, y + 10);
+                            hud_element_set_render_pos(id, x + (popup_partner_hp_active() ? 154 : PARTNER_LIST_X1) + j * 13, y + 10);
                         } else {
                             hud_element_set_render_pos(id, x + PARTNER_LIST_X2 + j * 13, y + 10);
                         }
                         if (j < gPopupMenu->value[i]) {
-                            if (popup_world_partner_hp_active()) {
+                            if (popup_partner_hp_active()) {
                                 // A scrolled list may not draw Goombario's HP
                                 // numbers. Initialize HUD state independently
                                 // of the text while retaining the list scissor.
@@ -1787,7 +1799,7 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
         case POPUP_MENU_SWITCH_PARTNER:
         case POPUP_MENU_UPGRADE_PARTNER:
             gDPSetScissor(gMainGfxPos++, G_SC_NON_INTERLACE, x, y,
-                          x + (popup_world_partner_hp_active() ? 202 : POPUP_PARTNER_WIDTH), y1);
+                          x + (popup_partner_hp_active() ? 202 : POPUP_PARTNER_WIDTH), y1);
             break;
     }
 
@@ -1858,8 +1870,8 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
 #endif
     }
 
-    if (popup_world_partner_hp_active()) {
-        offset = 69;
+    if (popup_partner_hp_active()) {
+        offset = PopupNotBattle ? 69 : 55;
     }
     if (PopupMenu_FirstDisplayIndex > 0) {
         id = PopupMenu_UpArrowHID;

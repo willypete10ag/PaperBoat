@@ -4,6 +4,7 @@
 #include "sprite.h"
 #include "port/Engine.h"
 #include "port/patches/Patches.h"
+#include "ttyd64_partner_hp.h"
 #include "sprite/npc/WorldGoombario.h"
 #include "sprite/npc/WorldKooper.h"
 #include "sprite/npc/WorldBombette.h"
@@ -36,6 +37,8 @@ static s32 gPausePartnersSelectedMove;
 static f32 gPausePartnersRotAngle;
 static s32 gPausePartnersLevel;
 static s32 gPausePartnersNumPartners;
+static HudElemID Ttyd64PausePartnerHeartHID = -1;
+static WindowStyleCustom Ttyd64PausePartnerHPStyle;
 
 #if VERSION_PAL
 extern HudScript HES_FPCost_de;
@@ -318,6 +321,35 @@ void pause_partners_load_portrait(s32 index) {
     }
 }
 
+// PartnersHP.patch Party consumer. Use the selected carousel identity, not
+// the world partner or a message ID cached in source RAM.
+static b32 pause_partners_hp_active(void) {
+    return gTtyd64PartnerHPPrototypeEnabled && Ttyd64PausePartnerHeartHID >= 0
+        && gGameStatusPtr->context == CONTEXT_PAUSE
+        && gGameStatusPtr->demoState == DEMO_STATE_NONE
+        && !(gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
+        && gPlayerData.partners[PARTNER_GOOMBARIO].enabled
+        && gPausePartnersCurrentPartnerIdx >= 0
+        && gPausePartnersCurrentPartnerIdx < gPausePartnersNumPartners
+        && gPausePartnersPartnerIDs[gPausePartnersPartnerIdx[gPausePartnersCurrentPartnerIdx]] == PARTNER_GOOMBARIO;
+}
+
+static void pause_partners_draw_hp(s32 baseX, s32 baseY, s32 opacity, s32 darkening) {
+    // Source 86x28 HP box and palette, using native pause textures/corners.
+    // Native window coordinates also follow the page's own transition.
+    draw_box(0, &Ttyd64PausePartnerHPStyle, baseX + 21, baseY + 121, 0, 86, 28,
+             opacity, darkening, 1.0f, 1.0f, 0, 0, 0, nullptr, nullptr, nullptr, 0, 0, nullptr);
+    hud_element_set_render_pos(Ttyd64PausePartnerHeartHID, baseX + 39, baseY + 134);
+    hud_element_set_alpha(Ttyd64PausePartnerHeartHID, opacity);
+    hud_element_draw_without_clipping(Ttyd64PausePartnerHeartHID);
+    draw_number(ttyd64_get_partner_hp(PARTNER_GOOMBARIO), baseX + 63, baseY + 129,
+                DRAW_NUMBER_CHARSET_THIN, MSG_PAL_STANDARD, opacity, DRAW_NUMBER_STYLE_MONOSPACE_RIGHT);
+    draw_msg(pause_get_menu_msg(PAUSE_MSG_SLASH), baseX + 66, baseY + 127,
+             opacity, MSG_PAL_STANDARD, DRAW_MSG_STYLE_MENU);
+    draw_number(ttyd64_get_partner_max_hp(PARTNER_GOOMBARIO), baseX + 77, baseY + 129,
+                DRAW_NUMBER_CHARSET_THIN, MSG_PAL_STANDARD, opacity, DRAW_NUMBER_STYLE_MONOSPACE);
+}
+
 void pause_partners_draw_contents(MenuPanel* menu, s32 baseX, s32 baseY, s32 width, s32 height, s32 opacity, s32 darkening) {
     Matrix4f matrix;
     Matrix4f matrix2;
@@ -394,8 +426,16 @@ void pause_partners_draw_contents(MenuPanel* menu, s32 baseX, s32 baseY, s32 wid
         }
 
         if (gPauseMenuCurrentTab == currentTab && gPausePartnersLevel == 0) {
-            pause_draw_menu_label(PAUSE_LBL_ABILITIES, 18, 158);
+            if (pause_partners_hp_active()) {
+                pause_draw_menu_label(PAUSE_LBL_ABILITIES, baseX + 145, baseY + 132);
+            } else {
+                pause_draw_menu_label(PAUSE_LBL_ABILITIES, 18, 158);
+            }
         }
+    }
+
+    if (pause_partners_hp_active()) {
+        pause_partners_draw_hp(baseX, baseY, opacity, darkening);
     }
 
     x1 = baseX + 130;
@@ -599,6 +639,7 @@ void pause_partners_draw_movelist_flower(MenuPanel* menu, s32 baseX, s32 baseY, 
 void pause_partners_init(MenuPanel* panel) {
     s32 i;
 
+    Ttyd64PausePartnerHeartHID = -1;
     gPausePartnersNumPartners = 0;
     for (i = 0; i < ARRAY_COUNT(gPausePartnersPartnerIDs); i++) {
         if (gPlayerData.partners[gPausePartnersPartnerIDs[i]].enabled) {
@@ -611,6 +652,16 @@ void pause_partners_init(MenuPanel* panel) {
         set_window_update(WIN_PAUSE_PARTNERS, WINDOW_UPDATE_HIDE);
         panel->initialized = false;
         return;
+    }
+
+    if (gTtyd64PartnerHPPrototypeEnabled && gPlayerData.partners[PARTNER_GOOMBARIO].enabled) {
+        Ttyd64PausePartnerHeartHID = hud_element_create(&HES_StatusHeart);
+        hud_element_set_flags(Ttyd64PausePartnerHeartHID, HUD_ELEMENT_FLAG_MANUAL_RENDER);
+        hud_element_set_scale(Ttyd64PausePartnerHeartHID, 22.0f / 16.0f);
+        Ttyd64PausePartnerHPStyle = gPauseWS_1;
+        // NewStatsMenu.patch $BoxData_HP; do not reinterpret source style 0x17.
+        Ttyd64PausePartnerHPStyle.color1 = (Color_RGBA8) { 237, 135, 135, 255 };
+        Ttyd64PausePartnerHPStyle.color2 = (Color_RGBA8) { 105, 41, 41, 255 };
     }
 
     for (i = 0; i < ARRAY_COUNT(gPausePartnersSpriteAnims); i++) {
@@ -797,6 +848,10 @@ void pause_partners_update(MenuPanel* panel) {
 void pause_partners_cleanup(MenuPanel* panel) {
     s32 i;
 
+    if (Ttyd64PausePartnerHeartHID >= 0) {
+        hud_element_free(Ttyd64PausePartnerHeartHID);
+        Ttyd64PausePartnerHeartHID = -1;
+    }
     for (i = 0; i < ARRAY_COUNT(gPausePartnersHIDs); i++) {
         hud_element_free(gPausePartnersHIDs[i]);
     }
