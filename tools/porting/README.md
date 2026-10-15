@@ -3,38 +3,41 @@
 Run capture/controller fixtures serially on one display; parallel runtime
 fixtures need separate displays to preserve window focus.
 
-## Playable-slice work in progress
+## Goombario subsystem batch
 
-Branch `port/ttyd64-goombario-playable-slice` batches pause Party HP, pause/world
-ownership, battle swap HP, world item recipients and ordinary-input encounter
-acceptance. Pause acceptance passes 21 native checks with inspected running captures;
-world recipients pass 12 native checks with inspected menu/healed/off captures. Battle-list
-and ordinary encounter acceptance remain pending.
-Normal activation remains off. Comprehensive regressions are deferred to the
-subsystem checkpoint, following the user's throughput preference.
+Branch `port/ttyd64-goombario-playable-slice` groups pause Party HP,
+pause/world ownership, battle swap HP, world shroom recipients and ordinary
+contact/flee/menu recovery. The shared `partner_playable_slice_gdb.py` driver
+reuses one native lifecycle/input/capture implementation. Select a targeted
+phase with `PARTNER_SLICE_PHASES=pause`, `world-items` or `battle`; default is all
+three. Recruitment, inventory, ranks/wounds and map/progression setup are
+controlled. Battle contact, swap menus and flee outcome use actual keyboard
+input. The guarded flag remains off in normal play.
 
-Extend `partner_playable_slice_gdb.py` as a shared driver rather than adding a
-new standalone harness for each remaining consumer. Its pause phase currently
-covers native keyboard tabs/carousel/abilities, owned-heart cleanup and world
-return. Its world-item phase groups recipient cancellation, four shroom
-potencies, zero HP/caps, inactive recipients, Mario and default-off consumption.
-Battle/ordinary-input encounter phases remain to be added. The world source
-permits healing zero HP; this intentionally differs from battle food. The
-recipient is private LVarE, initialized even for native Mario use. Mario
-presents the item; active-partner effects follow Goombario, inactive-partner
-effects fall back to Mario. Full source choreography/artwork is pending.
+The [isolated developer playtest launcher](GOOMBARIO_PLAYTEST.md) prepares a fresh
+private session and hands the native game to the tester after detaching GDB.
+It requires this prepared Linux environment and a viewable display; it is not a
+packaged release or desktop stream. Its `--verify` mode checks startup/input and
+closes. Enemy source targeting/position rules are still pending; ordinary
+Goombas currently use vanilla Mario targeting.
 
-Run selected phases using PARTNER_SLICE_PHASES=pause or world-items (default
-both), with the normal activation,
-display/audio/cache prerequisites and working directory below:
+World source permits healing zero HP; battle food does not. Private script
+LVarE carries the recipient and is explicitly initialized for Mario. Native
+inventory-slot ownership and exactly-once consumption remain intact. Active
+Goombario effects follow the NPC; inactive-recipient effects use Mario. Full
+source choreography/heart artwork remains pending. Battle ranks are hidden in
+the guarded width181 list; native/off ranks and typed rank data are retained.
+
+Commands for the strict acceptance runtime, with activation, owned display,
+audio/cache prerequisites and native build-directory cwd:
 
 ```bash
 export SHIP_HOME=/workspace/.paperboat-setup/partner-playable-slice/runtime
 mkdir -p "$SHIP_HOME/saves"
 cp -n /workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json "$SHIP_HOME/saves/file3.json"
 cp -n /workspace/.paperboat-setup/partner-combat/runtime/paperboat.cfg.json "$SHIP_HOME/paperboat.cfg.json"
-export PARTNER_SLICE_RESULT=/workspace/.paperboat-setup/partner-playable-slice/acceptance.json
-timeout 600s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_playable_slice_gdb.py ./Paperboat
+export PARTNER_SLICE_RESULT=/workspace/.paperboat-setup/partner-playable-slice/combined.json
+timeout 900s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_playable_slice_gdb.py ./Paperboat
 ```
 
 ## Guarded Goombario world swap list
