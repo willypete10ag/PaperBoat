@@ -2,6 +2,7 @@
 #include "hud_element.h"
 #include "message_ids.h"
 #include "port/Engine.h"
+#include "ttyd64_partner_hp.h"
 
 #define LINE_HEIGHT 13
 
@@ -147,6 +148,37 @@ void popup_draw_dip_query_content(s32* userData, s32 x, s32 y);
 void popup_draw_cost_icon(s32* userData, s32 x, s32 y);
 void popup_draw_already_have_partner(s32* userData, s32 x, s32 y);
 void popup_draw_star_pieces_content(s32* userData, s32 x, s32 y);
+
+// PartnersHP.patch world-list consumer. Other partners' combat/UI and the
+// battle list remain separate migrations; ordinary play retains native layout.
+static b32 popup_world_partner_hp_active(void) {
+    return gTtyd64PartnerHPPrototypeEnabled && PopupNotBattle && gPopupMenu != nullptr
+        && gPopupMenu->popupType == POPUP_MENU_SWITCH_PARTNER
+        && gGameStatusPtr->context == CONTEXT_WORLD
+        && gGameStatusPtr->demoState == DEMO_STATE_NONE
+        && !(gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
+        && gPlayerData.partners[PARTNER_GOOMBARIO].enabled;
+}
+
+static void popup_draw_goombario_hp(s32 entry, s32 x, s32 y, s32 palette) {
+    static const u8 label[] = {
+        MSG_CHAR_READ_FUNCTION, MSG_READ_FUNC_SIZE, 11, 11,
+        MSG_CHAR_READ_FUNCTION, MSG_READ_FUNC_DOWN, 3,
+        MSG_CHAR_UPPER_H, MSG_CHAR_UPPER_P, MSG_CHAR_READ_END
+    };
+    static const u8 slash[] = { MSG_CHAR_FORWARDSLASH, MSG_CHAR_READ_END };
+    s32 partnerID = gPopupMenu->userIndex[entry];
+
+    if (partnerID != PARTNER_GOOMBARIO) {
+        return;
+    }
+    draw_msg((intptr_t)label, x + 81, y - 2, PopupMenu_Alpha, palette, DRAW_MSG_STYLE_MENU);
+    draw_number(ttyd64_get_partner_hp(partnerID), x + 109, y, DRAW_NUMBER_CHARSET_THIN,
+                palette, PopupMenu_Alpha, DRAW_NUMBER_STYLE_MONOSPACE_RIGHT);
+    draw_msg((intptr_t)slash, x + 112, y - 2, PopupMenu_Alpha, palette, DRAW_MSG_STYLE_MENU);
+    draw_number(ttyd64_get_partner_max_hp(partnerID), x + 123, y, DRAW_NUMBER_CHARSET_THIN,
+                palette, PopupMenu_Alpha, DRAW_NUMBER_STYLE_MONOSPACE);
+}
 
 void hide_popup_menu(void) {
     if (PopupNotBattle) {
@@ -762,6 +794,15 @@ s32 popup_menu_update(void) {
             }
 #endif
 
+            if (popup_world_partner_hp_active()) {
+                set_window_properties(WIN_POPUP_CONTENT, 91, PopupWinY, 208,
+                                      PopupMenu_DisplayedEntryCount * LINE_HEIGHT + 26,
+                                      WINDOW_PRIORITY_20, popup_draw_menu_content, nullptr, -1);
+                set_window_properties(WIN_POPUP_TITLE_B, 45, -6, 114, 16,
+                                      WINDOW_PRIORITY_21, popup_draw_title_content, nullptr, WIN_POPUP_CONTENT);
+                set_window_update(WIN_POPUP_TITLE_B, WINDOW_UPDATE_SHOW);
+            }
+
             if (gPopupMenu->popupType == POPUP_MENU_TRADE_FOR_BADGE) {
                 posX = PopupMenu_StarPieceCounterPosX;
                 posY = PopupMenu_StarPieceCounterPosY;
@@ -922,6 +963,9 @@ s32 popup_menu_update(void) {
                         break;
                 }
                 set_window_update(WIN_POPUP_PROMPT, WINDOW_UPDATE_SHOW);
+                if (popup_world_partner_hp_active()) {
+                    set_window_update(WIN_POPUP_PROMPT, WINDOW_UPDATE_HIDE);
+                }
             }
 
             if (gPopupMenu->popupType == POPUP_MENU_TRADE_FOR_BADGE) {
@@ -1230,7 +1274,7 @@ s32 popup_menu_update(void) {
             set_window_update(WIN_POPUP_CONTENT, WINDOW_UPDATE_SHOW);
             set_window_update(WIN_POPUP_DESC, WINDOW_UPDATE_SHOW);
             if (PopupNotBattle) {
-                set_window_update(WIN_POPUP_PROMPT, WINDOW_UPDATE_SHOW);
+                set_window_update(WIN_POPUP_PROMPT, popup_world_partner_hp_active() ? WINDOW_UPDATE_HIDE : WINDOW_UPDATE_SHOW);
             }
             gPopupState = POPUP_STATE_CHOOSING;
             gPopupMenu->result = POPUP_RESULT_CHOOSING;
@@ -1512,6 +1556,9 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
 #else
     gDPSetScissor(gMainGfxPos++, G_SC_NON_INTERLACE, OTRGetScissorCoordX(x), y, OTRGetScissorCoordX(x + PopupContentScissorWidths[gPopupMenu->popupType]), y1);
 #endif
+    if (popup_world_partner_hp_active()) {
+        gDPSetScissor(gMainGfxPos++, G_SC_NON_INTERLACE, OTRGetScissorCoordX(x), y, OTRGetScissorCoordX(x + 202), y1);
+    }
 
     x = baseX + 32;
     y = baseY + D_8010D658 + 2;
@@ -1551,6 +1598,9 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
                 case POPUP_MENU_SWITCH_PARTNER:
                 case POPUP_MENU_UPGRADE_PARTNER:
                     draw_msg(gPopupMenu->nameMsg[t], x, y, PopupMenu_Alpha, msgPal, DRAW_MSG_STYLE_MENU);
+                    if (popup_world_partner_hp_active()) {
+                        popup_draw_goombario_hp(t, x, y, msgPal);
+                    }
                     break;
                 case POPUP_MENU_READ_LETTER:
                     if (gPopupMenu->enabled[t] == 2) {
@@ -1589,12 +1639,19 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
                             hud_element_set_script(id, D_80109898[j]);
                         }
                         if (gPopupMenu->popupType == POPUP_MENU_SWITCH_PARTNER) {
-                            hud_element_set_render_pos(id, x + PARTNER_LIST_X1 + j * 13, y + 10);
+                            hud_element_set_render_pos(id, x + (popup_world_partner_hp_active() ? 154 : PARTNER_LIST_X1) + j * 13, y + 10);
                         } else {
                             hud_element_set_render_pos(id, x + PARTNER_LIST_X2 + j * 13, y + 10);
                         }
                         if (j < gPopupMenu->value[i]) {
-                            hud_element_draw_next(id);
+                            if (popup_world_partner_hp_active()) {
+                                // A scrolled list may not draw Goombario's HP
+                                // numbers. Initialize HUD state independently
+                                // of the text while retaining the list scissor.
+                                hud_element_draw_without_clipping(id);
+                            } else {
+                                hud_element_draw_next(id);
+                            }
                         }
                     }
                     break;
@@ -1729,7 +1786,8 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
             break;
         case POPUP_MENU_SWITCH_PARTNER:
         case POPUP_MENU_UPGRADE_PARTNER:
-            gDPSetScissor(gMainGfxPos++, G_SC_NON_INTERLACE, x, y, x + POPUP_PARTNER_WIDTH, y1);
+            gDPSetScissor(gMainGfxPos++, G_SC_NON_INTERLACE, x, y,
+                          x + (popup_world_partner_hp_active() ? 202 : POPUP_PARTNER_WIDTH), y1);
             break;
     }
 
@@ -1800,6 +1858,9 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
 #endif
     }
 
+    if (popup_world_partner_hp_active()) {
+        offset = 69;
+    }
     if (PopupMenu_FirstDisplayIndex > 0) {
         id = PopupMenu_UpArrowHID;
         x = baseX + offset;

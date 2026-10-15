@@ -3,6 +3,47 @@
 Run capture/controller fixtures serially on one display; parallel runtime
 fixtures need separate displays to preserve window focus.
 
+## Guarded Goombario world swap list
+
+`partner_world_swap_gdb.py` translates the world list geometry/HP consumer in
+active `PartnersHP.patch` (window hook DE428, scissor 8D020, row HP 8D284 and
+rank/arrow placement). Native `PopupMenu.userIndex` identifies Goombario;
+`value` remains the native rank. Only his row receives HP, under the existing
+default-off flag. Battle/upgrade/pause lists and other partner HP rows are
+separate migrations. No new save fields, HUD handles, settings or assets.
+
+```bash
+source /workspace/.paperboat-setup/activate.sh
+cd /workspace/PaperBoat/build/ninja-debug
+export DISPLAY=:97 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1
+export XDG_CACHE_HOME=/workspace/.paperboat-setup/cache DEBUGINFOD_URLS=
+export SHIP_HOME=/workspace/.paperboat-setup/partner-world-swap/runtime
+mkdir -p "$SHIP_HOME/saves"
+cp -n /workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json "$SHIP_HOME/saves/file3.json"
+cp -n /workspace/.paperboat-setup/partner-combat/runtime/paperboat.cfg.json "$SHIP_HOME/paperboat.cfg.json"
+export WORLD_SWAP_RESULT=/workspace/.paperboat-setup/partner-world-swap/acceptance.json
+timeout 300s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_world_swap_gdb.py ./Paperboat
+```
+
+The strict disposable save copy is checked and never written. Recruitment,
+ranks and wounds are setup; C-right (Right arrow), stick (W/S), A (X), B (C)
+and C-left (Left arrow) drive the native world menus and swaps. Input holds
+span native UI passes to let SDL poll the events. Run alone on its display.
+Inspect wounded/zero/ultra, eight-partner top/bottom, inventory and off-state
+captures independently. All eight list identities are exercised, but only
+Goombario HP is claimed. Software rendering/dummy audio retain their limits.
+Captures run while the game thread draws freely, before an ignored native
+popup breakpoint returns control; timing is asserted. Pausing inside graphics
+construction can otherwise leave partial/interpolated frames on screen.
+Numeric telemetry records rank data/alpha, scroll offset and blinking arrows.
+Partner-rank handles are read only while the partner popup owns them. Guarded
+rank icons initialize their own HUD state instead of depending on HP text.
+
+Acceptance: **22 world-menu checks**, **44 battle-healing regressions**,
+**67 foundation/save/layout checks**, and **431 utility tests** pass. The
+shared coordination handoff records rendered evidence, diagnostic corrections
+and the remaining pause/battle-list/recipient work.
+
 ## Native battle return and partner HP
 
 `partner_battle_return_gdb.py` uses a regular Goomba Road encounter, preserving
