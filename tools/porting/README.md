@@ -1,5 +1,52 @@
 # Native TTYD64 integration checks
 
+Run capture/controller fixtures serially on one display; parallel runtime
+fixtures need separate displays to preserve window focus.
+
+## Native battle return and partner HP
+
+`partner_battle_return_gdb.py` uses a regular Goomba Road encounter, preserving
+native world backups, end-battle cleanup, NPC/script restoration and input
+release. It does not use `load_demo_battle`, which clears world heaps and cannot
+prove a normal return path. Existing enemy AI ownership supplies native
+`start_battle`; HP wounds and the fled outcome/end-battle state are controlled.
+Victory/run-away input, escape timing and choreography are not claimed.
+
+```bash
+source /workspace/.paperboat-setup/activate.sh
+cd /workspace/PaperBoat/build/ninja-debug
+export DISPLAY=:97 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1
+export XDG_CACHE_HOME=/workspace/.paperboat-setup/cache DEBUGINFOD_URLS=
+export SHIP_HOME=/workspace/.paperboat-setup/partner-battle-return/runtime
+mkdir -p "$SHIP_HOME/saves"
+cp -n /workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json "$SHIP_HOME/saves/file3.json"
+cp -n /workspace/.paperboat-setup/partner-combat/runtime/paperboat.cfg.json "$SHIP_HOME/paperboat.cfg.json"
+export BATTLE_RETURN_BASELINE=0
+export BATTLE_RETURN_RESULT=/workspace/.paperboat-setup/partner-battle-return/acceptance.json
+timeout 300s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_battle_return_gdb.py ./Paperboat
+```
+
+The exact disposable save copy is checked; wounded/zero FIO checks restore bytes
+with finally. Debug cant-touch suppresses unrelated automatic encounters during
+setup, while native StartBattle runs the selected existing encounter. The guard
+is enabled only in this fixture; the final full entry/return runs with it off.
+Native HUD passes are used for independently inspected local captures. The
+fixture waits for full extension (the default -100 → +18 takes twelve +10
+updates), submits the completed frame, verifies focus and records HUD state.
+
+Final acceptance passes **32 checks** across three guarded and one prototype-off
+native entries/returns. Wounded/zero HP persist through FIO and re-entry; flag-off
+entry retains native 99-HP actors and turn availability despite zero passive HP.
+25 world ownership, 67 foundation and all 431 utility regressions pass. Numeric
+results and limits: coordination `docs/handoffs/2026-10-14-goombario-battle-return.md`
+and `results/partner-battle-return/`.
+
+On the matching preceding world-HUD executable
+`77f7e17f8deea59a167dc3e0b59645ef66d90a31`, `BATTLE_RETURN_BASELINE=1` passed eight
+observations and reproduced persistent HP 3/world control returning with the
+partner row missing. The NPC pool is restored rather than recreated, so resume
+must rebind world HP. Do not use baseline mode on the corrected executable.
+
 ## Guarded Goombario world HP
 
 `partner_world_hud_gdb.py` extends the existing battle HP row into the world for

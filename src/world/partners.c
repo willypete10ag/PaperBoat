@@ -1111,6 +1111,10 @@ void partner_handle_after_battle(void) {
             wPartner->postBattle(wPartnerNpc);
         }
     }
+
+    // Battle return restores the existing world NPC pool without calling
+    // create_partner_npc. Resume its HP display ownership as well.
+    ttyd64_partner_hp_world_bind(wCurrentPartnerId);
 }
 
 void partner_kill_ability_script(void) {
