@@ -1,4 +1,60 @@
-# Native TTYD64 badge integration checks
+# Native TTYD64 integration checks
+
+## Goombario healing and battle HP row (guarded)
+
+`partner_healing_gdb.py` exercises Mario's four shroom-family items and the first
+battle HP readout for bound Goombario. Normal activation stays **off**. The
+fixture's committed item use follows real keyboard input through the native
+command wheel, item popup, target cancellation/reselection and item script.
+Additional cap/guard/persistence/display checks use native APIs between ticks.
+Final acceptance passes **44 checks**: Mushroom 3 → 8, one-of-two consumption,
+Mario turn spent and partner menu reached, used-turn preservation, four native
+target lists, dead/off exclusion, cap bounds, native FIO and display cadence.
+Numeric evidence and exact scope: coordination repository
+`docs/handoffs/2026-10-14-goombario-healing.md` and `results/partner-healing/`.
+
+Prepare this exact disposable runtime from the established FP Drain fixture;
+never copy user saves. The fixture requires slot3 bytes to match that writer
+and restores them after its FIO save/load round trip. The copied test controller
+profile uses Ship's **LUS** scancodes: A is X, B is C, stick is W/A/S/D. They are
+not raw SDL scancode numbers.
+
+```bash
+source /workspace/.paperboat-setup/activate.sh
+cd /workspace/PaperBoat/build/ninja-debug
+export DISPLAY=:97 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1
+export XDG_CACHE_HOME=/workspace/.paperboat-setup/cache DEBUGINFOD_URLS=
+export SHIP_HOME=/workspace/.paperboat-setup/partner-healing/runtime
+mkdir -p "$SHIP_HOME/saves"
+cp -n /workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json "$SHIP_HOME/saves/file3.json"
+cp -n /workspace/.paperboat-setup/partner-combat/runtime/paperboat.cfg.json "$SHIP_HOME/paperboat.cfg.json"
+export PARTNER_HEALING_RESULT=/workspace/.paperboat-setup/partner-healing/acceptance.json
+timeout 300s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_healing_gdb.py ./Paperboat
+```
+
+Use a running, free Xvfb display. Non-stop mode leaves rendering threads free;
+inspect the local PNGs independently. Normal completion kills the owned game.
+The fixture converts native Tubba demo formation 4 into a controlled interactive
+battle: clears playback flags and its persistent WaitForState gate, balances
+its one status-bar-disable count, and restores viewport/curtain presentation.
+It does not change the production demo or claim ordinary enemy-AI targeting.
+No recursive event updates or direct popup-selection writes advance item use.
+
+Active source: `PartnersHP.patch` create_target_list hook 8026240C rejects zero
+HP; `PartnersItems.patch` $Heal_PlayerTeam/$heal_actor cap HP;
+`battle/item/patch/Item_Shroom.bpat` selects the healed recipient;
+`NewStatsMenu.patch` $PartnerHP_AnimationTimer changes displayed HP by one every
+four updates. Native item flight/shimmers are reused for this first consumer;
+full source item choreography and the complete stats-menu layout remain later.
+
+Mushroom, Super Shroom, Ultra Shroom and Dried Shroom are admitted only for living,
+bound Goombario under the guard. Existing Mario item potency and consumption
+stay native. Ordinary food does not revive dead partners or return used turns.
+No partner item command, other foods/FP items, world healing/UI or other partner
+combat is enabled by this milestone. The readout uses a native portrait and
+current/max numbers below the native HUD, separate unsaved display state and
+existing scaling; the original save/status-bar layouts stay unchanged.
+
 
 ## Goombario combat (guarded acceptance)
 
@@ -66,8 +122,8 @@ are also fixed. Numeric reports and scope are in the coordination repository's
 
 `partner_hp_gdb.py` validates passive native health persistence and an explicitly
 enabled actor-binding prototype. **Normal gameplay still uses native KO turns;
-only guarded Goombario combat is validated; other partner combat, healing items
-and HP UI remain unported.**
+guarded Goombario combat plus the bounded shroom/battle-HP consumer above are
+validated; other partner combat and broader healing/UI remain unported.**
 `gTtyd64PartnerHPPrototypeEnabled` is false at startup/new-game, never saved and
 has no product setting. Do not enable it in normal play before those consumers
 are migrated.

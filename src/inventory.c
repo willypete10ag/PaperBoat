@@ -500,6 +500,8 @@ void initialize_status_bar(void) {
     PlayerData* playerData = &gPlayerData;
     HudElemID hid;
 
+    ttyd64_partner_hp_sync_display();
+
     statusBar->drawPosX = 12;
     ShowingCoinCounter = false;
     HidingCoinCounter = false;
@@ -810,6 +812,14 @@ void update_status_bar(void) {
         i = (i + 4) / 5;
     }
     statusBar->displayCoins += i;
+
+    ttyd64_partner_hp_update_display();
+    if (ttyd64_partner_hp_display() >= 0
+        && ttyd64_partner_hp_display() != ttyd64_get_partner_hp(PARTNER_GOOMBARIO)
+        && !statusBar->ignoreChanges) {
+        statusBar->showTimer = 70;
+        statusBar->hidden = false;
+    }
 
     // show the status bar if HP has changed
     if (statusBar->displayHP != playerData->curHP && !statusBar->ignoreChanges) {
@@ -1426,6 +1436,29 @@ void update_status_bar(void) {
     if (showStarPower) {
         star_power_shimmer_draw();
     }
+
+    // First NewStatsMenu partner-HP row, beneath the existing native HUD. Keep
+    // native configurable bars and their star-power layout intact for now.
+    // hpTimesHID is already scratch space for per-digit HUD script switching.
+    s32 partnerHP = ttyd64_partner_hp_display();
+    if (partnerHP >= 0 && port_status_bar_show(PORT_STATUS_BAR_HP)
+        && statusBar->drawPosY >= FULLY_EXTENDED_Y) {
+        s32 rowY = statusBar->drawPosY + (showStarPower && playerData->maxStarPower > 0 ? 48 : 36);
+        s32 rowX = statusBar->drawPosX;
+        s32 hid = statusBar->hpTimesHID;
+        draw_box(DRAW_FLAG_TEXEL_SCALE, port_status_bar_box_style(WINDOW_STYLE_5),
+                 rowX, statusBar->drawPosY + (rowY - statusBar->drawPosY) * StatusBarScale,
+                 0, 82 * StatusBarScale, 25 * StatusBarScale, 255, 0,
+                 StatusBarScale, StatusBarScale, 0.0f, 0.0f, 0.0f,
+                 nullptr, nullptr, nullptr, SCREEN_WIDTH, SCREEN_HEIGHT, nullptr);
+        hud_element_set_script(hid, wPartnerHudScripts[PARTNER_GOOMBARIO]);
+        hud_element_set_scale(hid, 0.6f);
+        hud_element_set_render_pos(hid, rowX + 15, rowY + 12);
+        status_bar_draw_next(hid);
+        hud_element_set_scale(hid, 1.0f);
+        status_bar_draw_stat(hid, rowX + 25, rowY + 5, partnerHP,
+                             ttyd64_get_partner_max_hp(PARTNER_GOOMBARIO));
+    }
 }
 
 void coin_counter_draw_content(UNK_TYPE arg0, s32 posX, s32 posY) {
@@ -1804,6 +1837,8 @@ void increment_status_bar_disabled(void) {
 void sync_status_bar(void) {
     PlayerData* playerData = &gPlayerData;
     StatusBar* statusBar = &gStatusBar;
+
+    ttyd64_partner_hp_sync_display();
 
     statusBar->displayHP = playerData->curHP;
     statusBar->displayFP = playerData->curFP;

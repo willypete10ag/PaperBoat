@@ -3,7 +3,7 @@
 
 // Translated from PartnersHP.patch: $PartnersHPTable/$updatePartnerMaxHP.
 // Goombario combat below is a validated, default-off bounded prototype.
-// HP Plus P, healing items and displayed HP remain later consumers.
+// HP Plus P and the other partners' combat/item/UI consumers remain pending.
 static const s16 PartnerBaseHP[TTYD64_PARTNER_HP_COUNT][3] = {
     [PARTNER_GOOMBARIO]  = { 10, 20, 30 },
     [PARTNER_KOOPER]     = { 10, 15, 25 },
@@ -20,6 +20,9 @@ static Actor* BoundPartnerActor;
 static s32 BoundPartnerID = PARTNER_NONE;
 static u16 DeathHandledMask;
 static s32 DeathScriptID;
+static Actor* DisplayPartnerActor;
+static s32 DisplayPartnerHP = -1;
+static s32 DisplayPartnerHPTimer;
 
 s32 ttyd64_partner_base_max_hp(s32 partnerID, s32 rank) {
     if (partnerID < 0 || partnerID >= ARRAY_COUNT(PartnerBaseHP) || PartnerBaseHP[partnerID][0] == 0) {
@@ -69,6 +72,9 @@ static void clear_binding(void) {
     BoundPartnerActor = nullptr;
     BoundPartnerID = PARTNER_NONE;
     DeathScriptID = 0;
+    DisplayPartnerActor = nullptr;
+    DisplayPartnerHP = -1;
+    DisplayPartnerHPTimer = 0;
 }
 
 void ttyd64_partner_hp_begin_battle(void) {
@@ -245,4 +251,65 @@ s32 ttyd64_partner_combat_use_life_shroom(Actor* actor) {
     s32 hp = ttyd64_set_partner_hp(PARTNER_GOOMBARIO, 10);
     gBattleStatus.flags2 &= ~BS_FLAGS2_PARTNER_TURN_USED;
     return hp;
+}
+
+b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID) {
+    Actor* partner = gBattleStatus.partnerActor;
+    if (!ttyd64_partner_combat_active(partner) || ttyd64_get_partner_hp(PARTNER_GOOMBARIO) <= 0
+        || (DeathScriptID != 0 && does_script_exist(DeathScriptID))) {
+        return false;
+    }
+    switch (itemID) {
+        case ITEM_MUSHROOM:
+        case ITEM_SUPER_SHROOM:
+        case ITEM_ULTRA_SHROOM:
+        case ITEM_DRIED_SHROOM:
+            return true;
+    }
+    return false;
+}
+
+s32 ttyd64_partner_combat_heal(Actor* actor, s32 amount) {
+    if (!ttyd64_partner_combat_active(actor) || amount <= 0
+        || (DeathScriptID != 0 && does_script_exist(DeathScriptID))) {
+        return 0;
+    }
+    s32 hp = ttyd64_get_partner_hp(PARTNER_GOOMBARIO);
+    if (hp <= 0) {
+        return 0;
+    }
+    // PartnersItems.patch $Heal_PlayerTeam/$heal_actor: cap to max HP. Bound
+    // before addition so even an oversized script argument cannot overflow.
+    s32 missing = ttyd64_get_partner_max_hp(PARTNER_GOOMBARIO) - hp;
+    s32 recovered = amount > missing ? missing : amount;
+    ttyd64_set_partner_hp(PARTNER_GOOMBARIO, hp + recovered);
+    return recovered;
+}
+
+void ttyd64_partner_hp_sync_display(void) {
+    Actor* partner = gBattleStatus.partnerActor;
+    DisplayPartnerActor = ttyd64_partner_combat_active(partner) ? partner : nullptr;
+    DisplayPartnerHP = DisplayPartnerActor ? ttyd64_get_partner_hp(PARTNER_GOOMBARIO) : -1;
+    DisplayPartnerHPTimer = 0;
+}
+
+void ttyd64_partner_hp_update_display(void) {
+    Actor* partner = gBattleStatus.partnerActor;
+    if (!ttyd64_partner_combat_active(partner) || DisplayPartnerActor != partner) {
+        ttyd64_partner_hp_sync_display();
+        return;
+    }
+    // NewStatsMenu.patch $PartnerHP_AnimationTimer: one HP every four frames,
+    // both damage and healing. Presentation state is separate from saved HP.
+    s32 hp = ttyd64_get_partner_hp(PARTNER_GOOMBARIO);
+    if (DisplayPartnerHP == hp) {
+        DisplayPartnerHPTimer = 0;
+    } else if (++DisplayPartnerHPTimer >= 4) {
+        DisplayPartnerHP += DisplayPartnerHP < hp ? 1 : -1;
+        DisplayPartnerHPTimer = 0;
+    }
+}
+
+s32 ttyd64_partner_hp_display(void) {
+    return ttyd64_partner_combat_active(gBattleStatus.partnerActor) ? DisplayPartnerHP : -1;
 }

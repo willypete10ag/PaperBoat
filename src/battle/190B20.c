@@ -104,7 +104,14 @@ void create_target_list(Actor* actor, b32 targetHomePos) {
     }
 
     // try adding the partner
-    if (battleStatus->curTargetListFlags & TARGET_FLAG_PARTNER) {
+    // PartnersHP.patch create_target_list hook 8026240C admits living partners
+    // for healing items. Restrict this first consumer to Mario's four shrooms.
+    b32 healingPartner = actor == playerActor
+        && !(battleStatus->flags1 & BS_FLAGS1_PARTNER_ACTING)
+        && battleStatus->moveCategory == BTL_MENU_TYPE_ITEMS
+        && (battleStatus->curTargetListFlags & TARGET_FLAG_PLAYER)
+        && ttyd64_partner_combat_can_heal_with_item(battleStatus->moveArgument);
+    if ((battleStatus->curTargetListFlags & TARGET_FLAG_PARTNER) || healingPartner) {
         if (partnerActor != nullptr) {
             targetDataList->actorID = ACTOR_PARTNER;
             targetDataList->partID = 1;

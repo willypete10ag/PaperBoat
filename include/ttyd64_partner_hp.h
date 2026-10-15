@@ -44,6 +44,15 @@ b32 ttyd64_partner_combat_death_handled(Actor* actor);
 void ttyd64_partner_combat_mark_dead(Actor* actor);
 s32 ttyd64_partner_combat_use_life_shroom(Actor* actor);
 
+// First ordinary healing-item consumer. Dead partners require revival, not food.
+b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID);
+s32 ttyd64_partner_combat_heal(Actor* actor, s32 amount);
+
+// Unsaved presentation state; do not reuse legacy partner/status-bar fields.
+void ttyd64_partner_hp_sync_display(void);
+void ttyd64_partner_hp_update_display(void);
+s32 ttyd64_partner_hp_display(void);
+
 #ifdef __cplusplus
 }
 #endif
