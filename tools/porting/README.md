@@ -1,5 +1,56 @@
 # Native TTYD64 integration checks
 
+## World full recovery and Heart Blocks
+
+`partner_world_heal_gdb.py` checks the passive partner HP model through native
+world recovery while combat activation stays **off**. Active source is
+`PartnersHP.patch` FullyRestoreHPandFP hook F6880 / $Function_HealPartners and
+Heart Block hook 106848. At least one unlocked combat partner enables recovery
+of all eight compatible health records (including dead/locked ones), without
+recruiting partners. Heart Blocks also refill source Star Power. The full-rest
+HP/FP API itself leaves SP to the separate existing FullyRestoreSP call.
+
+```bash
+source /workspace/.paperboat-setup/activate.sh
+cd /workspace/PaperBoat/build/ninja-debug
+export DISPLAY=:97 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1
+export XDG_CACHE_HOME=/workspace/.paperboat-setup/cache DEBUGINFOD_URLS=
+export SHIP_HOME=/workspace/.paperboat-setup/partner-world-heal/runtime
+mkdir -p "$SHIP_HOME/saves"
+cp -n /workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json "$SHIP_HOME/saves/file3.json"
+cp -n /workspace/.paperboat-setup/partner-combat/runtime/paperboat.cfg.json "$SHIP_HOME/paperboat.cfg.json"
+export WORLD_HEAL_BASELINE=0
+export WORLD_HEAL_RESULT=/workspace/.paperboat-setup/partner-world-heal/acceptance.json
+timeout 300s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_world_heal_gdb.py ./Paperboat
+```
+
+The strict runtime must contain exactly the disposable FP Drain writer bytes;
+FIO checks restore them. Native title/file-select enters Mario's house, skipping
+an already-seen Luigi scene. The fixture grants wounds/ranks/unlocks and starts
+the stock bed entry script; native keyboard input chooses the rest dialogue.
+Native world switching selects Goombario, map-bound door triggers run the stock
+room entry/exit scripts, and a fixture-spawned Heart Block is hit by a keyboard
+jump in the same world. Rendering stays
+free in non-stop GDB; inspect local captures independently. No recursive event
+updates. Normal completion kills only the owned game process.
+
+Final acceptance passes **47 checks**: eight partners at all three ranks,
+unlock/no-unlock gates, dead HP recovery, full native bed/door lifecycle, real
+Heart Block recovery and native FIO. The block accepts up to three ordinary
+keyboard jump attempts; the final run needed two under non-stop GDB. This is
+not a controller timing test; no damage/healing/collision result is injected.
+67 foundation and all 431 utility regressions also pass. Shared evidence:
+coordination `docs/handoffs/2026-10-14-world-full-heal.md` and
+`results/partner-world-heal/`.
+
+`WORLD_HEAL_BASELINE=1` is only for the matching preceding healing executable
+`9db3e1d22a9cbacc2c5cebcad4dc49ac0aab192c`: five observations reproduce full-rest
+leaving Goombario at 3 HP while Mario HP/FP restore. Do not run baseline mode on
+the updated executable. Native/source rest-need checks select dialogue rather
+than rejecting sleep; those checks are unchanged. General world healing-item
+recipient menus, dropped hearts, world partner HP UI and all-partner combat
+remain separate consumers.
+
 ## Goombario healing and battle HP row (guarded)
 
 `partner_healing_gdb.py` exercises Mario's four shroom-family items and the first

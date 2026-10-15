@@ -27,6 +27,8 @@ s32 ttyd64_get_partner_hp(s32 partnerID);
 s32 ttyd64_get_partner_max_hp(s32 partnerID);
 s32 ttyd64_set_partner_hp(s32 partnerID, s32 amount);
 void ttyd64_reset_partner_hp(s32 partnerID);
+// World full-rest/Heart Block consumer; does not enable actor HP combat.
+void ttyd64_fully_restore_partner_hp(void);
 
 // Only bind eligible normal battles while the prototype is explicitly enabled.
 void ttyd64_partner_hp_begin_battle(void);

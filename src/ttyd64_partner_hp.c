@@ -149,6 +149,29 @@ void ttyd64_reset_partner_hp(s32 partnerID) {
     }
 }
 
+void ttyd64_fully_restore_partner_hp(void) {
+    s32 i;
+    b32 anyUnlocked = false;
+
+    // PartnersHP.patch $Function_GetPartnersUnlocked/$Function_HealPartners:
+    // if any combat partner is recruited, restore every compatible HP record.
+    // Do not recruit locked partners or touch legacy partner data.
+    for (i = 0; i < TTYD64_PARTNER_HP_COUNT; i++) {
+        if (ttyd64_partner_base_max_hp(i, PARTNER_RANK_NORMAL) >= 0 && gPlayerData.partners[i].enabled) {
+            anyUnlocked = true;
+            break;
+        }
+    }
+    if (!anyUnlocked) {
+        return;
+    }
+    for (i = 0; i < TTYD64_PARTNER_HP_COUNT; i++) {
+        if (ttyd64_partner_base_max_hp(i, PARTNER_RANK_NORMAL) >= 0) {
+            ttyd64_reset_partner_hp(i);
+        }
+    }
+}
+
 void ttyd64_partner_hp_bind_actor(Actor* actor) {
     clear_binding();
     if (actor == nullptr || actor != gBattleStatus.partnerActor || !can_bind_actor()) {
