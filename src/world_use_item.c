@@ -2,6 +2,39 @@
 #include "effects.h"
 #include "script_api/battle.h"
 #include "sprite/player.h"
+#include "ttyd64_partner_hp.h"
+#include "world/partners.h"
+
+b32 ttyd64_world_item_can_target_partner(s32 itemID) {
+    if (!gTtyd64PartnerHPPrototypeEnabled || gGameStatusPtr->context != CONTEXT_WORLD
+        || gGameStatusPtr->demoState != DEMO_STATE_NONE
+        || (gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
+        || !gPlayerData.partners[PARTNER_GOOMBARIO].enabled) {
+        return false;
+    }
+    switch (itemID) {
+        case ITEM_MUSHROOM:
+        case ITEM_SUPER_SHROOM:
+        case ITEM_ULTRA_SHROOM:
+        case ITEM_DRIED_SHROOM:
+            return true;
+    }
+    return false;
+}
+
+API_CALLABLE(WorldItem_GetHPRecipientPos) {
+    Bytecode* args = script->ptrReadPos;
+    Vec3f* pos = &gPlayerStatus.pos;
+
+    if (gTtyd64PartnerHPPrototypeEnabled && script->varTable[14] == PARTNER_GOOMBARIO
+        && wCurrentPartnerId == PARTNER_GOOMBARIO && wPartnerNpc != nullptr) {
+        pos = &wPartnerNpc->pos;
+    }
+    evt_set_variable(script, *args++, pos->x);
+    evt_set_variable(script, *args++, pos->y);
+    evt_set_variable(script, *args++, pos->z);
+    return ApiStatus_DONE2;
+}
 
 API_CALLABLE(WorldItem_ShowUseSparkles) {
     Bytecode* args = script->ptrReadPos;
@@ -37,7 +70,18 @@ API_CALLABLE(WorldItem_ShowFPGain) {
 
 API_CALLABLE(WorldItem_RestoreHP) {
     PlayerData* playerData = &gPlayerData;
-    s32 newHP = playerData->curHP + evt_get_variable(script, *script->ptrReadPos);
+    s32 amount = evt_get_variable(script, *script->ptrReadPos);
+    s32 newHP;
+
+    if (script->varTable[14] == PARTNER_GOOMBARIO) {
+        if (gTtyd64PartnerHPPrototypeEnabled && playerData->partners[PARTNER_GOOMBARIO].enabled) {
+            // Active world-item source adds/caps even from zero HP. Battle
+            // food's separate no-revival rule must not leak into this path.
+            ttyd64_set_partner_hp(PARTNER_GOOMBARIO, ttyd64_get_partner_hp(PARTNER_GOOMBARIO) + amount);
+        }
+        return ApiStatus_DONE2;
+    }
+    newHP = playerData->curHP + amount;
 
     if (newHP > playerData->curMaxHP) {
         newHP = playerData->curMaxHP;
@@ -112,12 +156,12 @@ API_CALLABLE(WorldItem_ConsumeItem) {
 EvtScript EVS_WorldItem_ShowUsedItem = {
     SetGroup(EVT_GROUP_NEVER_PAUSE)
     Call(SetPlayerAnimation, ANIM_Mario1_UsePower)
-    Call(GetPlayerPos, LVar0, LVar1, LVar2)
+    Call(WorldItem_GetHPRecipientPos, LVar0, LVar1, LVar2)
     Add(LVar1, 45)
     Call(MakeItemEntity, LVarA, LVar0, LVar1, LVar2, 1, 0)
     Set(LVarA, LVar0)
     Wait(15)
-    Call(GetPlayerPos, LVar0, LVar1, LVar2)
+    Call(WorldItem_GetHPRecipientPos, LVar0, LVar1, LVar2)
     Add(LVar1, 20)
     Call(WorldItem_ShowUseSparkles, LVar0, LVar1, LVar2)
     Call(RemoveItemEntity, LVarA)
@@ -162,16 +206,23 @@ EvtScript EVS_World_UseItem = {
     Call(WorldItem_PauseTime)
     Call(WorldItem_GetItemProperties, LVarA)
     ExecWait(EVS_WorldItem_ShowUsedItem)
-    IfEq(LVarD, 0)
-        ExecWait(EVS_WorldItem_PlayEatingSounds)
+    IfEq(LVarE, PARTNER_GOOMBARIO)
+        // Mario presents the food; retain the native partner's own idle AI.
+        Call(SetPlayerAnimation, ANIM_Mario1_UsePower)
+        Call(PlaySound, SOUND_EAT_OR_DRINK)
+        Wait(45)
     Else
-        ExecWait(EVS_WorldItem_PlayDrinkingSounds)
+        IfEq(LVarD, 0)
+            ExecWait(EVS_WorldItem_PlayEatingSounds)
+        Else
+            ExecWait(EVS_WorldItem_PlayDrinkingSounds)
+        EndIf
     EndIf
     IfEq(LVarF, 1)
         Call(SetPlayerAnimation, ANIM_Mario1_StickOutTongue)
     EndIf
     IfGt(LVarB, 0)
-        Call(GetPlayerPos, LVar0, LVar1, LVar2)
+        Call(WorldItem_GetHPRecipientPos, LVar0, LVar1, LVar2)
         Add(LVar0, 0)
         Add(LVar1, 35)
         Call(WorldItem_ShowHPGain, LVar0, LVar1, LVar2, LVarB)
@@ -182,7 +233,7 @@ EvtScript EVS_World_UseItem = {
         Add(LVar1, 25)
         Call(WorldItem_ShowFPGain, LVar0, LVar1, LVar2, LVarC)
     EndIf
-    Call(GetPlayerPos, LVar0, LVar1, LVar2)
+    Call(WorldItem_GetHPRecipientPos, LVar0, LVar1, LVar2)
     Add(LVar1, 25)
     Call(ShowStartRecoveryShimmer, LVar0, LVar1, LVar2, LVarB)
     IfNe(LVarB, 0)
@@ -198,7 +249,7 @@ EvtScript EVS_World_UseItem = {
     Else
         Wait(30)
     EndIf
-    Call(GetPlayerPos, LVar0, LVar1, LVar2)
+    Call(WorldItem_GetHPRecipientPos, LVar0, LVar1, LVar2)
     Call(ShowRecoveryShimmer, LVar0, LVar1, LVar2, LVarB)
     Call(SetPlayerAnimation, ANIM_Mario1_Idle)
     Wait(20)

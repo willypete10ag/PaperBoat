@@ -7,18 +7,25 @@ fixtures need separate displays to preserve window focus.
 
 Branch `port/ttyd64-goombario-playable-slice` batches pause Party HP, pause/world
 ownership, battle swap HP, world item recipients and ordinary-input encounter
-acceptance. Pause/list changes compile; **runtime acceptance has not run**.
+acceptance. Pause acceptance passes 21 native checks with inspected running captures;
+world recipients pass 12 native checks with inspected menu/healed/off captures. Battle-list
+and ordinary encounter acceptance remain pending.
 Normal activation remains off. Comprehensive regressions are deferred to the
 subsystem checkpoint, following the user's throughput preference.
 
 Extend `partner_playable_slice_gdb.py` as a shared driver rather than adding a
 new standalone harness for each remaining consumer. Its pause phase currently
 covers native keyboard tabs/carousel/abilities, owned-heart cleanup and world
-return. Battle/recipient/ordinary-input encounter phases remain to be added.
-The last GDB launch was rejected by automatic approval review because of the
-usage limit; it did not execute or establish a safety rejection.
+return. Its world-item phase groups recipient cancellation, four shroom
+potencies, zero HP/caps, inactive recipients, Mario and default-off consumption.
+Battle/ordinary-input encounter phases remain to be added. The world source
+permits healing zero HP; this intentionally differs from battle food. The
+recipient is private LVarE, initialized even for native Mario use. Mario
+presents the item; active-partner effects follow Goombario, inactive-partner
+effects fall back to Mario. Full source choreography/artwork is pending.
 
-Run that phase when runtime access resumes, using the normal activation,
+Run selected phases using PARTNER_SLICE_PHASES=pause or world-items (default
+both), with the normal activation,
 display/audio/cache prerequisites and working directory below:
 
 ```bash
@@ -27,7 +34,7 @@ mkdir -p "$SHIP_HOME/saves"
 cp -n /workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json "$SHIP_HOME/saves/file3.json"
 cp -n /workspace/.paperboat-setup/partner-combat/runtime/paperboat.cfg.json "$SHIP_HOME/paperboat.cfg.json"
 export PARTNER_SLICE_RESULT=/workspace/.paperboat-setup/partner-playable-slice/acceptance.json
-timeout 300s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_playable_slice_gdb.py ./Paperboat
+timeout 600s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_playable_slice_gdb.py ./Paperboat
 ```
 
 ## Guarded Goombario world swap list

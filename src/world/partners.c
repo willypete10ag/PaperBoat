@@ -479,7 +479,7 @@ UseItemStruct UseItemDmaArgs = {
 
 BSS s32 D_8010CD20;
 
-s32 use_consumable(s32 invSlot) {
+static s32 start_consumable(s32 invSlot, s32 partnerID) {
     Evt* script;
 
     D_8010CD20 = invSlot;
@@ -487,7 +487,21 @@ s32 use_consumable(s32 invSlot) {
     dma_copy(UseItemDmaArgs.dmaStart, UseItemDmaArgs.dmaEnd, world_use_item_VRAM);
     script = start_script(UseItemDmaArgs.main, EVT_PRIORITY_1, 0);
     script->varTable[10] = invSlot;
+    script->varTable[14] = partnerID;
     return script->id;
+}
+
+s32 use_consumable(s32 invSlot) {
+    return start_consumable(invSlot, PARTNER_NONE);
+}
+
+s32 ttyd64_use_consumable_on_partner(s32 invSlot, s32 partnerID) {
+    if (invSlot < 0 || invSlot >= ARRAY_COUNT(gPlayerData.invItems)
+        || partnerID != PARTNER_GOOMBARIO
+        || !ttyd64_world_item_can_target_partner(gPlayerData.invItems[invSlot])) {
+        return -1;
+    }
+    return start_consumable(invSlot, partnerID);
 }
 
 void remove_consumable(void) {

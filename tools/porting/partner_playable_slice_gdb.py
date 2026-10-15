@@ -1,4 +1,4 @@
-"""Shared playable-slice driver: pause phase implemented, other phases pending.
+"""Shared playable-slice driver: pause and world-recipient phases.
 
 Strict disposable save; wounds/ranks/recruitment are controlled setup.
 """
@@ -39,6 +39,10 @@ def run():
     save = runtime / 'saves/file3.json'
     original = save.read_bytes()
     assert original == Path('/workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json').read_bytes()
+    runtime_env = os.environ.copy()
+    assert runtime_env.get('DISPLAY'), 'Set DISPLAY to the owned test server'
+    phases = os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items').split(',')
+    assert phases and set(phases) <= {'pause', 'world-items'}
     checks, states, captures = [], [], []
     def hp():
         return val('ttyd64_get_partner_hp(1)')
@@ -57,7 +61,7 @@ def run():
             (root/'failed-state.json').write_text(json.dumps({'checks_passed':len(checks),'state':state},indent=2)+'\n')
         assert condition, name + ': ' + json.dumps(state)
         checks.append(name)
-        print('PARTNER_PAUSE_CHECK=' + name)
+        print('PARTNER_SLICE_CHECK=' + name)
     def tick(n=1):
         for _ in range(n):
             until('step_game_mode')
@@ -69,18 +73,18 @@ def run():
         print('PARTNER_PAUSE_TIMEOUT=' + json.dumps({k:val(k) for k in ('gGameStatusPtr->context','StepPauseState','StepPauseDelay','WorldMenuState','gPauseMenuCurrentTab','gPauseTabsCurrentTab','gPausePanelTabs.col','gPlayerStatus.flags')}))
         raise AssertionError('Native frame budget: ' + expression)
     def focus():
-        window = subprocess.check_output(['xdotool','search','--onlyvisible','--pid',str(gdb.selected_inferior().pid)],text=True).splitlines()[0]
-        subprocess.run(['xdotool','windowraise',window],check=True)
-        subprocess.run(['xdotool','windowfocus',window],check=True)
-        assert int(subprocess.check_output(['xdotool','getwindowfocus'],text=True)) == int(window)
+        window = subprocess.check_output(['xdotool','search','--onlyvisible','--pid',str(gdb.selected_inferior().pid)],text=True,env=runtime_env).splitlines()[0]
+        subprocess.run(['xdotool','windowraise',window],check=True,env=runtime_env)
+        subprocess.run(['xdotool','windowfocus',window],check=True,env=runtime_env)
+        assert int(subprocess.check_output(['xdotool','getwindowfocus'],text=True,env=runtime_env)) == int(window)
     def key(name, frames=3):
         focus()
-        subprocess.run(['xdotool','keydown',name],check=True)
+        subprocess.run(['xdotool','keydown',name],check=True,env=runtime_env)
         try:
             for _ in range(frames):
                 until('render_game_mode_backUI')
         finally:
-            subprocess.run(['xdotool','keyup',name],check=True)
+            subprocess.run(['xdotool','keyup',name],check=True,env=runtime_env)
         for _ in range(3):
             until('render_game_mode_backUI')
     def capture(name):
@@ -88,7 +92,7 @@ def run():
         proc = subprocess.Popen(['python3','-c',
             'import json,subprocess,sys,time; time.sleep(0.5); '
             'subprocess.run(["import","-window","root",sys.argv[1]],check=True); '
-            'print(json.dumps({"completed_at":time.monotonic()}))',str(root/(name+'.png'))],stdout=subprocess.PIPE,text=True)
+            'print(json.dumps({"completed_at":time.monotonic()}))',str(root/(name+'.png'))],stdout=subprocess.PIPE,text=True,env=runtime_env)
         point = gdb.Breakpoint('render_game_mode_backUI',temporary=True,internal=True)
         point.silent = True
         point.ignore_count = 180
@@ -120,11 +124,11 @@ def run():
         cycle += 1
         owned = val('Ttyd64PausePartnerHeartHID')
         focus()
-        subprocess.run(['xdotool','keydown','space'],check=True)
+        subprocess.run(['xdotool','keydown','space'],check=True,env=runtime_env)
         try:
             until('pause_partners_cleanup')
         finally:
-            subprocess.run(['xdotool','keyup','space'],check=True)
+            subprocess.run(['xdotool','keyup','space'],check=True,env=runtime_env)
         cmd('finish')
         check('native-pause-heart-cleanup-cycle-' + str(cycle),val('Ttyd64PausePartnerHeartHID') == -1 and (owned < 0 or val(f'get_hud_element({owned})') == 0))
         wait('gGameStatusPtr->context == CONTEXT_WORLD && WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
@@ -163,71 +167,141 @@ def run():
     cmd('call switch_to_partner(1)')
     tick(100)
     wait('wCurrentPartnerId == 1 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
-    open_party()
-    check('off-keyboard-pause-party-keeps-native-no-heart',val('Ttyd64PausePartnerHeartHID') == -1 and val('pause_partners_hp_active()') == 0 and selected() == 1)
-    capture('pause-party-off')
-    close_pause()
-    check('off-native-world-return-preserves-health',hp() == 3 and val('gPlayerData.curPartner') == 1)
-    put('gTtyd64PartnerHPPrototypeEnabled',1)
-    # Native creation is deliberately used before opening the guarded cycle.
-    cmd('call switch_to_partner(2)')
-    tick(100)
-    cmd('call switch_to_partner(1)')
-    tick(100)
-    check('guarded-world-owner-before-pause',val('WorldPartnerID') == 1 and val('ttyd64_partner_hp_display()') == 3)
-    open_party()
-    check('guarded-pause-owns-manual-heart',val('Ttyd64PausePartnerHeartHID') >= 0 and val('get_hud_element(Ttyd64PausePartnerHeartHID)->flags & HUD_ELEMENT_FLAG_MANUAL_RENDER') != 0)
-    check('guarded-selected-goombario-shows-wounded-health',val('pause_partners_hp_active()') != 0 and hp() == 3 and selected() == 1)
-    capture('pause-party-wounded')
-    key('d')
-    wait('gPausePartnersCurrentPartnerIdx == 1')
-    tick(30)
-    check('carousel-other-selection-hides-goombario-hp',selected() == 2 and val('pause_partners_hp_active()') == 0 and val('gPlayerData.curPartner') == 1 and hp() == 3)
-    capture('pause-party-kooper')
-    key('a')
-    wait('gPausePartnersCurrentPartnerIdx == 0')
-    tick(30)
-    check('carousel-back-restores-goombario-health',selected() == 1 and val('pause_partners_hp_active()') != 0 and hp() == 3)
-    key('x')
-    wait('gPausePartnersLevel == 1')
-    check('keyboard-abilities-open-keeps-hp',val('pause_partners_hp_active()') != 0 and val('gWindows[WIN_PAUSE_PARTNERS_MOVELIST].height') == 56)
-    capture('pause-party-abilities')
-    key('s')
-    check('keyboard-abilities-navigate-native-moves',val('gPausePartnersSelectedMove') == 1)
-    key('c')
-    wait('gPausePartnersLevel == 0')
-    check('keyboard-abilities-back-keeps-carousel-hp',val('gPauseMenuCurrentTab') == 4 and val('pause_partners_hp_active()') != 0)
-    assert val('ttyd64_set_partner_hp(1,0)') == 0
-    check('pause-zero-hp-visible-without-changing-world-partner',val('pause_partners_hp_active()') != 0 and hp() == 0 and val('gPlayerData.curPartner') == 1)
-    capture('pause-party-zero')
-    put('gPlayerData.partners[1].level',2)
-    cmd('call ttyd64_reset_partner_hp(1)')
-    assert val('ttyd64_set_partner_hp(1,27)') == 27
-    check('pause-ultra-rank-has-independent-current-and-max',hp() == 27 and val('ttyd64_get_partner_max_hp(1)') == 30 and val('gPlayerData.partners[1].level') == 2)
-    capture('pause-party-ultra')
-    key('c')
-    wait('gPauseMenuCurrentTab == 0')
-    key('a')
-    tick(50)
-    check('keyboard-page-away-leaves-partner-data-alone',val('gPauseTabsCurrentTab') != 3 and hp() == 27)
-    capture('pause-party-page-away')
-    key('d')
-    tick(50)
-    check('keyboard-page-return-preserves-health',val('gPauseTabsCurrentTab') == 3 and hp() == 27)
-    capture('pause-party-page-return')
-    close_pause()
-    check('guarded-unpause-restores-world-hp-owner',val('WorldPartnerID') == 1 and val('ttyd64_partner_hp_display()') == 27 and hp() == 27)
-    capture('pause-party-world-return')
-    put('gTtyd64PartnerHPPrototypeEnabled',0)
-    open_party()
-    check('off-reopen-allocates-no-experimental-heart',val('Ttyd64PausePartnerHeartHID') == -1 and val('pause_partners_hp_active()') == 0 and hp() == 27)
-    capture('pause-party-final-off')
-    close_pause()
-    check('off-final-world-control-and-passive-hp',val('gTtyd64PartnerHPPrototypeEnabled') == 0 and hp() == 27 and val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED') == 0)
+    if 'pause' in phases:
+        open_party()
+        check('off-keyboard-pause-party-keeps-native-no-heart',val('Ttyd64PausePartnerHeartHID') == -1 and val('pause_partners_hp_active()') == 0 and selected() == 1)
+        capture('pause-party-off')
+        close_pause()
+        check('off-native-world-return-preserves-health',hp() == 3 and val('gPlayerData.curPartner') == 1)
+        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        # Native creation is deliberately used before opening the guarded cycle.
+        cmd('call switch_to_partner(2)')
+        tick(100)
+        cmd('call switch_to_partner(1)')
+        tick(100)
+        check('guarded-world-owner-before-pause',val('WorldPartnerID') == 1 and val('ttyd64_partner_hp_display()') == 3)
+        open_party()
+        check('guarded-pause-owns-manual-heart',val('Ttyd64PausePartnerHeartHID') >= 0 and val('get_hud_element(Ttyd64PausePartnerHeartHID)->flags & HUD_ELEMENT_FLAG_MANUAL_RENDER') != 0)
+        check('guarded-selected-goombario-shows-wounded-health',val('pause_partners_hp_active()') != 0 and hp() == 3 and selected() == 1)
+        capture('pause-party-wounded')
+        key('d')
+        wait('gPausePartnersCurrentPartnerIdx == 1')
+        tick(30)
+        check('carousel-other-selection-hides-goombario-hp',selected() == 2 and val('pause_partners_hp_active()') == 0 and val('gPlayerData.curPartner') == 1 and hp() == 3)
+        capture('pause-party-kooper')
+        key('a')
+        wait('gPausePartnersCurrentPartnerIdx == 0')
+        tick(30)
+        check('carousel-back-restores-goombario-health',selected() == 1 and val('pause_partners_hp_active()') != 0 and hp() == 3)
+        key('x')
+        wait('gPausePartnersLevel == 1')
+        check('keyboard-abilities-open-keeps-hp',val('pause_partners_hp_active()') != 0 and val('gWindows[WIN_PAUSE_PARTNERS_MOVELIST].height') == 56)
+        capture('pause-party-abilities')
+        key('s')
+        check('keyboard-abilities-navigate-native-moves',val('gPausePartnersSelectedMove') == 1)
+        key('c')
+        wait('gPausePartnersLevel == 0')
+        check('keyboard-abilities-back-keeps-carousel-hp',val('gPauseMenuCurrentTab') == 4 and val('pause_partners_hp_active()') != 0)
+        assert val('ttyd64_set_partner_hp(1,0)') == 0
+        check('pause-zero-hp-visible-without-changing-world-partner',val('pause_partners_hp_active()') != 0 and hp() == 0 and val('gPlayerData.curPartner') == 1)
+        capture('pause-party-zero')
+        put('gPlayerData.partners[1].level',2)
+        cmd('call ttyd64_reset_partner_hp(1)')
+        assert val('ttyd64_set_partner_hp(1,27)') == 27
+        check('pause-ultra-rank-has-independent-current-and-max',hp() == 27 and val('ttyd64_get_partner_max_hp(1)') == 30 and val('gPlayerData.partners[1].level') == 2)
+        capture('pause-party-ultra')
+        key('c')
+        wait('gPauseMenuCurrentTab == 0')
+        key('a')
+        tick(50)
+        check('keyboard-page-away-leaves-partner-data-alone',val('gPauseTabsCurrentTab') != 3 and hp() == 27)
+        capture('pause-party-page-away')
+        key('d')
+        tick(50)
+        check('keyboard-page-return-preserves-health',val('gPauseTabsCurrentTab') == 3 and hp() == 27)
+        capture('pause-party-page-return')
+        close_pause()
+        check('guarded-unpause-restores-world-hp-owner',val('WorldPartnerID') == 1 and val('ttyd64_partner_hp_display()') == 27 and hp() == 27)
+        capture('pause-party-world-return')
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        open_party()
+        check('off-reopen-allocates-no-experimental-heart',val('Ttyd64PausePartnerHeartHID') == -1 and val('pause_partners_hp_active()') == 0 and hp() == 27)
+        capture('pause-party-final-off')
+        close_pause()
+        check('off-final-world-control-and-passive-hp',val('gTtyd64PartnerHPPrototypeEnabled') == 0 and hp() == 27 and val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED') == 0)
+    if 'world-items' in phases:
+        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        put('gPlayerData.partners[1].level',0)
+        cmd('call ttyd64_reset_partner_hp(1)')
+        put('gPlayerData.curHP',2)
+        def inventory(item='ITEM_MUSHROOM'):
+            for i in range(10):
+                put(f'gPlayerData.invItems[{i}]',val(item) if i < 2 else 0)
+        def item_count():
+            return sum(val(f'gPlayerData.invItems[{i}]') != 0 for i in range(10))
+        def menu_ready(kind):
+            wait(f'WorldMenuState == 3 && WorldMenuType == {kind} && gPopupState == POPUP_STATE_CHOOSING')
+            tick(15)
+        def open_items():
+            key('Left')
+            menu_ready(1)
+        def open_recipient():
+            open_items()
+            key('x')
+            menu_ready(3)
+        def consume(row):
+            if row:
+                key('s')
+            assert val('PopupMenu_SelectedIndex') == row
+            key('x')
+            wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+            tick(30)
+        inventory()
+        assert val('ttyd64_set_partner_hp(1,3)') == 3
+        open_recipient()
+        check('world-recipient-native-menu-identities',val('WorldPopupMenu.numEntries') == 2 and val('WorldPopupMenu.userIndex[0]') == 0 and val('WorldPopupMenu.userIndex[1]') == 1 and item_count() == 2)
+        capture('world-item-recipient')
+        key('c')
+        menu_ready(1)
+        check('world-recipient-cancel-returns-inventory-without-consumption',item_count() == 2 and hp() == 3 and val('gPlayerData.curHP') == 2)
+        key('c')
+        wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+        check('world-recipient-cancel-restores-input-count',val('gPlayerStatus.inputDisabledCount') == 0 and val('gPartnerStatus.inputDisabledCount') == 0)
+        open_recipient()
+        consume(1)
+        check('world-mushroom-heals-goombario-once-only',hp() == 8 and val('gPlayerData.curHP') == 2 and item_count() == 1 and val('gPlayerStatus.inputDisabledCount') == 0)
+        capture('world-item-healed')
+        # Group the remaining item potencies through the same real menu/script.
+        for item, initial, expected in [('ITEM_MUSHROOM',0,5),('ITEM_SUPER_SHROOM',1,10),('ITEM_ULTRA_SHROOM',1,10),('ITEM_DRIED_SHROOM',3,4)]:
+            inventory(item)
+            assert val(f'ttyd64_set_partner_hp(1,{initial})') == initial
+            open_recipient()
+            consume(1)
+            check('world-' + item.lower() + '-potency-zero-or-cap',hp() == expected and val('gPlayerData.curHP') == 2 and item_count() == 1)
+        inventory()
+        assert val('ttyd64_set_partner_hp(1,3)') == 3
+        open_recipient()
+        consume(0)
+        check('world-mario-recipient-retains-native-heal',hp() == 3 and val('gPlayerData.curHP') == 7 and item_count() == 1)
+        cmd('call switch_to_partner(2)')
+        tick(100)
+        inventory()
+        open_recipient()
+        consume(1)
+        check('world-inactive-goombario-heals-without-changing-partner',hp() == 8 and val('wCurrentPartnerId') == 2 and val('gPlayerData.curHP') == 7 and item_count() == 1)
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        put('gPlayerData.curHP',2)
+        inventory()
+        open_items()
+        key('x')
+        wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+        tick(30)
+        check('world-off-item-remains-direct-native-mario-consumption',hp() == 8 and val('gPlayerData.curHP') == 7 and item_count() == 1 and val('WorldMenuType') == 1)
+        capture('world-item-final-off')
     assert save.read_bytes() == original
-    Path(os.environ['PARTNER_SLICE_RESULT']).write_text(json.dumps({'phases_run':['pause'],'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,
-        'limits':'Native keyboard pause/tab/carousel/ability navigation and cleanup/world return. Recruitment, ranks and wounds are controlled. Only Goombario HP; no all-partner UI or source flip/heart artwork parity claim.'},indent=2)+'\n')
-    print('PARTNER_SLICE_PAUSE_PHASE_PASSED=' + str(len(checks)))
+    Path(os.environ['PARTNER_SLICE_RESULT']).write_text(json.dumps({'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,
+        'limits':'Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or ordinary encounter claim.'},indent=2)+'\n')
+    print('PARTNER_SLICE_PHASES_PASSED=' + ','.join(phases) + ':' + str(len(checks)))
     cmd('kill')
 
 

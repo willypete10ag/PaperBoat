@@ -30,6 +30,11 @@ void ttyd64_reset_partner_hp(s32 partnerID);
 // World full-rest/Heart Block consumer; does not enable actor HP combat.
 void ttyd64_fully_restore_partner_hp(void);
 
+// Guarded world shroom recipients; selection lives in the native item script.
+b32 ttyd64_world_item_can_target_partner(s32 itemID);
+b32 ttyd64_world_item_target_menu_active(void);
+s32 ttyd64_use_consumable_on_partner(s32 invSlot, s32 partnerID);
+
 // Only bind eligible normal battles while the prototype is explicitly enabled.
 void ttyd64_partner_hp_begin_battle(void);
 void ttyd64_partner_hp_bind_actor(Actor* actor);

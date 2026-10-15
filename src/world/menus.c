@@ -8,6 +8,8 @@
 #include "pause/pause_common.h"
 #include "world/partners.h"
 #include "world/partner/lakilester.h"
+#include "ttyd64_partner_hp.h"
+#include "message_ids.h"
 
 enum WorldMenuStates {
     WORLD_MENU_STATE_NONE       = 0,
@@ -22,6 +24,7 @@ enum WorldMenuTypes {
     WORLD_MENU_CHANGE_PARTNER   = 0,
     WORLD_MENU_USE_ITEM         = 1,
     WORLD_MENU_PAUSE            = 2,
+    WORLD_MENU_HEAL_TARGET      = 3,
 };
 
 BSS PopupMenu WorldPopupMenu;
@@ -30,6 +33,20 @@ BSS s16 WorldMenuDelay;
 BSS s16 WorldPopupResult;
 BSS s16 OpenMenuDisableCount;
 BSS s16 WorldMenuState;
+static s32 Ttyd64PendingItemSlot;
+static s32 Ttyd64PendingItemMenuIndex;
+
+b32 ttyd64_world_item_target_menu_active(void) {
+    return WorldMenuType == WORLD_MENU_HEAL_TARGET && WorldMenuState != WORLD_MENU_STATE_NONE
+        && gGameStatusPtr->context == CONTEXT_WORLD;
+}
+
+static void reopen_world_popup(void) {
+    gPlayerStatus.flags |= PS_FLAG_PAUSED;
+    disable_player_input();
+    partner_disable_input();
+    WorldMenuState = WORLD_MENU_STATE_OPEN;
+}
 
 extern s32 MenuIndexFromPartnerID[];
 
@@ -156,6 +173,26 @@ s32 setup_partner_popup(PopupMenu* menu) {
         }
     }
     return optionCount;
+}
+
+static void setup_world_heal_target_popup(PopupMenu* menu) {
+    extern HudScript HES_MarioHead;
+
+    menu->ptrIcon[0] = &HES_MarioHead;
+    menu->nameMsg[0] = MSG_Menus_Party_Mario;
+    menu->userIndex[0] = PARTNER_NONE;
+    menu->descMsg[0] = MSG_NONE;
+    menu->ptrIcon[1] = wPartnerHudScripts[PARTNER_GOOMBARIO];
+    menu->nameMsg[1] = gPartnerPopupProperties[PARTNER_GOOMBARIO].nameMsg;
+    menu->userIndex[1] = PARTNER_GOOMBARIO;
+    menu->descMsg[1] = gPartnerPopupProperties[PARTNER_GOOMBARIO].worldDescMsg;
+    menu->enabled[0] = menu->enabled[1] = true;
+    menu->value[0] = menu->value[1] = 0;
+    menu->numEntries = 2;
+    menu->initialPos = 0;
+    menu->popupType = POPUP_MENU_SWITCH_PARTNER;
+    menu->dipMode = 0;
+    menu->titleNumber = 0;
 }
 
 s32 setup_item_popup(PopupMenu* menu) {
@@ -337,6 +374,15 @@ block_17:
             WorldMenuState = WORLD_MENU_STATE_NONE;
             enable_player_input();
             partner_enable_input();
+            if (WorldMenuType == WORLD_MENU_HEAL_TARGET
+                && (WorldPopupResult == POPUP_RESULT_CANCEL || WorldPopupResult == POPUP_RESULT_SWAP_MENU)) {
+                popup->numEntries = setup_item_popup(popup);
+                popup->popupType = POPUP_MENU_USE_ITEM;
+                popup->initialPos = Ttyd64PendingItemMenuIndex;
+                WorldMenuType = WORLD_MENU_USE_ITEM;
+                reopen_world_popup();
+                return;
+            }
             if (WorldPopupResult == POPUP_RESULT_SWAP_MENU) {
                 if ((setup_partner_popup(popup) == 0) || (setup_item_popup(popup) == 0)) {
                     WorldPopupResult = POPUP_RESULT_CANCEL;
@@ -361,10 +407,25 @@ block_17:
                         switch_to_partner(popup->userIndex[WorldPopupResult - 1]);
                         break;
                     case WORLD_MENU_USE_ITEM:
+                        if (ttyd64_world_item_can_target_partner(playerData->invItems[popup->userIndex[WorldPopupResult - 1]])) {
+                            Ttyd64PendingItemMenuIndex = WorldPopupResult - 1;
+                            Ttyd64PendingItemSlot = popup->userIndex[Ttyd64PendingItemMenuIndex];
+                            setup_world_heal_target_popup(popup);
+                            WorldMenuType = WORLD_MENU_HEAL_TARGET;
+                            reopen_world_popup();
+                            return;
+                        }
                         use_consumable(popup->userIndex[WorldPopupResult - 1]);
 #ifndef VERSION_JP
                         gOverrideFlags |= GLOBAL_OVERRIDES_CANT_PICK_UP_ITEMS;
 #endif
+                        break;
+                    case WORLD_MENU_HEAL_TARGET:
+                        if (popup->userIndex[WorldPopupResult - 1] == PARTNER_NONE) {
+                            use_consumable(Ttyd64PendingItemSlot);
+                        } else {
+                            ttyd64_use_consumable_on_partner(Ttyd64PendingItemSlot, popup->userIndex[WorldPopupResult - 1]);
+                        }
                         break;
                 }
             }

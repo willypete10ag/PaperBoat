@@ -174,16 +174,29 @@ static void popup_draw_goombario_hp(s32 entry, s32 x, s32 y, s32 palette) {
     };
     static const u8 slash[] = { MSG_CHAR_FORWARDSLASH, MSG_CHAR_READ_END };
     s32 partnerID = gPopupMenu->userIndex[entry];
+    b32 mario = ttyd64_world_item_target_menu_active() && partnerID == PARTNER_NONE;
 
-    if (partnerID != PARTNER_GOOMBARIO) {
+    if (!mario && partnerID != PARTNER_GOOMBARIO) {
         return;
     }
     draw_msg((intptr_t)label, x + 81, y - 2, PopupMenu_Alpha, palette, DRAW_MSG_STYLE_MENU);
-    draw_number(ttyd64_get_partner_hp(partnerID), x + 109, y, DRAW_NUMBER_CHARSET_THIN,
+    draw_number(mario ? gPlayerData.curHP : ttyd64_get_partner_hp(partnerID), x + 109, y, DRAW_NUMBER_CHARSET_THIN,
                 palette, PopupMenu_Alpha, DRAW_NUMBER_STYLE_MONOSPACE_RIGHT);
     draw_msg((intptr_t)slash, x + 112, y - 2, PopupMenu_Alpha, palette, DRAW_MSG_STYLE_MENU);
-    draw_number(ttyd64_get_partner_max_hp(partnerID), x + 123, y, DRAW_NUMBER_CHARSET_THIN,
+    draw_number(mario ? gPlayerData.curMaxHP : ttyd64_get_partner_max_hp(partnerID), x + 123, y, DRAW_NUMBER_CHARSET_THIN,
                 palette, PopupMenu_Alpha, DRAW_NUMBER_STYLE_MONOSPACE);
+}
+
+static b32 popup_draw_heal_target_title(s32 baseX, s32 baseY) {
+    static const u8 title[] = {
+        MSG_CHAR_UPPER_U, MSG_CHAR_LOWER_S, MSG_CHAR_LOWER_E,
+        MSG_CHAR_READ_SPACE, MSG_CHAR_LOWER_O, MSG_CHAR_LOWER_N, MSG_CHAR_READ_END
+    };
+    if (!ttyd64_world_item_target_menu_active()) {
+        return false;
+    }
+    draw_msg((intptr_t)title, baseX + 31, baseY + 2, PopupMenu_Alpha, MSG_PAL_34, DRAW_MSG_STYLE_MENU);
+    return true;
 }
 
 void hide_popup_menu(void) {
@@ -1895,6 +1908,9 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
 
 #if VERSION_PAL
 void popup_draw_title_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32 height, s32 opacity, s32 darkening) {
+    if (popup_draw_heal_target_title(baseX, baseY)) {
+        return;
+    }
     draw_msg(gPopupMenu->unk_330, baseX + gPopupMenu->unk_334, baseY + 2, PopupMenu_Alpha, gPopupMenu->unk_338 == 0 ? MSG_PAL_32 : MSG_PAL_34, DRAW_MSG_STYLE_MENU);
 
     switch (gPopupMenu->popupType) {
@@ -1949,6 +1965,9 @@ void popup_draw_title_content(s32* userData, s32 baseX, s32 baseY, s32 width, s3
 void popup_draw_title_content(
     s32* userData, s32 baseX, s32 baseY, s32 width, s32 height, s32 opacity, s32 darkening)
 {
+    if (popup_draw_heal_target_title(baseX, baseY)) {
+        return;
+    }
     switch (gPopupMenu->popupType) {
         case POPUP_MENU_USE_ITEM:
         case POPUP_MENU_THROW_AWAY_ITEM:
