@@ -51,6 +51,8 @@ b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID);
 s32 ttyd64_partner_combat_heal(Actor* actor, s32 amount);
 
 // Unsaved presentation state; do not reuse legacy partner/status-bar fields.
+void ttyd64_partner_hp_world_bind(s32 partnerID);
+void ttyd64_partner_hp_world_unbind(void);
 void ttyd64_partner_hp_sync_display(void);
 void ttyd64_partner_hp_update_display(void);
 s32 ttyd64_partner_hp_display(void);

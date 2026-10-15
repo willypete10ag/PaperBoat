@@ -1437,8 +1437,8 @@ void update_status_bar(void) {
         star_power_shimmer_draw();
     }
 
-    // First NewStatsMenu partner-HP row, beneath the existing native HUD. Keep
-    // native configurable bars and their star-power layout intact for now.
+    // Guarded NewStatsMenu partner-HP row for world/battle, beneath native HUD.
+    // Keep native configurable bars and their star-power layout intact for now.
     // hpTimesHID is already scratch space for per-digit HUD script switching.
     s32 partnerHP = ttyd64_partner_hp_display();
     if (partnerHP >= 0 && port_status_bar_show(PORT_STATUS_BAR_HP)

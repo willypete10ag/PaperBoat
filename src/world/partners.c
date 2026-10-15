@@ -1,4 +1,5 @@
 #include "common_structs.h"
+#include "ttyd64_partner_hp.h"
 #include "world/partners.h"
 #include "macros.h"
 
@@ -618,9 +619,11 @@ void create_partner_npc(void) {
     }
 
     TweesterTouchingPartner = nullptr;
+    ttyd64_partner_hp_world_bind(wCurrentPartnerId);
 }
 
 void partner_free_npc(void) {
+    ttyd64_partner_hp_world_unbind();
     free_npc_by_index(wPartnerNpcIndex);
 }
 
@@ -1003,6 +1006,7 @@ void partner_reset_data(void) {
     PlayerStatus* playerStatus = &gPlayerStatus;
     s32 currentPartner = gPlayerData.curPartner;
 
+    ttyd64_partner_hp_world_unbind();
     mem_clear(&gPartnerStatus, sizeof(gPartnerStatus));
     get_worker(create_worker_frontUI(_use_partner_ability, nullptr));
 
@@ -1034,6 +1038,7 @@ void partner_reset_data(void) {
 void partner_initialize_data(void) {
     PartnerStatus* partnerStatus = &gPartnerStatus;
 
+    ttyd64_partner_hp_world_unbind();
     wCurrentPartnerId = 0;
     D_8010CFE0 = 0;
     NextPartnerCommand = PARTNER_CMD_NONE;

@@ -20,7 +20,9 @@ static Actor* BoundPartnerActor;
 static s32 BoundPartnerID = PARTNER_NONE;
 static u16 DeathHandledMask;
 static s32 DeathScriptID;
+static s32 WorldPartnerID = PARTNER_NONE;
 static Actor* DisplayPartnerActor;
+static b32 DisplayPartnerInWorld;
 static s32 DisplayPartnerHP = -1;
 static s32 DisplayPartnerHPTimer;
 
@@ -73,6 +75,7 @@ static void clear_binding(void) {
     BoundPartnerID = PARTNER_NONE;
     DeathScriptID = 0;
     DisplayPartnerActor = nullptr;
+    DisplayPartnerInWorld = false;
     DisplayPartnerHP = -1;
     DisplayPartnerHPTimer = 0;
 }
@@ -85,6 +88,7 @@ void ttyd64_partner_hp_begin_battle(void) {
 void ttyd64_partner_hp_new_game(void) {
     ttyd64_partner_hp_init(gCurrentSaveFile.shipSaveData.partnerHP, &gPlayerData);
     gTtyd64PartnerHPPrototypeEnabled = false;
+    WorldPartnerID = PARTNER_NONE;
     ttyd64_partner_hp_begin_battle();
 }
 
@@ -309,16 +313,39 @@ s32 ttyd64_partner_combat_heal(Actor* actor, s32 amount) {
     return recovered;
 }
 
+static b32 can_display_world_hp(void) {
+    return gTtyd64PartnerHPPrototypeEnabled && gGameStatusPtr->context == CONTEXT_WORLD
+        && gGameStatusPtr->demoState == DEMO_STATE_NONE
+        && !(gPlayerStatusPtr->animFlags & PA_FLAG_USING_PEACH_PHYSICS)
+        && WorldPartnerID == PARTNER_GOOMBARIO && gPlayerData.curPartner == PARTNER_GOOMBARIO
+        && gPlayerData.partners[PARTNER_GOOMBARIO].enabled;
+}
+
+void ttyd64_partner_hp_world_bind(s32 partnerID) {
+    WorldPartnerID = partnerID;
+    // PartnersHP.patch hook 83DF0 snaps the displayed value when a world
+    // partner is created. The selected identity alone does not prove ownership.
+    ttyd64_partner_hp_sync_display();
+}
+
+void ttyd64_partner_hp_world_unbind(void) {
+    WorldPartnerID = PARTNER_NONE;
+    ttyd64_partner_hp_sync_display();
+}
+
 void ttyd64_partner_hp_sync_display(void) {
     Actor* partner = gBattleStatus.partnerActor;
-    DisplayPartnerActor = ttyd64_partner_combat_active(partner) ? partner : nullptr;
-    DisplayPartnerHP = DisplayPartnerActor ? ttyd64_get_partner_hp(PARTNER_GOOMBARIO) : -1;
+    DisplayPartnerInWorld = can_display_world_hp();
+    DisplayPartnerActor = !DisplayPartnerInWorld && ttyd64_partner_combat_active(partner) ? partner : nullptr;
+    DisplayPartnerHP = DisplayPartnerInWorld || DisplayPartnerActor ? ttyd64_get_partner_hp(PARTNER_GOOMBARIO) : -1;
     DisplayPartnerHPTimer = 0;
 }
 
 void ttyd64_partner_hp_update_display(void) {
     Actor* partner = gBattleStatus.partnerActor;
-    if (!ttyd64_partner_combat_active(partner) || DisplayPartnerActor != partner) {
+    b32 inWorld = can_display_world_hp();
+    if ((!inWorld && !ttyd64_partner_combat_active(partner)) || DisplayPartnerInWorld != inWorld
+        || (!inWorld && DisplayPartnerActor != partner)) {
         ttyd64_partner_hp_sync_display();
         return;
     }
@@ -334,5 +361,11 @@ void ttyd64_partner_hp_update_display(void) {
 }
 
 s32 ttyd64_partner_hp_display(void) {
-    return ttyd64_partner_combat_active(gBattleStatus.partnerActor) ? DisplayPartnerHP : -1;
+    b32 inWorld = can_display_world_hp();
+    if (DisplayPartnerInWorld != inWorld
+        || (!inWorld && (!ttyd64_partner_combat_active(gBattleStatus.partnerActor)
+            || DisplayPartnerActor != gBattleStatus.partnerActor))) {
+        return -1;
+    }
+    return DisplayPartnerHP;
 }

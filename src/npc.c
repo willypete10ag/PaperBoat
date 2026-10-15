@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_partner_hp.h"
 #include "npc.h"
 #include "entity.h"
 #include "effects.h"
@@ -60,6 +61,7 @@ void mtx_ident_mirror_y(Matrix4f mtx) {
 void clear_npcs(void) {
     s32 i;
 
+    ttyd64_partner_hp_world_unbind();
     if (gGameStatusPtr->context == CONTEXT_WORLD) {
         gCurrentNpcListPtr = &gWorldNpcList;
     } else {

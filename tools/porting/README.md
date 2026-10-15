@@ -1,5 +1,44 @@
 # Native TTYD64 integration checks
 
+## Guarded Goombario world HP
+
+`partner_world_hud_gdb.py` extends the existing battle HP row into the world for
+Goombario only, under the same default-off development flag. Active source:
+`NewStatsMenu.patch` hook 81C9C ($PartnerHP_AnimationTimer) and
+`PartnersHP.patch` hook 83DF0 (snap displayed HP on partner creation). The full
+source stats layout and other partners' UI remain later work.
+
+```bash
+source /workspace/.paperboat-setup/activate.sh
+cd /workspace/PaperBoat/build/ninja-debug
+export DISPLAY=:97 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1
+export XDG_CACHE_HOME=/workspace/.paperboat-setup/cache DEBUGINFOD_URLS=
+export SHIP_HOME=/workspace/.paperboat-setup/partner-world-hud/runtime
+mkdir -p "$SHIP_HOME/saves"
+cp -n /workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json "$SHIP_HOME/saves/file3.json"
+cp -n /workspace/.paperboat-setup/partner-combat/runtime/paperboat.cfg.json "$SHIP_HOME/paperboat.cfg.json"
+export WORLD_HUD_RESULT=/workspace/.paperboat-setup/partner-world-hud/acceptance.json
+timeout 300s gdb -q -batch -x /workspace/PaperBoat/tools/porting/partner_world_hud_gdb.py ./Paperboat
+```
+
+The strict disposable copy is checked and restored after FIO. Native world
+switch APIs choose Goombario/Kooper/none; full stock animation scripts run.
+Map-change APIs exercise actual teardown/reset/recreation. API setup supplies
+wounds/ranks and full-rest; Peach/demo/context checks are synthetic guard
+branches. Rendering stays free in non-stop GDB; independently inspect captures.
+This is not partner-popup input, a normal upgrade or natural battle-exit test.
+World ownership is invalidated by NPC clear/reset/free and recreated at native
+spawn. The row follows current Goombario, animates recovery, supports zero HP,
+and remains hidden when put away, another partner is current, the context is
+ineligible or the flag is off. No new save/layout fields or HUD assets.
+
+Final world acceptance passes **25 checks**, with 51 lethal-combat, 67 foundation
+and all 431 utility checks passing. Cadence is measured in native UI passes,
+which may be fewer than simulation steps when GDB causes frame skipping.
+Fixture recruitment grants occur after end-file-select restores PlayerData.
+Evidence: coordination `docs/handoffs/2026-10-14-goombario-world-hp.md` and
+`results/partner-world-hud/`.
+
 ## World full recovery and Heart Blocks
 
 `partner_world_heal_gdb.py` checks the passive partner HP model through native
