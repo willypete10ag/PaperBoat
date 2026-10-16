@@ -67,7 +67,10 @@ automated route remains unvalidated until reproduced.
 
 - Shared acceptance covers keyboard contact, Mario/partner swap menus, a
   controlled zero-HP swap-back, native keyboard flee, world healing, pause and
-  save/load. It does not establish a controller-driven victory or full campaign.
+  save/load. The shared victory route also selects Headbonk/Jump with keyboard
+  input, defeats the native Goombas, awards star points/win count, returns to
+  the world and saves through the village Save Block. Full campaign remains
+  unfinished.
 - Basic Goombas now use source front/back choice under the Goombario guard.
   Z exchanges physical positions; spending a turn preserves them. A living front
   Goombario starts the next round. Actual Goomba hits, death and one Life Shroom
@@ -76,10 +79,32 @@ automated route remains unvalidated until reproduced.
 - Without Life Shroom, front Goombario death moves Mario forward and skips the
   unavailable partner turn in later rounds. With Life Shroom, Goombario retains
   the front slot and revives. Full source yaw/effect choreography is unfinished.
-  Ordinary-input victory and failed-flee presentation are not yet accepted.
+  Failed-flee presentation is not yet scenario-accepted.
 - Only Goombario HP and four shroom-family recipient paths are supported here.
   Full source choreography/artwork, other foods, other partners, new moves,
   partner badges and campaign conversion remain unfinished.
 - World shrooms can heal zero HP, matching source; ordinary battle food cannot.
   Life Shroom remains automatic battle recovery. Save compatibility is retained,
   but these isolated test saves are not a supported TTYD64 campaign format.
+
+## Shared developer acceptance
+
+`partner_playable_slice_gdb.py` reuses one native lifecycle/input driver. Select
+`PARTNER_SLICE_PHASES=victory` for the living-front route or `victory-dead` for
+natural no-item partner death followed by Mario finishing the battle. They may
+be combined in one process. Existing pause/world-items/battle/team phases remain.
+
+The acceptance runtime is strictly
+`/workspace/.paperboat-setup/partner-playable-slice/runtime`, with disposable
+slot 3 matching the private FP Drain seed before launch. Use the prepared shell,
+run GDB from `build/ninja-debug`, supply DISPLAY, SHIP_HOME, software GL/dummy
+audio and PARTNER_SLICE_RESULT, then source this Python driver with `gdb -batch
+-x`. Run one fixture at a time on the display. This is developer acceptance,
+not an additional way to launch a player session.
+
+Setup controls map/position, recruitment/progression, initial wounds/items and
+a non-level-up reward boundary. Targets, attack damage, enemy defeat, victory,
+rewards and Save Block interaction are native. Reload explicitly calls native
+FIO; this does not claim a fresh-process/title restart or level-up validation.
+Exact disposable save bytes are restored in a finally block. Screenshots and
+logs stay private; only numeric results belong in the coordination repository.

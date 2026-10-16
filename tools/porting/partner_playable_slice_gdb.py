@@ -1,4 +1,4 @@
-"""Shared playable-slice driver: pause, world-recipient and ordinary-contact battle phases.
+"""Shared native route: menus, recipients, contact, team combat, victory and saving.
 
 Strict disposable save; wounds/ranks/recruitment are controlled setup.
 """
@@ -47,8 +47,10 @@ def run():
     assert original == Path('/workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json').read_bytes()
     runtime_env = os.environ.copy()
     assert runtime_env.get('DISPLAY'), 'Set DISPLAY to the owned test server'
+    cmd('set environment DISPLAY ' + runtime_env['DISPLAY'])
+    print('PARTNER_SLICE_DISPLAY=' + runtime_env['DISPLAY'])
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -104,6 +106,7 @@ def run():
                 until('render_game_mode_backUI')
             else:
                 raise AssertionError('Animated partner HP did not settle before capture')
+        capture_start = {k:val(k) for k in ('gGameStatusPtr->context','gBattleState','gBattleSubState','gEncounterState')}
         focus()
         proc = subprocess.Popen(['python3','-c',
             'import json,subprocess,sys,time; time.sleep(0.5); '
@@ -119,7 +122,7 @@ def run():
         stopped[0].switch()
         timing = json.loads(proc.communicate(timeout=5)[0])
         assert proc.returncode == 0 and timing['completed_at'] < stopped_at
-        captures.append({'capture':name,'captured_while_running':True,'hp':hp(),'max_hp':val('ttyd64_get_partner_max_hp(1)'),
+        captures.append({'capture':name,'captured_while_running':True,'start_state':capture_start,'hp':hp(),'max_hp':val('ttyd64_get_partner_max_hp(1)'),
                          'selected':selected(),'panel':val('gPauseMenuCurrentTab'),'active':val('pause_partners_hp_active()'),
                          'context':val('gGameStatusPtr->context'),'encounter_state':val('gEncounterState'),'display_hp':val('ttyd64_partner_hp_display()')})
     def open_party():
@@ -206,8 +209,8 @@ def run():
             walk_inputs += 1
         wait('gGameStatusPtr->context == CONTEXT_BATTLE && gBattleState == BATTLE_STATE_PLAYER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING',900)
         check('keyboard-contact-enters-guarded-native-battle',walk_inputs > 0 and val('gGameStatusPtr->debugEnemyContact') == 0 and val('gBattleStatus.partnerActor->curHP') == 3 and val('ttyd64_partner_combat_active(gBattleStatus.partnerActor)') == 1)
-    def strategies():
-        index = next(i for i in range(val('WheelOptionCount')) if val(f'WheelOptionSubmenu[{i}]') == val('BTL_MENU_TYPE_STRATEGIES'))
+    def wheel(kind):
+        index = next(i for i in range(val('WheelOptionCount')) if val(f'WheelOptionSubmenu[{i}]') == val(kind))
         for _ in range(10):
             current = val('BattleMenu_CurPos + BattleMenu_HomePos')
             if current == index:
@@ -216,6 +219,8 @@ def run():
             tick(12)
         assert val('BattleMenu_CurPos + BattleMenu_HomePos') == index
         key('x')
+    def strategies():
+        wheel('BTL_MENU_TYPE_STRATEGIES')
         wait('gBattleSubState == 201 && StratsMenuState == BTL_SUBMENU_STATE_CHOOSING')
         tick(10)
     def strategy(kind):
@@ -238,6 +243,12 @@ def run():
         key('c')
         wait('gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
         tick(15)
+    def spend_turn():
+        state = val('gBattleState')
+        strategies()
+        strategy('BTL_MENU_TYPE_DO_NOTHING')
+        wait(f'gBattleState != {state}',600)
+        wait('(gBattleState == BATTLE_STATE_PLAYER_MENU || gBattleState == BATTLE_STATE_PARTNER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
     def flee_battle():
         strategies()
         strategy('BTL_MENU_TYPE_RUN_AWAY')
@@ -535,12 +546,6 @@ def run():
                     team_trace.append({'event':'damage-store','before':model_hp(),'actor_hp':val('actor->curHP')})
                 return False
         trace_points = [Trace('Ttyd64GoombaChooseTarget','target'),Trace('ttyd64_partner_combat_use_life_shroom','life'),Trace('ttyd64_partner_combat_mark_dead','death'),Trace('ttyd64_partner_combat_store_hp','damage')]
-        def spend_turn():
-            state = val('gBattleState')
-            strategies()
-            strategy('BTL_MENU_TYPE_DO_NOTHING')
-            wait(f'gBattleState != {state}',600)
-            wait('(gBattleState == BATTLE_STATE_PLAYER_MENU || gBattleState == BATTLE_STATE_PARTNER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
         spend_turn()
         check('team-automatic-next-actor-keeps-partner-in-front',val('gBattleState') == val('BATTLE_STATE_PLAYER_MENU') and val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK') != 0 and val('gBattleStatus.partnerActor->homePos.x > gBattleStatus.playerActor->homePos.x') != 0)
         for _ in range(12):
@@ -573,9 +578,125 @@ def run():
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
         for point in trace_points:
             point.delete()
+    for victory_phase in [phase for phase in phases if phase in ('victory', 'victory-dead')]:
+        enter_road_battle()
+        # Seed a non-level-up reward boundary; attack/HP/outcome/rewards are
+        # observed, never forced. Basic attacks intentionally omit timed A.
+        put('gPlayerData.starPoints',0)
+        before_wins = val('gPlayerData.battlesWon')
+        before_items = item_count()
+        key('z')
+        wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
+        dead_victory = victory_phase == 'victory-dead'
+        if dead_victory:
+            assert val('ttyd64_set_partner_hp(1,1)') == 1
+            for i in range(10):
+                put(f'gPlayerData.invItems[{i}]',0)
+            before_items = 0
+            for _ in range(16):
+                if hp() == 0:
+                    break
+                spend_turn()
+            check('victory-natural-death-before-mario-finishes',hp() == 0 and val('gBattleStatus.partnerActor->rot.x') == 86 and val('gBattleState') == val('BATTLE_STATE_PLAYER_MENU'))
+        victory_trace = []
+        class VictoryTrace(gdb.Breakpoint):
+            def __init__(self):
+                super().__init__('btl_state_update_celebration', internal=True)
+                self.silent = True
+            def stop(self):
+                if not victory_trace:
+                    victory_trace.append({'hp':hp(),'rotation':val('gBattleStatus.partnerActor->rot.x'),
+                        'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK')),
+                        'partner_ahead':bool(val('gBattleStatus.partnerActor->homePos.x > gBattleStatus.playerActor->homePos.x')),
+                        'reward':val('gBattleStatus.totalStarPoints')})
+                return False
+        victory_point = VictoryTrace()
+        attacks = []
+        for _ in range(16):
+            if val('gGameStatusPtr->context') != val('CONTEXT_BATTLE') or val('gBattleState') == val('BATTLE_STATE_CELEBRATION'):
+                break
+            partner_turn = val('gBattleState') == val('BATTLE_STATE_PARTNER_MENU')
+            wheel('BTL_MENU_TYPE_ABILITY' if partner_turn else 'BTL_MENU_TYPE_JUMP')
+            if partner_turn:
+                wait('gBattleSubState == 11 && MovesMenuState == BTL_SUBMENU_STATE_CHOOSING')
+                key('x')
+            wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+            attacks.append({'actor':256 if partner_turn else 0,'move':val('gBattleStatus.selectedMoveID')})
+            key('x')
+            wait('gBattleState != BATTLE_STATE_SELECT_TARGET')
+            wait('(gBattleState == BATTLE_STATE_PLAYER_MENU || gBattleState == BATTLE_STATE_PARTNER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING || gBattleState == BATTLE_STATE_CELEBRATION',2400)
+        # State transition precedes the first celebration update callback.
+        if not victory_trace:
+            tick()
+        check('victory-ordinary-attacks-defeat-native-goombas',bool(victory_trace) and (dead_victory or any(a['actor'] == 256 for a in attacks)) and any(a['actor'] == 0 for a in attacks))
+        check('victory-dead-partner-upright-without-revival' if dead_victory else 'victory-living-front-partner-keeps-position-and-upright-pose',victory_trace[0]['rotation'] == 0 and (victory_trace[0]['hp'] == 0 and not victory_trace[0]['player_in_back'] if dead_victory else victory_trace[0]['hp'] > 0 and victory_trace[0]['player_in_back'] and victory_trace[0]['partner_ahead']))
+        capture(victory_phase + '-celebration')
+        wait('gGameStatusPtr->context == CONTEXT_WORLD && gEncounterState == ENCOUNTER_STATE_NEUTRAL && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)',2400)
+        put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
+        reward = victory_trace[0]['reward']
+        check('victory-native-star-points-and-win-count-awarded-once',reward > 0 and val('gPlayerData.starPoints') == reward and val('gPlayerData.battlesWon') == before_wins + 1 and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_WON'))
+        remaining_hp = hp()
+        check('victory-world-owns-wounded-health-and-unused-items',(remaining_hp == 0 if dead_victory else remaining_hp > 0) and val('WorldPartnerID') == 1 and val('ttyd64_partner_hp_display()') == remaining_hp and item_count() == before_items)
+        # Controlled map/position setup; the block hit, prompt and save itself
+        # are driven by ordinary input. Keep the strict disposable slot guard.
+        for field, amount in [('areaID',0),('mapID',1),('entryID',0)]:
+            put('gGameStatusPtr->' + field,amount)
+        cmd('call set_game_mode(GAME_MODE_CHANGE_MAP)')
+        until('state_step_world')
+        tick(100)
+        wait('gGameStatusPtr->context == CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+        for axis, amount in [('x',250),('y',0),('z',75)]:
+            put('gPlayerStatus.pos.' + axis,amount)
+        tick(20)
+        wait('gPlayerStatus.actionState == ACTION_STATE_IDLE')
+        capture(victory_phase + '-save-ready')
+        saves = []
+        class SaveTrace(gdb.Breakpoint):
+            def __init__(self):
+                super().__init__('entity_SaveBlock_save_data',internal=True)
+                self.silent = True
+            def stop(self):
+                saves.append({'hp':hp(),'star_points':val('gPlayerData.starPoints'),'slot':val('gGameStatusPtr->saveSlot')})
+                return False
+        save_point = SaveTrace()
+        try:
+            assert val('gGameStatusPtr->saveSlot') == 3
+            # A world jump needs a sustained hold; the short menu-confirm tap
+            # can release below the block. Do not alter jump physics/position.
+            key('x',18)
+            for _ in range(30):
+                if saves:
+                    break
+                key('x')
+                tick(25)
+            print('PARTNER_SAVE_OBSERVATION=' + json.dumps({'saves':saves,'position':{axis:val('gPlayerStatus.pos.'+axis) for axis in ('x','y','z')},'action':val('gPlayerStatus.actionState'),'input_disabled':val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED'),'tutorial_closed':val('SaveBlockTutorialPrinterClosed'),'result_closed':val('SaveBlockResultPrinterClosed')}))
+            if not saves:
+                capture(victory_phase + '-save-failure')
+            check('victory-keyboard-save-block-writes-disposable-slot',len(saves) == 1 and saves[0]['slot'] == 3 and saves[0]['hp'] == remaining_hp and save.read_bytes() != original)
+            for _ in range(12):
+                if not val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED'):
+                    break
+                key('x')
+                tick(20)
+            check('victory-save-block-releases-world-input',val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED') == 0 and hp() == remaining_hp)
+            disturbed_hp = 4 if remaining_hp == 0 else 0
+            assert val(f'ttyd64_set_partner_hp(1,{disturbed_hp})') == disturbed_hp
+            put('gPlayerData.starPoints',0)
+            assert val('fio_load_game(3)') == 1
+            check('victory-native-save-load-preserves-reward-and-health',hp() == remaining_hp and val('gPlayerData.starPoints') == reward and val('gPlayerData.battlesWon') == before_wins + 1)
+        finally:
+            save_point.delete()
+            save.write_bytes(original)
+        put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
+        cmd('call open_status_bar_quickly()')
+        tick(30)
+        capture(victory_phase + '-world-return')
+        victory_point.delete()
+        team_trace.extend([{'event':victory_phase,'attacks':attacks,'saves':saves,**victory_trace[0]}])
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
     assert save.read_bytes() == original
     Path(os.environ['PARTNER_SLICE_RESULT']).write_text(json.dumps({'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
-        'limits':'Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
+        'limits':'Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
     print('PARTNER_SLICE_PHASES_PASSED=' + ','.join(phases) + ':' + str(len(checks)))
     cmd('kill')
 
