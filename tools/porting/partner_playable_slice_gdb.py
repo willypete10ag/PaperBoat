@@ -53,8 +53,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','team','victory','victory-dead'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -71,7 +71,7 @@ def run():
                  'heart_id':val('Ttyd64PausePartnerHeartHID'),'world_owner':val('WorldPartnerID'),
                  'battle_state':val('gBattleState'),'battle_substate':val('gBattleSubState'),
                  'encounter_state':val('gEncounterState'),'combat_partner':val('gPlayerData.curPartner'),'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK'))}
-        if 'statuses' in phases and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
+        if ({'statuses','recovery'} & set(phases)) and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
             state['partner_status'] = {name:val('gBattleStatus.partnerActor->'+name) for name in ('debuff','debuffDuration','staticStatus','staticDuration','transparentStatus','transparentDuration','stoneStatus','stoneDuration','koStatus','koDuration')}
             state['partner_status']['pillar_owned'] = bool(val('gBattleStatus.partnerActor->icePillarEffect'))
             state['partner_status']['turn_used'] = bool(val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
@@ -570,6 +570,120 @@ def run():
         capture('battle-route-world-return')
         check('route-final-capture-remains-in-world',val('gGameStatusPtr->context') == val('CONTEXT_WORLD') and val('gEncounterState') == val('ENCOUNTER_STATE_NEUTRAL'))
         put('gTtyd64PartnerHPPrototypeEnabled',0)
+    if 'recovery' in phases:
+        # Recruitment, attacks, statuses and progression are controlled setup;
+        # item targets/payment, rounds and Refresh run through native keyboard UI.
+        put('gPlayerData.maxStarPower',1)
+        put('gPlayerData.starPower',256)
+        enter_road_battle()
+        actor = 'gBattleStatus.partnerActor'
+        def reaction_done():
+            wait('!does_script_exist(gBattleStatus.partnerActor->handleEventScriptID) && !does_script_exist(gBattleStatus.enemyActors[0]->handleEventScriptID)',1800)
+            tick(15)
+        def attack(element='DAMAGE_TYPE_UNBLOCKABLE'):
+            put('gBattleStatus.curTargetID',val('ACTOR_PARTNER'))
+            put('gBattleStatus.curTargetPart',1)
+            put('gBattleStatus.curAttackDamage',2)
+            put('gBattleStatus.curAttackElement',val(element))
+            put('gBattleStatus.curAttackStatus',0)
+            put('gBattleStatus.curAttackEventSuppression',0)
+            cmd('set variable gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS')
+        assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+        val(f'inflict_status({actor},STATUS_KEY_TRANSPARENT,4)')
+        tick(3)
+        attack()
+        check('recovery-transparent-test-and-damage-miss',val('calc_enemy_test_target(gBattleStatus.enemyActors[0])') == val('HIT_RESULT_MISS') and val('calc_enemy_damage_target(gBattleStatus.enemyActors[0])') == val('HIT_RESULT_MISS') and hp() == 10)
+        cmd(f'call ttyd64_partner_status_clear({actor})')
+        tick(15)
+        put('gBattleStatus.enemyActors[0]->curHP',10)
+        val(f'inflict_status({actor},STATUS_KEY_STATIC,4)')
+        tick(3)
+        attack()
+        check('recovery-static-enemy-test-detects-contact',val('calc_enemy_test_target(gBattleStatus.enemyActors[0])') == val('HIT_RESULT_HIT_STATIC'))
+        result = val('calc_enemy_damage_target(gBattleStatus.enemyActors[0])')
+        reaction_done()
+        check('recovery-static-contact-retaliates-one-hp',result == val('HIT_RESULT_BACKFIRE') and val('gBattleStatus.enemyActors[0]->curHP') == 9 and hp() == (9 if partner_id == 2 else 8) and val(f'{actor}->staticDuration') == 4)
+        attack('DAMAGE_TYPE_UNBLOCKABLE | DAMAGE_TYPE_NO_CONTACT')
+        val('calc_enemy_damage_target(gBattleStatus.enemyActors[0])')
+        reaction_done()
+        check('recovery-static-no-contact-does-not-retaliate',val('gBattleStatus.enemyActors[0]->curHP') == 9 and hp() == (8 if partner_id == 2 else 6))
+        cmd(f'call ttyd64_partner_status_clear({actor})')
+        tick(15)
+        val(f'inflict_status({actor},STATUS_KEY_FROZEN,4)')
+        tick(3)
+        val(f'inflict_status({actor},STATUS_KEY_POISON,4)')
+        tick(15)
+        check('recovery-replacing-frozen-dismisses-old-pillar',val(f'{actor}->icePillarEffect') == 0 and val(f'{actor}->debuff') == val('STATUS_KEY_POISON'))
+        cmd(f'call ttyd64_partner_status_clear({actor})')
+        tick(15)
+        def item_target(item):
+            inventory(item)
+            wheel('BTL_MENU_TYPE_ITEMS')
+            wait('gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            tick(5)
+            key('x')
+            wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+            for _ in range(3):
+                if val('gBattleStatus.playerActor->targetData[gBattleStatus.playerActor->targetIndexList[gBattleStatus.playerActor->selectedTargetIndex]].actorID') == val('ACTOR_PARTNER'):
+                    break
+                key('d')
+            check('recovery-' + item.lower() + '-native-partner-target',val('gBattleStatus.playerActor->targetListLength') == 2 and val('gBattleStatus.playerActor->targetData[gBattleStatus.playerActor->targetIndexList[gBattleStatus.playerActor->selectedTargetIndex]].actorID') == val('ACTOR_PARTNER'))
+        for item,status in [('ITEM_TASTY_TONIC','FROZEN'),('ITEM_SUPER_SODA','SLEEP')]:
+            assert val('ttyd64_set_partner_hp($slicePartner,8)') == 8
+            put('gPlayerData.curFP',2)
+            put('gPlayerData.curMaxFP',10)
+            for name in (status,'STATIC','TRANSPARENT'):
+                val(f'inflict_status({actor},STATUS_KEY_{name},4)')
+            tick(5)
+            item_target(item)
+            if item == 'ITEM_TASTY_TONIC':
+                key('c')
+                wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING')
+                check('recovery-cancel-preserves-item-hp-and-frozen',item_count() == 2 and hp() == 8 and val(f'{actor}->debuff') == val('STATUS_KEY_FROZEN'))
+                key('x')
+                wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+                if val('gBattleStatus.playerActor->targetData[gBattleStatus.playerActor->targetIndexList[gBattleStatus.playerActor->selectedTargetIndex]].actorID') != val('ACTOR_PARTNER'):
+                    key('d')
+            key('x')
+            wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+            check('recovery-' + item.lower() + '-cures-debuff-keeps-buffs',hp() == 8 and item_count() == 1 and val(f'{actor}->debuff') == 0 and val(f'{actor}->koStatus') == 0 and val(f'{actor}->icePillarEffect') == 0 and val('PartnerStatuses[$slicePartner].debuff') == 0 and val(f'{actor}->staticDuration') == 4 and val(f'{actor}->transparentDuration') == 4 and val('gPlayerData.curFP') == (7 if item == 'ITEM_SUPER_SODA' else 2))
+            check('recovery-' + item.lower() + '-spends-mario-turn-only',bool(val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')) and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED') and val('btl_partner_can_act()'))
+            capture('recovery-' + item.lower())
+            spend_turn()
+        # Refresh: normal spirit menu/payment/script, living-partner cap and cure.
+        assert val('ttyd64_set_partner_hp($slicePartner,8)') == 8
+        put('gPlayerData.curHP',12)
+        put('gPlayerData.curFP',2)
+        put('gPlayerData.starPower',256)
+        val(f'inflict_status({actor},STATUS_KEY_FROZEN,4)')
+        tick(5)
+        wheel('BTL_MENU_TYPE_STAR_POWERS')
+        wait('gBattleSubState == 61')
+        tick(15)
+        refresh_index = next(i for i in range(val('MovesOptionCount')) if val(f'gBattleStatus.submenuMoves[MovesOptionIndices[MovesOptionIndexMap[{i}]]]') == val('MOVE_REFRESH'))
+        for _ in range(12):
+            current = val('MovesCursorPos')
+            if current == refresh_index:
+                break
+            key('w' if refresh_index < current else 's')
+        check('recovery-native-spirit-menu-selects-refresh',val('gBattleStatus.submenuMoves[MovesOptionIndices[MovesOptionIndexMap[MovesCursorPos]]]') == val('MOVE_REFRESH'))
+        key('x')
+        wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+        key('x')
+        wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING',2400)
+        check('recovery-refresh-native-team-hp-fp-cap-and-debuff',hp() == min(13,val('ttyd64_get_partner_max_hp($slicePartner)')) and val('gPlayerData.curHP') == 17 and val('gPlayerData.curFP') == 7 and val(f'{actor}->debuff') == 0 and val(f'{actor}->icePillarEffect') == 0 and val('PartnerStatuses[$slicePartner].debuff') == 0)
+        check('recovery-refresh-spends-star-power-and-mario-turn',val('gPlayerData.starPower') < 256 and val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED') and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
+        capture('recovery-refresh')
+        spend_turn()
+        assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
+        check('recovery-cure-items-reject-dead-partner',not val('ttyd64_partner_status_can_target_item(ITEM_TASTY_TONIC)') and not val('ttyd64_partner_status_can_target_item(ITEM_SUPER_SODA)'))
+        assert val('ttyd64_set_partner_hp($slicePartner,8)') == 8
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        check('recovery-off-rejects-new-cure-targets',not val('ttyd64_partner_status_can_target_item(ITEM_TASTY_TONIC)') and not val('ttyd64_partner_status_can_target_item(ITEM_SUPER_SODA)'))
+        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        flee_battle()
+        put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
+        check('recovery-native-world-return',val('WorldPartnerID') == partner_id)
     if 'statuses' in phases:
         enter_road_battle()
         actor = 'gBattleStatus.partnerActor'

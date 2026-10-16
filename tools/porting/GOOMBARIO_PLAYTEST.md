@@ -157,3 +157,18 @@ and setup. This does not claim natural status-bearing enemy AI, all item effects
 all partner moves or a campaign port. The prototype remains off in normal play.
 See the [shared status handoff](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-16-partner-status-lifecycle.md)
 for source timing, validation scope and the remaining combat/cure interactions.
+
+The guarded group now also admits living partners as Mario's Tasty Tonic and
+Super Soda recipients. Their cure clears ordinary debuffs/counters/owned ice and
+keeps Static/Transparent; Soda restores five shared FP. Refresh adds five capped
+HP and a debuff cure for the living supported partner. These consumers retain
+native menu/payment/item or spirit scripts, not full source choreography.
+
+PARTNER_SLICE_PHASES=recovery runs grouped controlled damage-route and native
+keyboard cure/Refresh acceptance; it can be combined with statuses and Kooper's
+ground-contracts phase. Source Battle_NewStatuses replaces vanilla Shrink with
+attack debuffs/tiny state, so legacy Shrink application checks remain native
+smoke coverage until that typed subsystem is ported. Complete attack/elemental
+interactions, source status assets, other curatives/AI/partners and campaign are
+still unfinished. Normal activation remains off.
+See the [recovery handoff](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-16-partner-recovery-consumers.md).

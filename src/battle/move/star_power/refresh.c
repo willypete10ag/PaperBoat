@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_partner_status.h"
 #include "hud_element.h"
 #include "script_api/battle.h"
 #include "sprite/npc/BattleEldstar.h"
@@ -130,6 +131,17 @@ API_CALLABLE(N(SpawnFlowerRecoverFX)) {
     return ApiStatus_DONE2;
 }
 
+API_CALLABLE(N(RecoverPartner)) {
+    Actor* partner = gBattleStatus.partnerActor;
+    script->varTable[0] = ttyd64_partner_combat_can_heal_with_item(ITEM_MUSHROOM);
+    if (script->varTable[0]) {
+        // 01 Refresh.bpat: living partner only, HP +5 capped and debuff cure.
+        ttyd64_partner_combat_heal(partner, 5);
+        ttyd64_partner_status_cure_debuff(partner);
+    }
+    return ApiStatus_DONE2;
+}
+
 EvtScript N(EVS_UsePower) = {
     ExecWait(N(EVS_StarPower_WishForSpirit))
     SetConst(LVar0, ANIM_BattleEldstar_Idle)
@@ -159,6 +171,16 @@ EvtScript N(EVS_UsePower) = {
     Call(N(AddHP), 5)
     Call(N(AddFP), 5)
     Call(N(RemovePlayerDebuffs))
+    Call(N(RecoverPartner))
+    IfNe(LVar0, 0)
+        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Add(LVar0, 20)
+        Add(LVar1, 25)
+        Call(N(SpawnHeartRecoverFX), LVar0, LVar1, LVar2, 5)
+        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Add(LVar1, 25)
+        Call(ShowStartRecoveryShimmer, LVar0, LVar1, LVar2, 5)
+    EndIf
     Wait(30)
     Call(PlayerYieldTurn)
     ExecWait(N(EVS_StarPower_EndWish))

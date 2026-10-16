@@ -11,6 +11,8 @@ void ttyd64_partner_status_reset(void);
 void ttyd64_partner_status_bind(Actor* actor);
 void ttyd64_partner_status_unbind(Actor* actor);
 void ttyd64_partner_status_clear(Actor* actor);
+void ttyd64_partner_status_cure_debuff(Actor* actor);
+b32 ttyd64_partner_status_can_target_item(s32 itemID);
 void ttyd64_partner_status_end_battle(void);
 void ttyd64_partner_status_update(Actor* actor);
 void ttyd64_partner_status_poison(void);

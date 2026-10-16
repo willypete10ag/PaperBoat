@@ -52,17 +52,33 @@ static void dismiss_ice(Actor* actor) {
     }
 }
 
+// Tasty Tonic / Super Soda / Refresh clear debuffs, not beneficial statuses.
+b32 ttyd64_partner_status_can_target_item(s32 itemID) {
+    return (itemID == ITEM_TASTY_TONIC || itemID == ITEM_SUPER_SODA)
+        && ttyd64_partner_combat_can_heal_with_item(ITEM_MUSHROOM);
+}
+
+void ttyd64_partner_status_cure_debuff(Actor* actor) {
+    if (!ttyd64_partner_combat_active(actor)) {
+        return;
+    }
+    dismiss_ice(actor);
+    actor->debuff = actor->debuffDuration = 0;
+    remove_status_debuff(actor->hudElementDataIndex);
+    ttyd64_partner_status_sync_ko(actor);
+    set_actor_pal_adjustment(actor, ACTOR_PAL_ADJUST_NONE);
+    store(actor);
+}
+
 void ttyd64_partner_status_clear(Actor* actor) {
     if (!ttyd64_partner_combat_active(actor)) {
         return;
     }
+    ttyd64_partner_status_cure_debuff(actor);
     PartnerStatuses[gPlayerData.curPartner] = (PartnerBattleStatus) {0};
-    dismiss_ice(actor);
-    actor->debuff = actor->debuffDuration = 0;
     actor->staticStatus = actor->staticDuration = 0;
     actor->transparentStatus = actor->transparentDuration = 0;
     actor->stoneStatus = actor->stoneDuration = 0;
-    remove_status_debuff(actor->hudElementDataIndex);
     remove_status_static(actor->hudElementDataIndex);
     remove_status_transparent(actor->hudElementDataIndex);
     ttyd64_partner_status_sync_ko(actor);
