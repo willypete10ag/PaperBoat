@@ -51,6 +51,15 @@ b32 ttyd64_partner_combat_death_handled(Actor* actor);
 void ttyd64_partner_combat_mark_dead(Actor* actor);
 s32 ttyd64_partner_combat_use_life_shroom(Actor* actor);
 
+// Source team positions/targeting, scoped to the bound Goombario prototype.
+// Keep physical position (native PLAYER_IN_BACK) separate from acting turn.
+b32 ttyd64_partner_team_active(void);
+void ttyd64_partner_team_request_swap(void);
+b32 ttyd64_partner_team_should_swap(b32 nativeSwap);
+void ttyd64_partner_team_swap_completed(b32 nativePlayerInBack);
+s32 ttyd64_partner_team_resolve_target(s32 targetActorID);
+s32 ttyd64_partner_team_target(b32 back);
+
 // First ordinary healing-item consumer. Dead partners require revival, not food.
 b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID);
 s32 ttyd64_partner_combat_heal(Actor* actor, s32 amount);

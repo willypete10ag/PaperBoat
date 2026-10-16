@@ -68,10 +68,15 @@ automated route remains unvalidated until reproduced.
 - Shared acceptance covers keyboard contact, Mario/partner swap menus, a
   controlled zero-HP swap-back, native keyboard flee, world healing, pause and
   save/load. It does not establish a controller-driven victory or full campaign.
-- Regular Goombas still choose Mario through vanilla AI. TTYD64's front/back
-  target selection and source position rules are the next combat batch. Existing
-  partner damage/death/Life Shroom checks use controlled enemy targets; do not
-  equate those with ordinary enemy-AI coverage in this launcher.
+- Basic Goombas now use source front/back choice under the Goombario guard.
+  Z exchanges physical positions; spending a turn preserves them. A living front
+  Goombario starts the next round. Actual Goomba hits, death and one Life Shroom
+  revival are covered by the shared native route, with controlled initial wounds
+  and inventory. Other enemy AI and partner consumers remain unported.
+- Without Life Shroom, front Goombario death moves Mario forward and skips the
+  unavailable partner turn in later rounds. With Life Shroom, Goombario retains
+  the front slot and revives. Full source yaw/effect choreography is unfinished.
+  Ordinary-input victory and failed-flee presentation are not yet accepted.
 - Only Goombario HP and four shroom-family recipient paths are supported here.
   Full source choreography/artwork, other foods, other partners, new moves,
   partner badges and campaign conversion remain unfinished.

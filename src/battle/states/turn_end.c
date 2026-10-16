@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 
 enum {
     // BTL_SUBSTATE_INIT                    = 0,
@@ -53,7 +54,7 @@ void btl_state_update_end_turn(void) {
     }
 
     if (gBattleSubState == BTL_SUBSTATE_CHECK_FOR_SWAP) {
-        if (gBattleStatus.flags2 & BS_FLAGS2_PEACH_BATTLE) {
+        if (ttyd64_partner_team_active() || (gBattleStatus.flags2 & BS_FLAGS2_PEACH_BATTLE)) {
             gBattleSubState = BTL_SUBSTATE_START_SCRIPTS;
         } else if (!(gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK)) {
             gBattleSubState = BTL_SUBSTATE_START_SCRIPTS;

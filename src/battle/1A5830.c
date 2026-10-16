@@ -2620,6 +2620,23 @@ API_CALLABLE(GetLastEvent) {
     return ApiStatus_DONE2;
 }
 
+// Source 00_Goomba.bpat: back when RandInt(100) < 30, front otherwise.
+API_CALLABLE(Ttyd64GoombaChooseTarget) {
+    s32 actorID = evt_get_variable(script, *script->ptrReadPos);
+    if (actorID == ACTOR_SELF) {
+        actorID = script->owner1.actorID;
+    }
+    Actor* actor = get_actor(actorID);
+    s32 target = ACTOR_PLAYER;
+    if ((actorID & ACTOR_CLASS_MASK) == ACTOR_CLASS_ENEMY
+        && actor->actorType == ACTOR_TYPE_GOOMBA && ttyd64_partner_team_active()) {
+        target = ttyd64_partner_team_target(rand_int(100) < 30);
+    }
+    actor->targetActorID = target;
+    actor->targetPartID = 1;
+    return ApiStatus_DONE2;
+}
+
 API_CALLABLE(SetTargetActor) {
     Bytecode* args = script->ptrReadPos;
     s32 actorID = evt_get_variable(script, *args++);
@@ -2632,7 +2649,7 @@ API_CALLABLE(SetTargetActor) {
 
     targetActorID = evt_get_variable(script, *args++);
     actor = get_actor(actorID);
-    actor->targetActorID = targetActorID;
+    actor->targetActorID = ttyd64_partner_team_resolve_target(targetActorID);
     actor->targetPartID = 1;
     return ApiStatus_DONE2;
 }

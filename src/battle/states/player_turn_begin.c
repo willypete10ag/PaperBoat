@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 
 b32 dispatch_damage_tick_event_player(s32 damageAmount, s32 event);
@@ -421,7 +422,15 @@ void btl_state_update_begin_player_turn(void) {
                 btl_set_state(BATTLE_STATE_BEGIN_PARTNER_TURN);
                 gBattleStatus.flags2 |= BS_FLAGS2_PLAYER_TURN_USED;
             } else{
-                btl_set_state(BATTLE_STATE_SWITCH_TO_PLAYER);
+                // Source starts the next round with the living front actor. Mario's
+                // native status/turn maintenance above still runs exactly once.
+                if (ttyd64_partner_team_active() && (gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK)
+                    && btl_partner_can_act()) {
+                    gBattleStatus.flags1 |= BS_FLAGS1_PARTNER_ACTING;
+                    btl_set_state(BATTLE_STATE_SWITCH_TO_PARTNER);
+                } else {
+                    btl_set_state(BATTLE_STATE_SWITCH_TO_PLAYER);
+                }
             }
         }
     }

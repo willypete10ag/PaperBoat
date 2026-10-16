@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 
 enum {
@@ -103,7 +104,10 @@ void btl_state_update_victory(void) {
     }
 
     if (gBattleSubState == BTL_SUBSTATE_CHECK_SWAP) {
-        if (partner == nullptr || !(gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK)) {
+        if (ttyd64_partner_team_active()) {
+            partner->rot.x = 0.0f;
+        }
+        if (ttyd64_partner_team_active() || partner == nullptr || !(gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK)) {
             gBattleSubState = BTL_SUBSTATE_CHECK_MERLEE;
         } else {
             partner->state.curPos.x = partner->curPos.x;

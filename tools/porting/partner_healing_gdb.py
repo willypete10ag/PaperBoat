@@ -62,7 +62,7 @@ def run():
             if val(expression):
                 return
             tick()
-        print('PARTNER_HEALING_TIMEOUT=' + json.dumps({k:val(k) for k in ('gBattleState','gBattleSubState','BattleMenuState','gBattleStatus.flags1','gBattleStatus.flags2','gBattleStatus.stateFreezeCount','gPlayerData.curPartner','gBattleStatus.moveArgument','gBattleStatus.waitForState')}))
+        print('PARTNER_HEALING_TIMEOUT=' + json.dumps({k:val(k) for k in ('gBattleState','gBattleSubState','BattleMenuState','gBattleStatus.flags1','gBattleStatus.flags2','gBattleStatus.stateFreezeCount','gPlayerData.curPartner','gBattleStatus.moveArgument','gBattleStatus.waitForState','gPopupState','PopupMenu_SelectedIndex','gPopupMenu->result','gPopupMenu->enabled[PopupMenu_SelectedIndex]')}))
         capture('healing-timeout')
         raise AssertionError('Frame budget exceeded: ' + expression)
     def capture(name):
@@ -76,10 +76,14 @@ def run():
     def key(name, frames=3):
         subprocess.run(['xdotool','keydown',name],check=True)
         try:
-            tick(frames)
+            # SDL polling can be missed by several simulation updates under
+            # GDB. Use the same native UI-pass holds as the shared slice driver.
+            for _ in range(frames):
+                until('render_game_mode_backUI')
         finally:
             subprocess.run(['xdotool','keyup',name],check=True)
-        tick(5)
+        for _ in range(3):
+            until('render_game_mode_backUI')
     for setting in ('non-stop on','pagination off','confirm off','print thread-events off'):
         cmd('set ' + setting)
     gdb.Breakpoint('state_step_startup',temporary=True,internal=True)

@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 
 enum {
@@ -173,6 +174,9 @@ void btl_state_update_run_away(void) {
                 && (partner == nullptr || !does_script_exist(partner->takeTurnScriptID))
                 && battleStatus->stateFreezeCount == 0
             ) {
+                if (ttyd64_partner_team_active()) {
+                    gBattleStatus.flags2 &= ~(BS_FLAGS2_OVERRIDE_INACTIVE_PLAYER | BS_FLAGS2_OVERRIDE_INACTIVE_PARTNER);
+                }
                 btl_set_state(BATTLE_STATE_TRANSFER_TURN);
             }
             break;

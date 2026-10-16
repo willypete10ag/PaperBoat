@@ -581,6 +581,20 @@ API_CALLABLE(N(TtydDeathBegin)) {
     return ApiStatus_DONE2;
 }
 
+API_CALLABLE(N(TtydNeedsMarioFront)) {
+    script->varTable[0] = ttyd64_partner_team_active()
+        && (gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK)
+        && find_item(ITEM_LIFE_SHROOM) < 0;
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(N(TtydMarioFrontMoved)) {
+    if (ttyd64_partner_team_active()) {
+        gBattleStatus.flags1 &= ~BS_FLAGS1_PLAYER_IN_BACK;
+    }
+    return ApiStatus_DONE2;
+}
+
 API_CALLABLE(N(TtydLifeShroom)) {
     script->varTable[0] = ttyd64_partner_combat_use_life_shroom(gBattleStatus.partnerActor);
     return ApiStatus_DONE2;
@@ -675,6 +689,24 @@ EvtScript N(EVS_TtydDeath) = {
     Call(ClearStatusEffects, ACTOR_PARTNER)
     Call(SetAnimation, ACTOR_PARTNER, -1, ANIM_BattleGoombario_HurtStill)
     Wait(40)
+    // Source death keeps the front position for Life Shroom, but moves Mario
+    // forward before collapse when no revival item exists (ground partner).
+    Call(N(TtydNeedsMarioFront))
+    IfEq(LVar0, true)
+        Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(SetGoalPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Thread
+            Call(RunToGoal, ACTOR_PARTNER, 4, false)
+        EndThread
+        Call(RunToGoal, ACTOR_PLAYER, 4, false)
+        Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Call(SetHomePos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(SetHomePos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(N(TtydMarioFrontMoved))
+    EndIf
     Wait(10)
     ChildThread
         Wait(5)
@@ -865,6 +897,12 @@ EvtScript N(EVS_FirstStrike) = {
 };
 
 EvtScript N(EVS_RunAway) = {
+    Call(N(TtydHPState))
+    IfEq(LVar0, true)
+        IfEq(LVar1, 0)
+            Return
+        EndIf
+    EndIf
     SetConst(LVar0, PRT_MAIN)
     SetConst(LVar1, ANIM_BattleGoombario_Run)
     ExecWait(EVS_Partner_RunAway)
@@ -873,6 +911,12 @@ EvtScript N(EVS_RunAway) = {
 };
 
 EvtScript N(EVS_RunAwayFail) = {
+    Call(N(TtydHPState))
+    IfEq(LVar0, true)
+        IfEq(LVar1, 0)
+            Return
+        EndIf
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, false)
     Call(SetGoalToHome, ACTOR_PARTNER)
     Call(SetActorSpeed, ACTOR_PARTNER, Float(6.0))

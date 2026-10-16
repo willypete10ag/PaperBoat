@@ -9,8 +9,9 @@ Branch `port/ttyd64-goombario-playable-slice` groups pause Party HP,
 pause/world ownership, battle swap HP, world shroom recipients and ordinary
 contact/flee/menu recovery. The shared `partner_playable_slice_gdb.py` driver
 reuses one native lifecycle/input/capture implementation. Select a targeted
-phase with `PARTNER_SLICE_PHASES=pause`, `world-items` or `battle`; default is all
-three. Recruitment, inventory, ranks/wounds and map/progression setup are
+phase with `PARTNER_SLICE_PHASES=pause`, `world-items`, `battle` or `team`;
+default remains the original three UI/encounter phases. `battle,team` shares
+the full lifecycle for affected battle regression and new team acceptance. Recruitment, inventory, ranks/wounds and map/progression setup are
 controlled. Battle contact, swap menus and flee outcome use actual keyboard
 input. The guarded flag remains off in normal play.
 
@@ -18,8 +19,12 @@ The [isolated developer playtest launcher](GOOMBARIO_PLAYTEST.md) prepares a fre
 private session and hands the native game to the tester after detaching GDB.
 It requires this prepared Linux environment and a viewable display; it is not a
 packaged release or desktop stream. Its `--verify` mode checks startup/input and
-closes. Enemy source targeting/position rules are still pending; ordinary
-Goombas currently use vanilla Mario targeting.
+closes. The guarded team phase implements basic Goomba front/back targeting,
+explicit Z position swaps, front-first rounds, dead-target fallback and no-item
+death/Mario-front movement. Other partners/enemy AI remain pending. The phase
+observes native AI rolls/hits/death/Life Shroom with controlled initial wounds
+and inventory. It caught and fixes a zero-HP fresh-round menu/transfer loop.
+Shared captures now wait for animated HP to settle before final status frames.
 
 World source permits healing zero HP; battle food does not. Private script
 LVarE carries the recipient and is explicitly initialized for Mario. Native

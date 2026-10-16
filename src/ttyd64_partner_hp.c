@@ -20,6 +20,7 @@ static Actor* BoundPartnerActor;
 static s32 BoundPartnerID = PARTNER_NONE;
 static u16 DeathHandledMask;
 static s32 DeathScriptID;
+static b32 TeamSwapRequested;
 static s32 WorldPartnerID = PARTNER_NONE;
 static Actor* DisplayPartnerActor;
 static b32 DisplayPartnerInWorld;
@@ -74,6 +75,7 @@ static void clear_binding(void) {
     BoundPartnerActor = nullptr;
     BoundPartnerID = PARTNER_NONE;
     DeathScriptID = 0;
+    TeamSwapRequested = false;
     DisplayPartnerActor = nullptr;
     DisplayPartnerInWorld = false;
     DisplayPartnerHP = -1;
@@ -199,6 +201,53 @@ b32 ttyd64_partner_combat_active(Actor* actor) {
     return can_bind_actor() && actor != nullptr && actor == BoundPartnerActor
         && actor == gBattleStatus.partnerActor && BoundPartnerID == PARTNER_GOOMBARIO
         && gPlayerData.curPartner == PARTNER_GOOMBARIO;
+}
+
+// Battle_PlayerTeam_DontSwapPositions: native position flags remain physical
+// because guarded automatic menu/turn swaps are suppressed. No source RAM byte
+// or saved field is needed; only an explicit keyboard-swap request is transient.
+b32 ttyd64_partner_team_active(void) {
+    return gBattleStatus.playerActor != nullptr
+        && ttyd64_partner_combat_active(gBattleStatus.partnerActor);
+}
+
+void ttyd64_partner_team_request_swap(void) {
+    if (ttyd64_partner_team_active()) {
+        TeamSwapRequested = true;
+    }
+}
+
+b32 ttyd64_partner_team_should_swap(b32 nativeSwap) {
+    b32 requested = TeamSwapRequested;
+    TeamSwapRequested = false;
+    return ttyd64_partner_team_active() ? requested : nativeSwap;
+}
+
+void ttyd64_partner_team_swap_completed(b32 nativePlayerInBack) {
+    if (ttyd64_partner_team_active()) {
+        gBattleStatus.flags1 ^= BS_FLAGS1_PLAYER_IN_BACK;
+    } else if (nativePlayerInBack) {
+        gBattleStatus.flags1 |= BS_FLAGS1_PLAYER_IN_BACK;
+    } else {
+        gBattleStatus.flags1 &= ~BS_FLAGS1_PLAYER_IN_BACK;
+    }
+}
+
+s32 ttyd64_partner_team_resolve_target(s32 targetActorID) {
+    // PartnersHP SetTargetActor: a dead-partner target must attack Mario.
+    if (targetActorID == ACTOR_PARTNER && ttyd64_partner_team_active()
+        && ttyd64_get_partner_hp(PARTNER_GOOMBARIO) <= 0) {
+        return ACTOR_PLAYER;
+    }
+    return targetActorID;
+}
+
+s32 ttyd64_partner_team_target(b32 back) {
+    if (!ttyd64_partner_team_active()) {
+        return ACTOR_PLAYER;
+    }
+    b32 marioInFront = !(gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK);
+    return ttyd64_partner_team_resolve_target(back == marioInFront ? ACTOR_PARTNER : ACTOR_PLAYER);
 }
 
 void ttyd64_partner_combat_load_hp(Actor* actor) {
