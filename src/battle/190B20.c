@@ -1,3 +1,4 @@
+#include "ttyd64_partner_status.h"
 #include "common.h"
 #include "nu/nusys.h"
 #include "effects.h"
@@ -591,9 +592,9 @@ void btl_check_can_change_partner(void) {
         }
 
         if (partnersEnabled >= 2) {
-            if (partner->koStatus == STATUS_KEY_KO) {
+            if (!ttyd64_partner_combat_active(partner) && partner->koStatus == STATUS_KEY_KO) {
                 battleStatus->changePartnerAllowed = 0;
-            } else if (partner->debuff == STATUS_KEY_FROZEN) {
+            } else if (!ttyd64_partner_combat_active(partner) && partner->debuff == STATUS_KEY_FROZEN) {
                 battleStatus->changePartnerAllowed = 0;
             } else if (playerData->curPartner == PARTNER_GOOMPA) {
                 battleStatus->changePartnerAllowed = -1;
@@ -660,6 +661,7 @@ s32 btl_are_all_enemies_defeated(void) {
 
 s32 btl_check_enemies_defeated(void) {
     if (btl_are_all_enemies_defeated()) {
+        ttyd64_partner_status_end_battle();
         btl_set_state(BATTLE_STATE_VICTORY);
         return true;
     }
@@ -1830,6 +1832,9 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
     if (statusTypeKey == STATUS_KEY_KO && ttyd64_partner_combat_active(target)) {
         return false;
     }
+    if (ttyd64_partner_combat_active(target) && (target->curHP <= 0 || duration <= 0)) {
+        return false;
+    }
     BattleStatus* battleStatus = &gBattleStatus;
     EffectInstance* effect;
 
@@ -1845,7 +1850,7 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
             if (target->actorID != ACTOR_PLAYER || (!is_ability_active(ABILITY_FEELING_FINE) &&
                 !is_ability_active(ABILITY_BERSERKER) && battleStatus->hustleTurns == 0)) {
 
-                if (target->actorID != ACTOR_PARTNER) {
+                if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
                     if (target->debuff != statusTypeKey) {
                         target->statusAfflicted = statusTypeKey;
                     }
@@ -1858,7 +1863,7 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
 
                     switch (statusTypeKey) {
                         case STATUS_KEY_FROZEN:
-                            if (target->actorID != ACTOR_PARTNER) {
+                            if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
                                 effect = target->icePillarEffect;
                                 if (effect != nullptr) {
                                     effect->flags |= FX_INSTANCE_FLAG_DISMISS;
@@ -1898,7 +1903,7 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
             }
             break;
         case STATUS_KEY_STATIC:
-            if (target->actorID != ACTOR_PARTNER) {
+            if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
                 target->staticStatus = statusTypeKey;
                 target->staticDuration = duration;
                 if ((s8)duration > 9) {
@@ -1910,7 +1915,7 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
             }
             return true;
         case STATUS_KEY_STONE:
-            if (target->actorID != ACTOR_PARTNER) {
+            if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
                 target->stoneStatus = STATUS_KEY_STONE;
                 target->stoneDuration = duration;
                 if ((s8)duration > 9) {
@@ -1930,7 +1935,7 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
             }
             return true;
         case STATUS_KEY_TRANSPARENT:
-            if (target->actorID != ACTOR_PARTNER) {
+            if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
                 target->transparentStatus = STATUS_KEY_TRANSPARENT;
                 target->transparentDuration = duration;
                 if ((s8)duration > 9) {
@@ -2644,7 +2649,9 @@ void btl_update_ko_status(void) {
         }
     }
 
-    if (partner != nullptr) {
+    if (ttyd64_partner_combat_active(partner)) {
+        ttyd64_partner_status_sync_ko(partner);
+    } else if (partner != nullptr) {
         if (partner->koDuration < partner->debuffDuration) {
             partner->koStatus = STATUS_KEY_KO;
             partner->koDuration = partner->debuffDuration;

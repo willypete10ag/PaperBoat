@@ -53,8 +53,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','team','victory','victory-dead'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -71,6 +71,10 @@ def run():
                  'heart_id':val('Ttyd64PausePartnerHeartHID'),'world_owner':val('WorldPartnerID'),
                  'battle_state':val('gBattleState'),'battle_substate':val('gBattleSubState'),
                  'encounter_state':val('gEncounterState'),'combat_partner':val('gPlayerData.curPartner'),'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK'))}
+        if 'statuses' in phases and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
+            state['partner_status'] = {name:val('gBattleStatus.partnerActor->'+name) for name in ('debuff','debuffDuration','staticStatus','staticDuration','transparentStatus','transparentDuration','stoneStatus','stoneDuration','koStatus','koDuration')}
+            state['partner_status']['pillar_owned'] = bool(val('gBattleStatus.partnerActor->icePillarEffect'))
+            state['partner_status']['turn_used'] = bool(val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
         states.append(state)
         if not condition:
             (root/'failed-state.json').write_text(json.dumps({'checks_passed':len(checks),'state':state,'team_trace':team_trace},indent=2)+'\n')
@@ -566,6 +570,94 @@ def run():
         capture('battle-route-world-return')
         check('route-final-capture-remains-in-world',val('gGameStatusPtr->context') == val('CONTEXT_WORLD') and val('gEncounterState') == val('ENCOUNTER_STATE_NEUTRAL'))
         put('gTtyd64PartnerHPPrototypeEnabled',0)
+    if 'statuses' in phases:
+        enter_road_battle()
+        actor = 'gBattleStatus.partnerActor'
+        assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        val(f'inflict_status({actor},STATUS_KEY_SLEEP,3)')
+        check('status-off-keeps-native-partner-immunity',val(f'{actor}->debuff') == 0)
+        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        for status in ('UNUSED','DIZZY','PARALYZE','SLEEP','FROZEN','STOP','POISON','SHRINK','STONE','STATIC','TRANSPARENT'):
+            keyname = 'STATUS_KEY_' + status
+            assert val(f'inflict_status({actor},{keyname},3)') == 1
+            tick(3)
+            cmd('call btl_update_ko_status()')
+            field = {'STONE':'stoneStatus','STATIC':'staticStatus','TRANSPARENT':'transparentStatus'}.get(status,'debuff')
+            movable = status in ('POISON','SHRINK','STATIC','TRANSPARENT')
+            check('status-native-application-and-turn-' + status.lower(),val(f'{actor}->{field}') == val(keyname) and bool(val('btl_partner_can_act()')) == movable)
+            if status == 'FROZEN':
+                check('status-frozen-owns-native-pillar',val(f'{actor}->icePillarEffect') != 0)
+            cmd(f'call ttyd64_partner_status_clear({actor})')
+            tick(15)
+        check('status-clear-removes-projected-status-and-pillar',val(f'{actor}->debuff') == 0 and val(f'{actor}->koStatus') == 0 and val(f'{actor}->icePillarEffect') == 0)
+        put('gBattleStatus.curTargetID',val('ACTOR_PARTNER'))
+        put('gBattleStatus.curTargetPart',1)
+        put('gBattleStatus.curAttackDamage',0)
+        put('gBattleStatus.curAttackElement',val('DAMAGE_TYPE_UNBLOCKABLE'))
+        put('gBattleStatus.curAttackStatus',val('STATUS_FLAG_SLEEP | STATUS_FLAG_USE_DURATION'))
+        put('gBattleStatus.statusChance',100)
+        put('gBattleStatus.statusDuration',3)
+        cmd('set variable gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS')
+        val('calc_enemy_damage_target(gBattleStatus.enemyActors[0])')
+        wait('!does_script_exist(gBattleStatus.partnerActor->handleEventScriptID)')
+        check('status-enemy-damage-route-inflicts-sleep-without-hp-loss',val(f'{actor}->debuff') == val('STATUS_KEY_SLEEP') and val(f'{actor}->debuffDuration') == 3 and hp() == 10)
+        cmd(f'call ttyd64_partner_status_clear({actor})')
+        tick(15)
+        put('gBattleStatus.curAttackStatus',0)
+        val(f'inflict_status({actor},STATUS_KEY_FROZEN,3)')
+        cmd('call btl_update_ko_status()')
+        tick(5)
+        capture('status-frozen')
+        # Native keyboard swap while frozen: unavailable outgoing turn is
+        # consumed, statuses persist privately and their inactive timer pauses.
+        other = 2 if partner_id == 1 else 1
+        def status_swap(pid):
+            battle_partners()
+            for _ in range(8):
+                current = val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]')
+                if current == pid:
+                    break
+                key('w' if current > pid else 's')
+            assert val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == pid
+            key('x',6)
+            wait(f'gPlayerData.curPartner == {pid} && gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 1 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+        status_swap(other)
+        check('status-frozen-keyboard-swap-away-retains-record',val('PartnerStatuses[$slicePartner].debuff') == val('STATUS_KEY_FROZEN') and val('PartnerStatuses[$slicePartner].debuffDuration') == 3 and val(f'{actor}->debuff') == 0)
+        status_swap(partner_id)
+        check('status-frozen-swap-back-restores-pillar-and-one-active-tick',val(f'{actor}->debuff') == val('STATUS_KEY_FROZEN') and val(f'{actor}->debuffDuration') == 2 and val(f'{actor}->icePillarEffect') != 0 and not val('btl_partner_can_act()'))
+        spend_turn()
+        check('status-frozen-next-round-decrements-once',val(f'{actor}->debuffDuration') == 1 and not val('btl_partner_can_act()'))
+        spend_turn()
+        check('status-frozen-expiry-clears-pillar-and-restores-turn',val(f'{actor}->debuff') == 0 and val(f'{actor}->icePillarEffect') == 0 and val('btl_partner_can_act()') == 1)
+        capture('status-recovered')
+        # Transparency isolates poison ticks from native Goomba damage. Native
+        # keyboard rounds advance timers; no duration/turn/result writes.
+        put('gPlayerData.curHP',20)
+        assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+        for status in ('POISON','STATIC','TRANSPARENT'):
+            val(f'inflict_status({actor},STATUS_KEY_{status},2)')
+        capture('status-poison-static-transparent')
+        spend_turn()
+        check('status-poison-can-act-without-admission-tick',val('gBattleState') == val('BATTLE_STATE_PARTNER_MENU') and val(f'{actor}->debuffDuration') == 2 and hp() == 10)
+        spend_turn()
+        check('status-first-player-begin-poison-and-buff-tick',hp() == 9 and val(f'{actor}->debuffDuration') == 1 and val(f'{actor}->staticDuration') == 1 and val(f'{actor}->transparentDuration') == 1)
+        spend_turn()
+        spend_turn()
+        check('status-second-poison-tick-expires-all-three',hp() == 8 and val(f'{actor}->debuff') == 0 and val(f'{actor}->staticStatus') == 0 and val(f'{actor}->transparentStatus') == 0)
+        inventory('ITEM_LIFE_SHROOM')
+        assert val('ttyd64_set_partner_hp($slicePartner,1)') == 1
+        val(f'inflict_status({actor},STATUS_KEY_POISON,2)')
+        val(f'inflict_status({actor},STATUS_KEY_TRANSPARENT,2)')
+        spend_turn()
+        spend_turn()
+        wait('ttyd64_get_partner_hp($slicePartner) == 10 && !does_script_exist(gBattleStatus.partnerActor->handleEventScriptID)',1800)
+        check('status-lethal-poison-revives-once-and-clears-cache',hp() == 10 and item_count() == 1 and val(f'{actor}->debuff') == 0 and val(f'{actor}->transparentStatus') == 0 and val('PartnerStatuses[$slicePartner].debuff') == 0 and val(f'{actor}->koStatus') == 0)
+        capture('status-poison-revived')
+        val(f'inflict_status({actor},STATUS_KEY_STATIC,3)')
+        flee_battle()
+        put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
+        check('status-flee-clears-record-and-rebinds-world',val('PartnerStatuses[$slicePartner].staticDuration') == 0 and val('WorldPartnerID') == partner_id)
     if 'ground-contracts' in phases:
         assert partner_id in (2,3)
         enter_road_battle()
@@ -953,4 +1045,5 @@ try:
 except Exception:
     import traceback
     traceback.print_exc()
+    print(cmd('bt 12'))
     cmd('quit 1')

@@ -1,3 +1,4 @@
+#include "ttyd64_partner_status.h"
 #include "states.h"
 #include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
@@ -154,6 +155,7 @@ void update_status_damage(void) {
     s32 i;
 
     if (gBattleSubState == BTL_SUBSTATE_TRY_STATUS_DAMAGE) {
+        ttyd64_partner_status_poison();
         if (player->debuff == STATUS_KEY_POISON && player->stoneStatus == 0) {
             gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS;
             dispatch_damage_tick_event_player(1, EVENT_HIT);
@@ -186,6 +188,7 @@ void update_status_damage(void) {
                 return;
             }
 
+            ttyd64_partner_combat_begin_player_turn();
             BattleSkipActorTurn = false;
             player->disableDismissTimer = 0;
             player->flags |= ACTOR_FLAG_SHOW_STATUS_ICONS | ACTOR_FLAG_USING_IDLE_ANIM;
@@ -376,7 +379,6 @@ void btl_state_update_begin_player_turn(void) {
                 battleStatus->stateFreezeCount = 0;
                 BattleSkipActorTurn = false;
                 BattleStatusUpdateDelay = 0;
-                ttyd64_partner_combat_begin_player_turn();
 
                 if (battleStatus->outtaSightActive != 0) {
                     battleStatus->battlePhase = PHASE_ENEMY_BEGIN;
@@ -407,6 +409,10 @@ void btl_state_update_begin_player_turn(void) {
     update_command_loss();
 
     if (gBattleSubState == BTL_SUBSTATE_END_DELAY) {
+        if (ttyd64_partner_combat_active(partner) && partner->handleEventScript != nullptr
+            && does_script_exist(partner->handleEventScriptID)) {
+            return;
+        }
         if (player->handleEventScript == nullptr || !does_script_exist(player->handleEventScriptID)) {
             player->handleEventScript = nullptr;
 

@@ -126,10 +126,10 @@ active. Basic one-damage Goomba hits should deal zero to an upright Kooper.
 Bombette retains native burn/contact/shock explosions and skips the legacy drop
 in HP mode. Lethal contact selects death/revival directly.
 
-Complete move sets, ordinary partner status infliction/lifecycle, broader enemy
-AI and flying exceptions remain unfinished. Native status tables alone do not
-enable partner statuses: PaperBoat suppresses them in inflict_status. Normal
-play stays off, and original save layouts are preserved.
+Complete move sets, source status animation assets and remaining combat/cure
+interactions, broader enemy AI and flying exceptions remain unfinished. The
+guarded group now enables native status infliction/lifecycle as described below.
+Normal play stays off, and original save layouts are preserved.
 
 For developer acceptance, PARTNER_SLICE_PARTNER=2 or 3 selects Kooper/Bombette
 in the shared ground-contracts, ground-combat, team, victory and victory-dead
@@ -142,3 +142,18 @@ disposable-slot guards and byte-for-byte restoration still apply.
 
 The [shared ground combat handoff](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-16-ground-combat-contracts.md)
 records exact implementation/evidence pins, limits and the next subsystem batch.
+
+The guarded ground group also supports native status application, typed swap
+storage, turn gates, active-partner timer advancement and poison HP/death/revival.
+Ordinary inactive status timers pause; Kooper's inactive flip timer is separate.
+Ordinary debuffs allow action in the round they expire, while Kooper flip spends
+its recovery round. Native icon/palette/ice ownership follows the live actor and
+clears on death, victory or battle exit. Source-specific status animation assets
+and remaining combat/cure interactions are still incomplete.
+
+Developer acceptance uses PARTNER_SLICE_PHASES=statuses for partner1/2/3, sharing
+native keyboard rounds, frozen swaps and flee, with controlled API infliction
+and setup. This does not claim natural status-bearing enemy AI, all item effects,
+all partner moves or a campaign port. The prototype remains off in normal play.
+See the [shared status handoff](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-16-partner-status-lifecycle.md)
+for source timing, validation scope and the remaining combat/cure interactions.

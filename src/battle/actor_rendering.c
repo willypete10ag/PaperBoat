@@ -1,3 +1,4 @@
+#include "ttyd64_partner_status.h"
 #include "common.h"
 #include "sprite.h"
 #include "effects.h"
@@ -1026,6 +1027,7 @@ void appendGfx_npc_actor(b32 isPartner, s32 actorIndex) {
         if (isPartner) {
             if (!(gBattleStatus.flags2 & (BS_FLAGS2_OVERRIDE_INACTIVE_PARTNER))
                 && (gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED)
+                && !(ttyd64_partner_combat_active(actor) && (actor->debuff != 0 || actor->staticStatus != 0))
             ) {
                 if (actor->koStatus == 0) {
                     part->curAnimation = get_npc_anim_for_status(part->idleAnimations, STATUS_KEY_INACTIVE);
@@ -1086,7 +1088,7 @@ void appendGfx_npc_actor(b32 isPartner, s32 actorIndex) {
             if (!(part->flags & ACTOR_PART_FLAG_NO_STATUS_ANIMS)) {
                 if (actor->debuff == STATUS_KEY_FROZEN) {
                     if (!animChanged) {
-                        part->curAnimation = get_npc_anim_for_status(part->idleAnimations, STATUS_KEY_FROZEN);
+                        part->curAnimation = get_npc_anim_for_status(part->idleAnimations, ttyd64_partner_combat_active(actor) ? STATUS_KEY_STONE : STATUS_KEY_FROZEN);
                         animChanged = true;
                     }
                 } else if (actor->debuff != STATUS_KEY_SHRINK) {
@@ -1097,7 +1099,7 @@ void appendGfx_npc_actor(b32 isPartner, s32 actorIndex) {
                         }
                     } else if (actor->debuff == STATUS_KEY_DIZZY) {
                         if (!animChanged) {
-                            part->curAnimation = get_npc_anim_for_status(part->idleAnimations, STATUS_KEY_DIZZY);
+                            part->curAnimation = get_npc_anim_for_status(part->idleAnimations, ttyd64_partner_combat_active(actor) ? STATUS_KEY_KO : STATUS_KEY_DIZZY);
                             animChanged = true;
                         }
                     } else if (actor->debuff == STATUS_KEY_UNUSED) {
@@ -1112,7 +1114,7 @@ void appendGfx_npc_actor(b32 isPartner, s32 actorIndex) {
                         }
                     } else if (actor->debuff == STATUS_KEY_PARALYZE) {
                         if (!animChanged) {
-                            part->curAnimation = get_npc_anim_for_status(part->idleAnimations, STATUS_KEY_PARALYZE);
+                            part->curAnimation = get_npc_anim_for_status(part->idleAnimations, ttyd64_partner_combat_active(actor) ? STATUS_KEY_KO : STATUS_KEY_PARALYZE);
                             animChanged = true;
                         }
                     }
@@ -1128,7 +1130,7 @@ void appendGfx_npc_actor(b32 isPartner, s32 actorIndex) {
                     part->curAnimation = get_npc_anim_for_status(part->idleAnimations, 1);
                 }
 
-                if (isPartner) {
+                if (isPartner && !ttyd64_partner_combat_active(actor)) {
                     if (actor->koStatus == STATUS_KEY_KO) {
                         part->curAnimation = get_npc_anim_for_status(part->idleAnimations, STATUS_KEY_KO);
                         animChanged = true;

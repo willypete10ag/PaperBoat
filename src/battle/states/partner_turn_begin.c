@@ -47,7 +47,7 @@ void btl_state_update_begin_partner_turn(void) {
             gBattleStatus.flags2 |= BS_FLAGS1_PLAYER_IN_BACK;
             partner->flags |= ACTOR_FLAG_SHOW_STATUS_ICONS;
 
-            if (partner->koStatus != 0) {
+            if (!ttyd64_partner_combat_active(partner) && partner->koStatus != 0) {
                 partner->koDuration--;
                 BattleSkipActorTurn = true;
                 BattleStatusUpdateDelay = 20;

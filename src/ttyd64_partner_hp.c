@@ -1,3 +1,4 @@
+#include "ttyd64_partner_status.h"
 #include "ttyd64_partner_hp.h"
 #include "dx/versioning.h"
 
@@ -90,6 +91,7 @@ static void clear_binding(void) {
 void ttyd64_partner_hp_begin_battle(void) {
     clear_binding();
     DeathHandledMask = 0;
+    ttyd64_partner_status_reset();
     KooperFlip.flipped = false;
     KooperFlip.turns = 0;
 }
@@ -208,11 +210,13 @@ void ttyd64_partner_hp_bind_actor(Actor* actor) {
         BoundPartnerID = gPlayerData.curPartner;
         BoundPartnerActor = actor;
         sync_bound_actor(BoundPartnerID, health);
+        ttyd64_partner_status_bind(actor);
     }
 }
 
 void ttyd64_partner_hp_unbind_actor(Actor* actor) {
     if (actor == BoundPartnerActor) {
+        ttyd64_partner_status_unbind(actor);
         clear_binding();
     }
 }
@@ -247,12 +251,13 @@ s32 ttyd64_kooper_enemy_end(Actor* actor) {
 
 b32 ttyd64_partner_combat_turn_blocked(Actor* actor) {
     return ttyd64_partner_combat_active(actor)
-        && (ttyd64_get_partner_hp(BoundPartnerID) <= 0 || ttyd64_kooper_flipped(actor));
+        && (ttyd64_get_partner_hp(BoundPartnerID) <= 0 || ttyd64_kooper_flipped(actor) || ttyd64_partner_status_blocks_turn(actor));
 }
 
 void ttyd64_partner_combat_begin_round(void) {
     Actor* actor = gBattleStatus.partnerActor;
-    if (ttyd64_partner_combat_turn_blocked(actor)) {
+    if (ttyd64_partner_combat_active(actor)
+        && (ttyd64_get_partner_hp(BoundPartnerID) <= 0 || ttyd64_kooper_flipped(actor))) {
         gBattleStatus.flags2 |= BS_FLAGS2_PARTNER_TURN_USED;
         // PartnersHP.patch 80241B74: the recovery round is still unavailable.
         // GetsUp restores the pose/defense at enemy end, before this latch clears.
@@ -264,6 +269,7 @@ void ttyd64_partner_combat_begin_round(void) {
 
 void ttyd64_partner_combat_begin_player_turn(void) {
     Actor* actor = gBattleStatus.partnerActor;
+    ttyd64_partner_status_update(actor);
     // Battle_PartnersExtraActorData.patch AdvancePartnersExtraData: inactive
     // Kooper also recovers over rounds. Saturate rather than wrap the source byte.
     if (ttyd64_partner_combat_active(actor) && BoundPartnerID != PARTNER_KOOPER

@@ -1,3 +1,4 @@
+#include "ttyd64_partner_status.h"
 #include "battle/battle.h"
 #include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
@@ -499,7 +500,9 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
             break;
         case ACTOR_CLASS_PARTNER:
             if (target->stoneStatus == 0) {
-                if (target->koStatus == 0 && !(battleStatus->curAttackElement & DAMAGE_TYPE_UNBLOCKABLE)) {
+                if ((ttyd64_partner_combat_active(target)
+                    ? (target->debuff == 0 || target->debuff == STATUS_KEY_POISON || target->debuff == STATUS_KEY_SHRINK)
+                    : target->koStatus == 0) && !(battleStatus->curAttackElement & DAMAGE_TYPE_UNBLOCKABLE)) {
                     if (!ttyd64_kooper_flipped(target) && check_block_input(BUTTON_A)) {
                         // PartnersHP.patch 80277A20: ordinary guard saves one HP.
                         damage = ttyd64_partner_combat_active(target) ? damage - 1 : 0;
@@ -3500,6 +3503,7 @@ API_CALLABLE(ClearStatusEffects) {
     }
 
     actor = get_actor(actorID);
+    ttyd64_partner_status_clear(actor);
 
     if (actor->debuff != 0) {
         actor->debuffDuration = 0;
