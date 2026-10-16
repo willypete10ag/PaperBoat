@@ -14,6 +14,7 @@ import uuid
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--verify', action='store_true', help='Check native startup/input, then close instead of handing off the game')
+    parser.add_argument('--ground-partners', action='store_true', help='Recruit Goombario, Kooper and Bombette in this isolated prototype session')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
     setup = Path('/workspace/.paperboat-setup')
@@ -33,11 +34,11 @@ def main():
     shutil.copyfile(seed, runtime / 'saves/file3.json')
     shutil.copyfile(profile, runtime / 'paperboat.cfg.json')
     env = os.environ.copy()
-    env.update(SHIP_HOME=str(runtime), XDG_CACHE_HOME=str(session / 'cache'), PARTNER_SLICE_PLAYTEST='1',
+    env.update(PARTNER_SLICE_PARTNER='1', PARTNER_SLICE_GROUND=str(int(args.ground_partners)), SHIP_HOME=str(runtime), XDG_CACHE_HOME=str(session / 'cache'), PARTNER_SLICE_PLAYTEST='1',
                PARTNER_SLICE_VERIFY_ONLY=str(int(args.verify)),
                PARTNER_SLICE_RESULT=str(session / 'ready.json'), DEBUGINFOD_URLS='')
     print('Fresh isolated test session: ' + str(session), flush=True)
-    print('Goombario prototype enabled only in this process. Normal launches remain off.', flush=True)
+    print('Partner HP prototype enabled only in this process. Normal launches remain off.', flush=True)
     with (session / 'launch.log').open('w') as log:
         process = subprocess.Popen(['gdb','-q','-batch','-x',str(repo / 'tools/porting/partner_playable_slice_gdb.py'),'./Paperboat'],
                                    cwd=binary_dir, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -54,8 +55,9 @@ def main():
     result = json.loads((session / 'ready.json').read_text())
     print(('Verified and closed' if args.verify else f'Ready: game PID {result["pid"]}') + '. Report: ' + str(session / 'ready.json'))
     print('Move W/A/S/D; A=X; B=C; Start=Space; Items=Left arrow; Partners=Right arrow; battle order=Z.')
+    print('Ground partner group recruited: Goombario, Kooper, Bombette.' if args.ground_partners else 'Only Goombario is recruited.')
     print('Starts in Goomba Village: try menus/healing, then take the right exit for Goomba Road. Close the game window to finish.')
-    print('Saves stay in this session. Each launch starts fresh; this is an early Goombario slice, not the full mod.')
+    print('Saves stay in this session. Each launch starts fresh; this is an early partner HP slice, not the full mod.')
 
 
 if __name__ == '__main__':

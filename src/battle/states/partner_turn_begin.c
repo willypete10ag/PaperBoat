@@ -20,7 +20,7 @@ void btl_state_update_begin_partner_turn(void) {
 
     if (gBattleSubState == BTL_SUBSTATE_INIT) {
         if (partner == nullptr || (ttyd64_partner_combat_active(partner)
-            && ttyd64_get_partner_hp(PARTNER_GOOMBARIO) <= 0)) {
+            && ttyd64_get_partner_hp(gPlayerData.curPartner) <= 0)) {
             BattleSkipActorTurn = true;
             gBattleSubState = BTL_SUBSTATE_END_DELAY;
         } else if ((battleStatus->flags2 & (BS_FLAGS2_PARTNER_TURN_USED | BS_FLAGS2_PLAYER_TURN_USED)) == (BS_FLAGS2_PARTNER_TURN_USED | BS_FLAGS2_PLAYER_TURN_USED)) {

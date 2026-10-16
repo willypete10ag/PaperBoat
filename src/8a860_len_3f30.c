@@ -150,7 +150,7 @@ void popup_draw_already_have_partner(s32* userData, s32 x, s32 y);
 void popup_draw_star_pieces_content(s32* userData, s32 x, s32 y);
 
 // PartnersHP.patch world/battle list consumers share the typed HP model.
-// Other partners' HP rows remain pending; ordinary play retains native layout.
+// Only the supported ground group has rows; ordinary play retains native layout.
 static b32 popup_partner_hp_active(void) {
     return gTtyd64PartnerHPPrototypeEnabled && gPopupMenu != nullptr
         && gPopupMenu->popupType == POPUP_MENU_SWITCH_PARTNER
@@ -159,14 +159,14 @@ static b32 popup_partner_hp_active(void) {
                 && !(gGameStatusPtr->demoBattleFlags & DEMO_BTL_FLAG_ENABLED)))
         && gGameStatusPtr->demoState == DEMO_STATE_NONE
         && !(gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
-        && gPlayerData.partners[PARTNER_GOOMBARIO].enabled;
+        && ttyd64_has_hp_partner();
 }
 
 static b32 popup_world_partner_hp_active(void) {
     return PopupNotBattle && popup_partner_hp_active();
 }
 
-static void popup_draw_goombario_hp(s32 entry, s32 x, s32 y, s32 palette) {
+static void popup_draw_partner_hp(s32 entry, s32 x, s32 y, s32 palette) {
     static const u8 label[] = {
         MSG_CHAR_READ_FUNCTION, MSG_READ_FUNC_SIZE, 11, 11,
         MSG_CHAR_READ_FUNCTION, MSG_READ_FUNC_DOWN, 3,
@@ -176,7 +176,7 @@ static void popup_draw_goombario_hp(s32 entry, s32 x, s32 y, s32 palette) {
     s32 partnerID = gPopupMenu->userIndex[entry];
     b32 mario = ttyd64_world_item_target_menu_active() && partnerID == PARTNER_NONE;
 
-    if (!mario && partnerID != PARTNER_GOOMBARIO) {
+    if (!mario && !ttyd64_partner_hp_supported(partnerID)) {
         return;
     }
     draw_msg((intptr_t)label, x + 81, y - 2, PopupMenu_Alpha, palette, DRAW_MSG_STYLE_MENU);
@@ -1619,7 +1619,7 @@ void popup_draw_menu_content(s32* userData, s32 baseX, s32 baseY, s32 width, s32
                 case POPUP_MENU_UPGRADE_PARTNER:
                     draw_msg(gPopupMenu->nameMsg[t], x, y, PopupMenu_Alpha, msgPal, DRAW_MSG_STYLE_MENU);
                     if (popup_partner_hp_active()) {
-                        popup_draw_goombario_hp(t, x, y, msgPal);
+                        popup_draw_partner_hp(t, x, y, msgPal);
                     }
                     break;
                 case POPUP_MENU_READ_LETTER:

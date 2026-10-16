@@ -2,8 +2,7 @@
 #include "dx/versioning.h"
 
 // Translated from PartnersHP.patch: $PartnersHPTable/$updatePartnerMaxHP.
-// Goombario combat below is a validated, default-off bounded prototype.
-// HP Plus P and the other partners' combat/item/UI consumers remain pending.
+// Default-off ground-partner prototype. HP Plus P and flying consumers remain pending.
 static const s16 PartnerBaseHP[TTYD64_PARTNER_HP_COUNT][3] = {
     [PARTNER_GOOMBARIO]  = { 10, 20, 30 },
     [PARTNER_KOOPER]     = { 10, 15, 25 },
@@ -112,6 +111,19 @@ s32 ttyd64_get_partner_max_hp(s32 partnerID) {
     return health == nullptr ? -1 : health->maxHP;
 }
 
+b32 ttyd64_partner_hp_supported(s32 partnerID) {
+    return partnerID == PARTNER_GOOMBARIO || partnerID == PARTNER_KOOPER || partnerID == PARTNER_BOMBETTE;
+}
+
+b32 ttyd64_has_hp_partner(void) {
+    for (s32 i = 1; i < TTYD64_PARTNER_HP_COUNT; i++) {
+        if (ttyd64_partner_hp_supported(i) && gPlayerData.partners[i].enabled) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static b32 can_bind_actor(void) {
     return gTtyd64PartnerHPPrototypeEnabled && gGameStatusPtr->context == CONTEXT_BATTLE
         && !(gGameStatusPtr->demoBattleFlags & DEMO_BTL_FLAG_ENABLED)
@@ -199,8 +211,8 @@ void ttyd64_partner_hp_unbind_actor(Actor* actor) {
 
 b32 ttyd64_partner_combat_active(Actor* actor) {
     return can_bind_actor() && actor != nullptr && actor == BoundPartnerActor
-        && actor == gBattleStatus.partnerActor && BoundPartnerID == PARTNER_GOOMBARIO
-        && gPlayerData.curPartner == PARTNER_GOOMBARIO;
+        && actor == gBattleStatus.partnerActor && ttyd64_partner_hp_supported(BoundPartnerID)
+        && gPlayerData.curPartner == BoundPartnerID;
 }
 
 // Battle_PlayerTeam_DontSwapPositions: native position flags remain physical
@@ -236,7 +248,7 @@ void ttyd64_partner_team_swap_completed(b32 nativePlayerInBack) {
 s32 ttyd64_partner_team_resolve_target(s32 targetActorID) {
     // PartnersHP SetTargetActor: a dead-partner target must attack Mario.
     if (targetActorID == ACTOR_PARTNER && ttyd64_partner_team_active()
-        && ttyd64_get_partner_hp(PARTNER_GOOMBARIO) <= 0) {
+        && ttyd64_get_partner_hp(BoundPartnerID) <= 0) {
         return ACTOR_PLAYER;
     }
     return targetActorID;
@@ -252,24 +264,24 @@ s32 ttyd64_partner_team_target(b32 back) {
 
 void ttyd64_partner_combat_load_hp(Actor* actor) {
     if (ttyd64_partner_combat_active(actor)) {
-        actor->curHP = ttyd64_get_partner_hp(PARTNER_GOOMBARIO);
-        actor->maxHP = ttyd64_get_partner_max_hp(PARTNER_GOOMBARIO);
+        actor->curHP = ttyd64_get_partner_hp(BoundPartnerID);
+        actor->maxHP = ttyd64_get_partner_max_hp(BoundPartnerID);
     }
 }
 
 void ttyd64_partner_combat_store_hp(Actor* actor) {
     if (ttyd64_partner_combat_active(actor)) {
-        ttyd64_set_partner_hp(PARTNER_GOOMBARIO, actor->curHP);
+        ttyd64_set_partner_hp(BoundPartnerID, actor->curHP);
     }
 }
 
 b32 ttyd64_partner_combat_death_handled(Actor* actor) {
-    return ttyd64_partner_combat_active(actor) && (DeathHandledMask & (1 << PARTNER_GOOMBARIO));
+    return ttyd64_partner_combat_active(actor) && (DeathHandledMask & (1 << BoundPartnerID));
 }
 
 void ttyd64_partner_combat_mark_dead(Actor* actor) {
     if (ttyd64_partner_combat_active(actor) && actor->curHP == 0) {
-        DeathHandledMask |= 1 << PARTNER_GOOMBARIO;
+        DeathHandledMask |= 1 << BoundPartnerID;
         gBattleStatus.flags2 |= BS_FLAGS2_PARTNER_TURN_USED;
         actor->flags &= ~ACTOR_FLAG_USING_IDLE_ANIM;
     }
@@ -282,7 +294,7 @@ b32 ttyd64_partner_combat_allow_event(Actor* actor, s32 event) {
     if (DeathScriptID != 0 && does_script_exist(DeathScriptID)) {
         return false;
     }
-    if (ttyd64_get_partner_hp(PARTNER_GOOMBARIO) == 0) {
+    if (ttyd64_get_partner_hp(BoundPartnerID) == 0) {
         return event == EVENT_DEATH && !ttyd64_partner_combat_death_handled(actor);
     }
     return true;
@@ -303,7 +315,7 @@ b32 ttyd64_partner_combat_check_defeat(void) {
         return true;
     }
     DeathScriptID = 0;
-    if (ttyd64_get_partner_hp(PARTNER_GOOMBARIO) > 0 || ttyd64_partner_combat_death_handled(partner)) {
+    if (ttyd64_get_partner_hp(BoundPartnerID) > 0 || ttyd64_partner_combat_death_handled(partner)) {
         return false;
     }
     // Let the previous hit animation finish before the source-style death event.
@@ -318,20 +330,20 @@ b32 ttyd64_partner_combat_check_defeat(void) {
 }
 
 s32 ttyd64_partner_combat_use_life_shroom(Actor* actor) {
-    if (!ttyd64_partner_combat_active(actor) || ttyd64_get_partner_hp(PARTNER_GOOMBARIO) != 0
+    if (!ttyd64_partner_combat_active(actor) || ttyd64_get_partner_hp(BoundPartnerID) != 0
         || gPlayerData.curHP <= 0 || find_item(ITEM_LIFE_SHROOM) < 0) {
         return 0;
     }
     remove_item(ITEM_LIFE_SHROOM);
     // PartnersHP.patch $UseLifeShroom_Actor restores ten and returns the turn.
-    s32 hp = ttyd64_set_partner_hp(PARTNER_GOOMBARIO, 10);
+    s32 hp = ttyd64_set_partner_hp(BoundPartnerID, 10);
     gBattleStatus.flags2 &= ~BS_FLAGS2_PARTNER_TURN_USED;
     return hp;
 }
 
 b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID) {
     Actor* partner = gBattleStatus.partnerActor;
-    if (!ttyd64_partner_combat_active(partner) || ttyd64_get_partner_hp(PARTNER_GOOMBARIO) <= 0
+    if (!ttyd64_partner_combat_active(partner) || ttyd64_get_partner_hp(BoundPartnerID) <= 0
         || (DeathScriptID != 0 && does_script_exist(DeathScriptID))) {
         return false;
     }
@@ -350,15 +362,15 @@ s32 ttyd64_partner_combat_heal(Actor* actor, s32 amount) {
         || (DeathScriptID != 0 && does_script_exist(DeathScriptID))) {
         return 0;
     }
-    s32 hp = ttyd64_get_partner_hp(PARTNER_GOOMBARIO);
+    s32 hp = ttyd64_get_partner_hp(BoundPartnerID);
     if (hp <= 0) {
         return 0;
     }
     // PartnersItems.patch $Heal_PlayerTeam/$heal_actor: cap to max HP. Bound
     // before addition so even an oversized script argument cannot overflow.
-    s32 missing = ttyd64_get_partner_max_hp(PARTNER_GOOMBARIO) - hp;
+    s32 missing = ttyd64_get_partner_max_hp(BoundPartnerID) - hp;
     s32 recovered = amount > missing ? missing : amount;
-    ttyd64_set_partner_hp(PARTNER_GOOMBARIO, hp + recovered);
+    ttyd64_set_partner_hp(BoundPartnerID, hp + recovered);
     return recovered;
 }
 
@@ -366,8 +378,8 @@ static b32 can_display_world_hp(void) {
     return gTtyd64PartnerHPPrototypeEnabled && gGameStatusPtr->context == CONTEXT_WORLD
         && gGameStatusPtr->demoState == DEMO_STATE_NONE
         && !(gPlayerStatusPtr->animFlags & PA_FLAG_USING_PEACH_PHYSICS)
-        && WorldPartnerID == PARTNER_GOOMBARIO && gPlayerData.curPartner == PARTNER_GOOMBARIO
-        && gPlayerData.partners[PARTNER_GOOMBARIO].enabled;
+        && ttyd64_partner_hp_supported(WorldPartnerID) && gPlayerData.curPartner == WorldPartnerID
+        && gPlayerData.partners[WorldPartnerID].enabled;
 }
 
 void ttyd64_partner_hp_world_bind(s32 partnerID) {
@@ -386,7 +398,7 @@ void ttyd64_partner_hp_sync_display(void) {
     Actor* partner = gBattleStatus.partnerActor;
     DisplayPartnerInWorld = can_display_world_hp();
     DisplayPartnerActor = !DisplayPartnerInWorld && ttyd64_partner_combat_active(partner) ? partner : nullptr;
-    DisplayPartnerHP = DisplayPartnerInWorld || DisplayPartnerActor ? ttyd64_get_partner_hp(PARTNER_GOOMBARIO) : -1;
+    DisplayPartnerHP = DisplayPartnerInWorld || DisplayPartnerActor ? ttyd64_get_partner_hp(DisplayPartnerInWorld ? WorldPartnerID : BoundPartnerID) : -1;
     DisplayPartnerHPTimer = 0;
 }
 
@@ -400,7 +412,7 @@ void ttyd64_partner_hp_update_display(void) {
     }
     // NewStatsMenu.patch $PartnerHP_AnimationTimer: one HP every four frames,
     // both damage and healing. Presentation state is separate from saved HP.
-    s32 hp = ttyd64_get_partner_hp(PARTNER_GOOMBARIO);
+    s32 hp = ttyd64_get_partner_hp(inWorld ? WorldPartnerID : BoundPartnerID);
     if (DisplayPartnerHP == hp) {
         DisplayPartnerHPTimer = 0;
     } else if (++DisplayPartnerHPTimer >= 4) {
@@ -417,4 +429,11 @@ s32 ttyd64_partner_hp_display(void) {
         return -1;
     }
     return DisplayPartnerHP;
+}
+
+s32 ttyd64_partner_hp_display_partner(void) {
+    if (ttyd64_partner_hp_display() < 0) {
+        return PARTNER_NONE;
+    }
+    return DisplayPartnerInWorld ? WorldPartnerID : BoundPartnerID;
 }

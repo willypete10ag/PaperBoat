@@ -80,7 +80,8 @@ automated route remains unvalidated until reproduced.
   unavailable partner turn in later rounds. With Life Shroom, Goombario retains
   the front slot and revives. Full source yaw/effect choreography is unfinished.
   Failed-flee presentation is not yet scenario-accepted.
-- Only Goombario HP and four shroom-family recipient paths are supported here.
+- Default sessions recruit Goombario. The opt-in ground group below adds Kooper
+  and Bombette HP and the same four shroom-family recipient paths.
   Full source choreography/artwork, other foods, other partners, new moves,
   partner badges and campaign conversion remain unfinished.
 - World shrooms can heal zero HP, matching source; ordinary battle food cannot.
@@ -108,3 +109,28 @@ rewards and Save Block interaction are native. Reload explicitly calls native
 FIO; this does not claim a fresh-process/title restart or level-up validation.
 Exact disposable save bytes are restored in a finally block. Screenshots and
 logs stay private; only numeric results belong in the coordination repository.
+
+## Ground-partner HP prototype
+
+Add `--ground-partners` to recruit Goombario, Kooper and Bombette in the new
+isolated session, each initially wounded at 3 HP. Native normal-rank maxima are
+10, 10 and 15. Use the world Partners menu or battle Change Partner to select
+one. `--verify --ground-partners` checks setup/input and closes automatically.
+Default invocation still recruits only Goombario; normal launches remain off.
+
+The supported HP group shares damage/death/Life Shroom, turn skipping, team
+positions, shrooms and HP presentation. This does not port complete partner move
+sets, Kooper's source one-point defense/flipped-shell state, Bombette's special
+explosion/status changes, other enemy targeting or flying-partner rules. Native
+moves/defense remain unless separately translated. These are explicit limits of
+the current prototype, not accepted TTYD64 parity.
+
+For developer acceptance, `PARTNER_SLICE_PARTNER=2` or `3` selects Kooper/Bombette
+in the shared `ground-combat`, `team`, `victory` and `victory-dead` phases.
+`ground-ui` checks world swaps, pause rows, supported world-recipient identities
+and zero-HP world food recovery together. Contact/item API boundaries are
+controlled; healing menus and ordinary Goomba combat/outcomes use keyboard input.
+The disposable slot guard and byte-for-byte restoration still apply.
+
+The [shared ground HP handoff](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-15-ground-partner-hp.md)
+records exact implementation/evidence pins and the next source-parity batch.

@@ -40,7 +40,10 @@ void ttyd64_partner_hp_begin_battle(void);
 void ttyd64_partner_hp_bind_actor(Actor* actor);
 void ttyd64_partner_hp_unbind_actor(Actor* actor);
 
-// First combat consumer: only the currently bound Goombario prototype.
+// Explicit supported ground group; other partners keep native combat.
+b32 ttyd64_partner_hp_supported(s32 partnerID);
+b32 ttyd64_has_hp_partner(void);
+// Only the currently bound, supported partner can own combat HP.
 b32 ttyd64_partner_combat_active(Actor* actor);
 void ttyd64_partner_combat_load_hp(Actor* actor);
 void ttyd64_partner_combat_store_hp(Actor* actor);
@@ -51,7 +54,7 @@ b32 ttyd64_partner_combat_death_handled(Actor* actor);
 void ttyd64_partner_combat_mark_dead(Actor* actor);
 s32 ttyd64_partner_combat_use_life_shroom(Actor* actor);
 
-// Source team positions/targeting, scoped to the bound Goombario prototype.
+// Source team positions/targeting, scoped to the bound supported ground partner.
 // Keep physical position (native PLAYER_IN_BACK) separate from acting turn.
 b32 ttyd64_partner_team_active(void);
 void ttyd64_partner_team_request_swap(void);
@@ -70,6 +73,11 @@ void ttyd64_partner_hp_world_unbind(void);
 void ttyd64_partner_hp_sync_display(void);
 void ttyd64_partner_hp_update_display(void);
 s32 ttyd64_partner_hp_display(void);
+s32 ttyd64_partner_hp_display_partner(void);
+
+API_CALLABLE(Ttyd64PartnerHPState);
+API_CALLABLE(Ttyd64PartnerRestoreDeadPose);
+extern EvtScript EVS_Ttyd64PartnerDeath;
 
 #ifdef __cplusplus
 }

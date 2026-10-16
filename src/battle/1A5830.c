@@ -2700,7 +2700,7 @@ API_CALLABLE(GetActorHP) {
         case ACTOR_CLASS_PARTNER:
             outVal = 99;
             if (ttyd64_partner_combat_active(actor)) {
-                outVal = ttyd64_get_partner_hp(PARTNER_GOOMBARIO);
+                outVal = ttyd64_get_partner_hp(gPlayerData.curPartner);
             }
             break;
         default:

@@ -49,24 +49,28 @@ def run():
     assert runtime_env.get('DISPLAY'), 'Set DISPLAY to the owned test server'
     cmd('set environment DISPLAY ' + runtime_env['DISPLAY'])
     print('PARTNER_SLICE_DISPLAY=' + runtime_env['DISPLAY'])
+    partner_id = int(os.environ.get('PARTNER_SLICE_PARTNER','1'))
+    assert partner_id in (1,2,3)
+    cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
-        return val('ttyd64_get_partner_hp(1)')
+        return val('ttyd64_get_partner_hp($slicePartner)')
     def selected():
         if not val('gPausePartnersNumPartners'):
             return 0
         return val('gPausePartnersPartnerIDs[gPausePartnersPartnerIdx[gPausePartnersCurrentPartnerIdx]]')
     def check(name, condition):
-        state = {'check':name,'hp':hp(),'max_hp':val('ttyd64_get_partner_max_hp(1)'),
+        state = {'check':name,'hp':hp(),'max_hp':val('ttyd64_get_partner_max_hp($slicePartner)'),
                  'context':val('gGameStatusPtr->context'),'world_partner':val('wCurrentPartnerId'),
                  'selected':selected(),'panel':val('gPauseMenuCurrentTab'),
                  'tabs_col':val('gPausePanelTabs.col'),'ability_level':val('gPausePartnersLevel'),
                  'heart_id':val('Ttyd64PausePartnerHeartHID'),'world_owner':val('WorldPartnerID'),
                  'battle_state':val('gBattleState'),'battle_substate':val('gBattleSubState'),
-                 'encounter_state':val('gEncounterState'),'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK'))}
+                 'encounter_state':val('gEncounterState'),'combat_partner':val('gPlayerData.curPartner'),'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK'))}
         states.append(state)
         if not condition:
             (root/'failed-state.json').write_text(json.dumps({'checks_passed':len(checks),'state':state,'team_trace':team_trace},indent=2)+'\n')
@@ -99,9 +103,11 @@ def run():
         for _ in range(3):
             until('render_game_mode_backUI')
     def capture(name):
+        if partner_id != 1:
+            name = str(partner_id) + "-" + name
         if val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('ttyd64_partner_combat_active(gBattleStatus.partnerActor)'):
             for _ in range(180):
-                if val('ttyd64_partner_hp_display()') == hp():
+                if val('ttyd64_partner_hp_display()') == val('ttyd64_get_partner_hp(gPlayerData.curPartner)'):
                     break
                 until('render_game_mode_backUI')
             else:
@@ -122,9 +128,9 @@ def run():
         stopped[0].switch()
         timing = json.loads(proc.communicate(timeout=5)[0])
         assert proc.returncode == 0 and timing['completed_at'] < stopped_at
-        captures.append({'capture':name,'captured_while_running':True,'start_state':capture_start,'hp':hp(),'max_hp':val('ttyd64_get_partner_max_hp(1)'),
+        captures.append({'capture':name,'captured_while_running':True,'start_state':capture_start,'hp':hp(),'max_hp':val('ttyd64_get_partner_max_hp($slicePartner)'),
                          'selected':selected(),'panel':val('gPauseMenuCurrentTab'),'active':val('pause_partners_hp_active()'),
-                         'context':val('gGameStatusPtr->context'),'encounter_state':val('gEncounterState'),'display_hp':val('ttyd64_partner_hp_display()')})
+                         'context':val('gGameStatusPtr->context'),'encounter_state':val('gEncounterState'),'display_hp':val('ttyd64_partner_hp_display()'),'display_partner':val('ttyd64_partner_hp_display_partner()')})
     def open_party():
         key('space')
         wait('gGameStatusPtr->context == CONTEXT_PAUSE && StepPauseDelay < -10')
@@ -169,7 +175,7 @@ def run():
         key('x')
         menu_ready(3)
     def consume(row):
-        if row:
+        for _ in range(row):
             key('s')
         assert val('PopupMenu_SelectedIndex') == row
         key('x')
@@ -177,9 +183,9 @@ def run():
         tick(30)
     def enter_road_battle():
         put('gTtyd64PartnerHPPrototypeEnabled',1)
-        put('gPlayerData.partners[1].level',0)
-        cmd('call ttyd64_reset_partner_hp(1)')
-        assert val('ttyd64_set_partner_hp(1,3)') == 3
+        put('gPlayerData.partners[$slicePartner].level',0)
+        cmd('call ttyd64_reset_partner_hp($slicePartner)')
+        assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
         for field in ('curHP','curMaxHP','hardMaxHP'):
             put('gPlayerData.' + field,20)
         put('gPlayerData.hasActionCommands',1)
@@ -188,7 +194,7 @@ def run():
         inventory()
         cmd('call evt_set_variable((Evt*)0, GB_StoryProgress, STORY_CH1_DEFEATED_KOOPA_BROS)')
         cmd('call evt_set_variable((Evt*)0, GF_Tutorial_SwapTurnOrder, 1)')
-        cmd('call switch_to_partner(1)')
+        cmd('call switch_to_partner($slicePartner)')
         tick(80)
         # Map travel is controlled setup; collision, battle menus and outcome
         # below use ordinary keyboard input, without StartBattle/end-state calls.
@@ -199,7 +205,7 @@ def run():
         until('state_step_world')
         tick(100)
         wait('gGameStatusPtr->context == CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
-        check('battle-route-native-road-ready',val('gGameStatusPtr->mapID') == 7 and val('WorldPartnerID') == 1 and hp() == 3)
+        check('battle-route-native-road-ready',val('gGameStatusPtr->mapID') == 7 and val('WorldPartnerID') == partner_id and hp() == 3)
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_NONE'))
         walk_inputs = 0
         for _ in range(40):
@@ -286,18 +292,24 @@ def run():
     tick(100)
     # End-file-select has now restored PlayerData from the disposable record.
     for i in range(1,12):
-        put(f'gPlayerData.partners[{i}].enabled',int(i in (1,2)))
+        put(f'gPlayerData.partners[{i}].enabled',int(i in (1,2,partner_id)))
         put(f'gPlayerData.partners[{i}].level',0)
-    cmd('call ttyd64_reset_partner_hp(1)')
-    assert val('ttyd64_set_partner_hp(1,3)') == 3
-    cmd('call switch_to_partner(1)')
+    cmd('call ttyd64_reset_partner_hp($slicePartner)')
+    assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
+    cmd('call switch_to_partner($slicePartner)')
     tick(100)
-    wait('wCurrentPartnerId == 1 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
     if playtest:
         # Seed only this newly-created isolated session, after native load.
         # A new session is allocated by the launcher; real saves are not used.
         for i in range(1,12):
-            put(f'gPlayerData.partners[{i}].enabled',int(i == 1))
+            put(f'gPlayerData.partners[{i}].enabled',int(i in (1,2,3) if os.environ.get('PARTNER_SLICE_GROUND') == '1' else i == 1))
+        if os.environ.get('PARTNER_SLICE_GROUND') == '1':
+            for pid in (2,3):
+                put(f'gPlayerData.partners[{pid}].level',0)
+                cmd(f'call ttyd64_reset_partner_hp({pid})')
+                assert val(f'ttyd64_set_partner_hp({pid},3)') == 3
+            check('isolated-ground-playtest-recruits-and-seeds-supported-group',val('gPlayerData.partners[2].enabled') == 1 and val('gPlayerData.partners[3].enabled') == 1 and val('ttyd64_get_partner_max_hp(2)') == 10 and val('ttyd64_get_partner_max_hp(3)') == 15)
         for field, amount in [('curHP',15),('curMaxHP',20),('hardMaxHP',20),
                               ('curFP',10),('curMaxFP',10),('hardMaxFP',10),
                               ('bootsLevel',0),('hammerLevel',0),('hasActionCommands',1)]:
@@ -310,7 +322,7 @@ def run():
         cmd('call evt_set_variable((Evt*)0, GF_Tutorial_SwapTurnOrder, 1)')
         put('gTtyd64PartnerHPPrototypeEnabled',1)
         cmd('call ttyd64_partner_hp_world_bind(wCurrentPartnerId)')
-        check('isolated-playtest-world-ready',hp() == 3 and val('ttyd64_partner_hp_display()') == 3 and val('wCurrentPartnerId') == 1 and val('gPlayerStatus.inputDisabledCount') == 0)
+        check('isolated-playtest-world-ready',hp() == 3 and val('ttyd64_partner_hp_display()') == 3 and val('wCurrentPartnerId') == partner_id and val('gPlayerStatus.inputDisabledCount') == 0)
         # Prove native input is live before handing control to the tester.
         open_items()
         check('isolated-playtest-keyboard-items-open',val('WorldPopupMenu.numEntries') == 6)
@@ -319,10 +331,10 @@ def run():
         cmd('call open_status_bar_quickly()')
         tick(30)
         capture('playtest-ready')
-        report = {'phases_run':phases,'checks_passed':len(checks),'checks':checks,
+        report = {'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,
                   'native_states':states,'captures':captures,
-                  'session':str(root),'pid':gdb.selected_inferior().pid,
-                  'limits':'Prepared cloud/Linux developer launcher, existing private fixture seed and archives required. Fresh isolated session; prototype on only in this process. Goombario only, shroom family and existing native maps; incomplete TTYD64 port.'}
+                  'session':str(root),'pid':gdb.selected_inferior().pid,'ground_partners':os.environ.get('PARTNER_SLICE_GROUND') == '1',
+                  'limits':'Prepared cloud/Linux developer launcher, existing private fixture seed and archives required. Fresh isolated session; prototype on only in this process. Goombario-only default or explicitly requested ground HP group, shroom family and existing native maps; native moves/defense remain, incomplete TTYD64 port.'}
         Path(os.environ['PARTNER_SLICE_RESULT']).write_text(json.dumps(report,indent=2)+'\n')
         assert save.read_bytes() == original
         if os.environ.get('PARTNER_SLICE_VERIFY_ONLY') == '1':
@@ -332,6 +344,59 @@ def run():
             cmd('detach')
             print('GOOMBARIO_PLAYTEST_READY=' + str(report['pid']))
         return
+    if 'ground-ui' in phases:
+        assert partner_id == 1
+        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        for i in range(1,12):
+            put(f'gPlayerData.partners[{i}].enabled',int(i in (1,2,3,4)))
+        expected_hp = {1:3,2:4,3:6}
+        for pid, amount in expected_hp.items():
+            put(f'gPlayerData.partners[{pid}].level',0)
+            assert val(f'ttyd64_set_partner_hp({pid},{amount})') == amount
+        for pid in (2,3,1):
+            key('Right')
+            menu_ready(0)
+            index = next(i for i in range(val('WorldPopupMenu.numEntries')) if val(f'WorldPopupMenu.userIndex[{i}]') == pid)
+            for _ in range(8):
+                current = val('PopupMenu_SelectedIndex')
+                if current == index:
+                    break
+                key('w' if index < current else 's')
+            assert val('WorldPopupMenu.userIndex[PopupMenu_SelectedIndex]') == pid
+            key('x')
+            wait(f'WorldMenuState == 0 && wCurrentPartnerId == {pid} && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+            tick(30)
+            check(f'ground-world-keyboard-swap-owner-{pid}',val('WorldPartnerID') == pid and val('ttyd64_partner_hp_display_partner()') == pid and val('ttyd64_partner_hp_display()') == expected_hp[pid])
+            capture(f'ground-world-{pid}')
+        open_party()
+        for pid in (1,2,3,4):
+            for _ in range(8):
+                if selected() == pid:
+                    break
+                key('d')
+                tick(30)
+            check(f'ground-pause-selected-identity-{pid}',selected() == pid and bool(val('pause_partners_hp_active()')) == (pid in expected_hp))
+            capture(f'ground-pause-{pid}')
+        close_pause()
+        # Menu identities cover all supported, recruited ground partners and
+        # retain Mario first. Unsupported Parakarry has no recipient HP route.
+        for pid in (1,2,3):
+            inventory()
+            assert val(f'ttyd64_set_partner_hp({pid},0)') == 0
+            open_recipient()
+            ids = [val(f'WorldPopupMenu.userIndex[{i}]') for i in range(val('WorldPopupMenu.numEntries'))]
+            check(f'ground-world-recipient-identities-{pid}',ids == [0,1,2,3])
+            capture(f'ground-recipient-{pid}')
+            consume(ids.index(pid))
+            check(f'ground-world-keyboard-zero-heal-{pid}',val(f'ttyd64_get_partner_hp({pid})') == 5 and item_count() == 1 and val('wCurrentPartnerId') == 1)
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        inventory()
+        put('gPlayerData.curHP',2)
+        open_items()
+        key('x')
+        wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+        tick(30)
+        check('ground-off-world-food-keeps-native-mario',val('gPlayerData.curHP') == 7 and item_count() == 1 and val('ttyd64_partner_hp_display()') == -1)
     if 'pause' in phases:
         open_party()
         check('off-keyboard-pause-party-keeps-native-no-heart',val('Ttyd64PausePartnerHeartHID') == -1 and val('pause_partners_hp_active()') == 0 and selected() == 1)
@@ -342,9 +407,9 @@ def run():
         # Native creation is deliberately used before opening the guarded cycle.
         cmd('call switch_to_partner(2)')
         tick(100)
-        cmd('call switch_to_partner(1)')
+        cmd('call switch_to_partner($slicePartner)')
         tick(100)
-        check('guarded-world-owner-before-pause',val('WorldPartnerID') == 1 and val('ttyd64_partner_hp_display()') == 3)
+        check('guarded-world-owner-before-pause',val('WorldPartnerID') == partner_id and val('ttyd64_partner_hp_display()') == 3)
         open_party()
         check('guarded-pause-owns-manual-heart',val('Ttyd64PausePartnerHeartHID') >= 0 and val('get_hud_element(Ttyd64PausePartnerHeartHID)->flags & HUD_ELEMENT_FLAG_MANUAL_RENDER') != 0)
         check('guarded-selected-goombario-shows-wounded-health',val('pause_partners_hp_active()') != 0 and hp() == 3 and selected() == 1)
@@ -352,7 +417,7 @@ def run():
         key('d')
         wait('gPausePartnersCurrentPartnerIdx == 1')
         tick(30)
-        check('carousel-other-selection-hides-goombario-hp',selected() == 2 and val('pause_partners_hp_active()') == 0 and val('gPlayerData.curPartner') == 1 and hp() == 3)
+        check('carousel-other-ground-selection-has-own-hp',selected() == 2 and val('pause_partners_hp_active()') != 0 and val('gPlayerData.curPartner') == 1 and hp() == 3)
         capture('pause-party-kooper')
         key('a')
         wait('gPausePartnersCurrentPartnerIdx == 0')
@@ -367,13 +432,13 @@ def run():
         key('c')
         wait('gPausePartnersLevel == 0')
         check('keyboard-abilities-back-keeps-carousel-hp',val('gPauseMenuCurrentTab') == 4 and val('pause_partners_hp_active()') != 0)
-        assert val('ttyd64_set_partner_hp(1,0)') == 0
+        assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
         check('pause-zero-hp-visible-without-changing-world-partner',val('pause_partners_hp_active()') != 0 and hp() == 0 and val('gPlayerData.curPartner') == 1)
         capture('pause-party-zero')
-        put('gPlayerData.partners[1].level',2)
-        cmd('call ttyd64_reset_partner_hp(1)')
-        assert val('ttyd64_set_partner_hp(1,27)') == 27
-        check('pause-ultra-rank-has-independent-current-and-max',hp() == 27 and val('ttyd64_get_partner_max_hp(1)') == 30 and val('gPlayerData.partners[1].level') == 2)
+        put('gPlayerData.partners[$slicePartner].level',2)
+        cmd('call ttyd64_reset_partner_hp($slicePartner)')
+        assert val('ttyd64_set_partner_hp($slicePartner,27)') == 27
+        check('pause-ultra-rank-has-independent-current-and-max',hp() == 27 and val('ttyd64_get_partner_max_hp($slicePartner)') == 30 and val('gPlayerData.partners[$slicePartner].level') == 2)
         capture('pause-party-ultra')
         key('c')
         wait('gPauseMenuCurrentTab == 0')
@@ -386,7 +451,7 @@ def run():
         check('keyboard-page-return-preserves-health',val('gPauseTabsCurrentTab') == 3 and hp() == 27)
         capture('pause-party-page-return')
         close_pause()
-        check('guarded-unpause-restores-world-hp-owner',val('WorldPartnerID') == 1 and val('ttyd64_partner_hp_display()') == 27 and hp() == 27)
+        check('guarded-unpause-restores-world-hp-owner',val('WorldPartnerID') == partner_id and val('ttyd64_partner_hp_display()') == 27 and hp() == 27)
         capture('pause-party-world-return')
         put('gTtyd64PartnerHPPrototypeEnabled',0)
         open_party()
@@ -396,13 +461,13 @@ def run():
         check('off-final-world-control-and-passive-hp',val('gTtyd64PartnerHPPrototypeEnabled') == 0 and hp() == 27 and val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED') == 0)
     if 'world-items' in phases:
         put('gTtyd64PartnerHPPrototypeEnabled',1)
-        put('gPlayerData.partners[1].level',0)
-        cmd('call ttyd64_reset_partner_hp(1)')
+        put('gPlayerData.partners[$slicePartner].level',0)
+        cmd('call ttyd64_reset_partner_hp($slicePartner)')
         put('gPlayerData.curHP',2)
         inventory()
-        assert val('ttyd64_set_partner_hp(1,3)') == 3
+        assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
         open_recipient()
-        check('world-recipient-native-menu-identities',val('WorldPopupMenu.numEntries') == 2 and val('WorldPopupMenu.userIndex[0]') == 0 and val('WorldPopupMenu.userIndex[1]') == 1 and item_count() == 2)
+        check('world-recipient-native-menu-identities',val('WorldPopupMenu.numEntries') == 3 and val('WorldPopupMenu.userIndex[0]') == 0 and val('WorldPopupMenu.userIndex[1]') == 1 and item_count() == 2)
         capture('world-item-recipient')
         key('c')
         menu_ready(1)
@@ -417,12 +482,12 @@ def run():
         # Group the remaining item potencies through the same real menu/script.
         for item, initial, expected in [('ITEM_MUSHROOM',0,5),('ITEM_SUPER_SHROOM',1,10),('ITEM_ULTRA_SHROOM',1,10),('ITEM_DRIED_SHROOM',3,4)]:
             inventory(item)
-            assert val(f'ttyd64_set_partner_hp(1,{initial})') == initial
+            assert val(f'ttyd64_set_partner_hp($slicePartner,{initial})') == initial
             open_recipient()
             consume(1)
             check('world-' + item.lower() + '-potency-zero-or-cap',hp() == expected and val('gPlayerData.curHP') == 2 and item_count() == 1)
         inventory()
-        assert val('ttyd64_set_partner_hp(1,3)') == 3
+        assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
         open_recipient()
         consume(0)
         check('world-mario-recipient-retains-native-heal',hp() == 3 and val('gPlayerData.curHP') == 7 and item_count() == 1)
@@ -461,8 +526,8 @@ def run():
         assert val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == 2
         key('x')
         wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gPlayerData.curPartner == 2 && BattleMenuState == BTL_MENU_STATE_CHOOSING',900)
-        check('mario-keyboard-swap-spends-mario-turn-preserves-goombario',hp() == 3 and val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED') != 0 and val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED') == 0 and val('ttyd64_partner_combat_active(gBattleStatus.partnerActor)') == 0)
-        assert val('ttyd64_set_partner_hp(1,0)') == 0
+        check('mario-keyboard-swap-spends-mario-turn-preserves-goombario',hp() == 3 and val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED') != 0 and val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED') == 0 and val('ttyd64_partner_combat_active(gBattleStatus.partnerActor)') == 1)
+        assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
         battle_partners()
         check('partner-menu-shows-selectable-zero-goombario',val('gPopupMenu->enabled[0]') != 0 and val('gPopupMenu->enabled[1]') == 0 and hp() == 0)
         capture('battle-swap-zero')
@@ -472,20 +537,20 @@ def run():
         wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gPlayerData.curPartner == 1 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1200)
         check('partner-keyboard-zero-swap-back-completes-next-turn',hp() == 0 and val('gBattleStatus.partnerActor->curHP') == 0 and val('btl_partner_can_act()') == 0)
         flee_battle()
-        check('keyboard-flee-returns-world-with-zero-hp-owner',val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED') and hp() == 0 and val('WorldPartnerID') == 1 and val('ttyd64_partner_hp_display()') == 0 and val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED') == 0)
+        check('keyboard-flee-returns-world-with-zero-hp-owner',val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED') and hp() == 0 and val('WorldPartnerID') == partner_id and val('ttyd64_partner_hp_display()') == 0 and val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED') == 0)
         # The completed flee above is unforced. Prevent a new road encounter
         # during the subsequent world/pause/save observation and free capture.
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
         inventory()
         open_recipient()
         consume(1)
-        check('post-battle-keyboard-world-shroom-restores-zero-partner',hp() == 5 and item_count() == 1 and val('WorldPartnerID') == 1)
+        check('post-battle-keyboard-world-shroom-restores-zero-partner',hp() == 5 and item_count() == 1 and val('WorldPartnerID') == partner_id)
         open_party()
         check('post-battle-pause-shows-healed-partner',selected() == 1 and hp() == 5 and val('pause_partners_hp_active()') != 0)
         close_pause()
         try:
             cmd('call fio_save_game(3)')
-            assert val('ttyd64_set_partner_hp(1,0)') == 0
+            assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
             assert val('fio_load_game(3)') == 1
             check('playable-route-health-and-item-persist-native-fio',hp() == 5 and item_count() == 1)
         finally:
@@ -496,6 +561,47 @@ def run():
         capture('battle-route-world-return')
         check('route-final-capture-remains-in-world',val('gGameStatusPtr->context') == val('CONTEXT_WORLD') and val('gEncounterState') == val('ENCOUNTER_STATE_NEUTRAL'))
         put('gTtyd64PartnerHPPrototypeEnabled',0)
+    if 'ground-combat' in phases:
+        enter_road_battle()
+        # Controlled native API boundaries complement ordinary Goomba hits:
+        # contact/backfire damage and item damage have independent entry points.
+        val('dispatch_damage_event_partner(2, EVENT_HIT, 0)')
+        wait('!does_script_exist(gBattleStatus.partnerActor->handleEventScriptID)')
+        check('ground-contact-damage-updates-owned-hp-without-ko',hp() == 1 and val('gBattleStatus.partnerActor->curHP') == 1 and val('gBattleStatus.partnerActor->koStatus') == 0)
+        wheel('BTL_MENU_TYPE_ITEMS')
+        wait('gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+        tick(5)
+        key('x')
+        wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+        for _ in range(3):
+            if val('gBattleStatus.playerActor->targetData[gBattleStatus.playerActor->targetIndexList[gBattleStatus.playerActor->selectedTargetIndex]].actorID') == val('ACTOR_PARTNER'):
+                break
+            key('d')
+        check('ground-battle-keyboard-shroom-target-identity',val('gBattleStatus.playerActor->targetListLength') == 2 and val('gBattleStatus.playerActor->targetData[gBattleStatus.playerActor->targetIndexList[gBattleStatus.playerActor->selectedTargetIndex]].actorID') == val('ACTOR_PARTNER'))
+        key('x')
+        wait('ttyd64_get_partner_hp($slicePartner) == 6')
+        check('ground-battle-native-food-heals-and-consumes-once',hp() == 6 and val('gBattleStatus.partnerActor->curHP') == 6 and item_count() == 1 and val('gPlayerData.curHP') == 20)
+        wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
+        check('ground-battle-food-spends-mario-turn-only',val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED') != 0 and val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED') == 0)
+        capture('ground-battle-healed')
+        put('gBattleStatus.curTargetID',val('ACTOR_PARTNER'))
+        put('gBattleStatus.curTargetPart',1)
+        put('gBattleStatus.curAttackDamage',2)
+        put('gBattleStatus.curAttackElement',val('DAMAGE_TYPE_UNBLOCKABLE'))
+        put('gBattleStatus.curAttackStatus',0)
+        val('calc_item_damage_enemy()')
+        wait('!does_script_exist(gBattleStatus.partnerActor->handleEventScriptID)')
+        check('ground-item-damage-updates-owned-hp',hp() == 4 and val('gBattleStatus.partnerActor->curHP') == 4)
+        assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
+        check('ground-battle-food-rejects-dead-recipient',val('ttyd64_partner_combat_can_heal_with_item(ITEM_MUSHROOM)') == 0 and val('ttyd64_partner_combat_heal(gBattleStatus.partnerActor,5)') == 0)
+        assert val('ttyd64_set_partner_hp($slicePartner,4)') == 4
+        # Native partner Strategies has no Run Away entry. Spend its turn and
+        # let the enemy round complete before Mario chooses escape.
+        spend_turn()
+        assert val('gBattleState') == val('BATTLE_STATE_PLAYER_MENU')
+        flee_battle()
+        put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
+        check('ground-combat-native-flee-rebinds-world-owner',val('WorldPartnerID') == partner_id and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED'))
     if 'team' in phases:
         enter_road_battle()
         check('team-native-front-back-helper-mario-front',val('ttyd64_partner_team_target(0)') == val('ACTOR_PLAYER') and val('ttyd64_partner_team_target(1)') == val('ACTOR_PARTNER'))
@@ -510,11 +616,11 @@ def run():
         wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
         # Only initial wound/inventory are controlled. Actual Goomba rolls,
         # targets, damage, death/revival and subsequent turn progression run.
-        assert val('ttyd64_set_partner_hp(1,1)') == 1
+        assert val('ttyd64_set_partner_hp($slicePartner,1)') == 1
         for i in range(10):
             put(f'gPlayerData.invItems[{i}]',val('ITEM_LIFE_SHROOM') if i < 2 else 0)
         def model_hp():
-            return val('gCurrentSaveFile.shipSaveData.partnerHP[1].curHP')
+            return val('gCurrentSaveFile.shipSaveData.partnerHP[$slicePartner].curHP')
         def life_count():
             return sum(val(f'gPlayerData.invItems[{i}]') == val('ITEM_LIFE_SHROOM') for i in range(10))
         class TraceFinish(gdb.FinishBreakpoint):
@@ -558,7 +664,7 @@ def run():
         capture('team-natural-revival')
         for i in range(10):
             put(f'gPlayerData.invItems[{i}]',0)
-        assert val('ttyd64_set_partner_hp(1,1)') == 1
+        assert val('ttyd64_set_partner_hp($slicePartner,1)') == 1
         for _ in range(12):
             if hp() == 0:
                 break
@@ -574,7 +680,7 @@ def run():
         check('team-off-target-and-swap-helpers-preserve-native',val('ttyd64_partner_team_active()') == 0 and val('ttyd64_partner_team_resolve_target(ACTOR_PARTNER)') == val('ACTOR_PARTNER') and val('ttyd64_partner_team_should_swap(1)') != 0 and val('ttyd64_partner_team_should_swap(0)') == 0 and hp() == 0)
         put('gTtyd64PartnerHPPrototypeEnabled',1)
         flee_battle()
-        check('team-natural-combat-flee-keeps-zero-health-world-owner',hp() == 0 and val('WorldPartnerID') == 1 and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED'))
+        check('team-natural-combat-flee-keeps-zero-health-world-owner',hp() == 0 and val('WorldPartnerID') == partner_id and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED'))
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
         for point in trace_points:
             point.delete()
@@ -589,7 +695,7 @@ def run():
         wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
         dead_victory = victory_phase == 'victory-dead'
         if dead_victory:
-            assert val('ttyd64_set_partner_hp(1,1)') == 1
+            assert val('ttyd64_set_partner_hp($slicePartner,1)') == 1
             for i in range(10):
                 put(f'gPlayerData.invItems[{i}]',0)
             before_items = 0
@@ -636,7 +742,7 @@ def run():
         reward = victory_trace[0]['reward']
         check('victory-native-star-points-and-win-count-awarded-once',reward > 0 and val('gPlayerData.starPoints') == reward and val('gPlayerData.battlesWon') == before_wins + 1 and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_WON'))
         remaining_hp = hp()
-        check('victory-world-owns-wounded-health-and-unused-items',(remaining_hp == 0 if dead_victory else remaining_hp > 0) and val('WorldPartnerID') == 1 and val('ttyd64_partner_hp_display()') == remaining_hp and item_count() == before_items)
+        check('victory-world-owns-wounded-health-and-unused-items',(remaining_hp == 0 if dead_victory else remaining_hp > 0) and val('WorldPartnerID') == partner_id and val('ttyd64_partner_hp_display()') == remaining_hp and item_count() == before_items)
         # Controlled map/position setup; the block hit, prompt and save itself
         # are driven by ordinary input. Keep the strict disposable slot guard.
         for field, amount in [('areaID',0),('mapID',1),('entryID',0)]:
@@ -680,7 +786,7 @@ def run():
                 tick(20)
             check('victory-save-block-releases-world-input',val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED') == 0 and hp() == remaining_hp)
             disturbed_hp = 4 if remaining_hp == 0 else 0
-            assert val(f'ttyd64_set_partner_hp(1,{disturbed_hp})') == disturbed_hp
+            assert val(f'ttyd64_set_partner_hp($slicePartner,{disturbed_hp})') == disturbed_hp
             put('gPlayerData.starPoints',0)
             assert val('fio_load_game(3)') == 1
             check('victory-native-save-load-preserves-reward-and-health',hp() == remaining_hp and val('gPlayerData.starPoints') == reward and val('gPlayerData.battlesWon') == before_wins + 1)
@@ -695,7 +801,7 @@ def run():
         team_trace.extend([{'event':victory_phase,'attacks':attacks,'saves':saves,**victory_trace[0]}])
         put('gTtyd64PartnerHPPrototypeEnabled',0)
     assert save.read_bytes() == original
-    Path(os.environ['PARTNER_SLICE_RESULT']).write_text(json.dumps({'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
+    Path(os.environ['PARTNER_SLICE_RESULT']).write_text(json.dumps({'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
         'limits':'Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
     print('PARTNER_SLICE_PHASES_PASSED=' + ','.join(phases) + ':' + str(len(checks)))
     cmd('kill')

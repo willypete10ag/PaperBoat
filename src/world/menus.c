@@ -182,13 +182,23 @@ static void setup_world_heal_target_popup(PopupMenu* menu) {
     menu->nameMsg[0] = MSG_Menus_Party_Mario;
     menu->userIndex[0] = PARTNER_NONE;
     menu->descMsg[0] = MSG_NONE;
-    menu->ptrIcon[1] = wPartnerHudScripts[PARTNER_GOOMBARIO];
-    menu->nameMsg[1] = gPartnerPopupProperties[PARTNER_GOOMBARIO].nameMsg;
-    menu->userIndex[1] = PARTNER_GOOMBARIO;
-    menu->descMsg[1] = gPartnerPopupProperties[PARTNER_GOOMBARIO].worldDescMsg;
-    menu->enabled[0] = menu->enabled[1] = true;
-    menu->value[0] = menu->value[1] = 0;
-    menu->numEntries = 2;
+    menu->enabled[0] = true;
+    menu->value[0] = 0;
+    s32 count = 1;
+    for (s32 i = 1; i < ARRAY_COUNT(PartnerIDFromMenuIndex); i++) {
+        s32 partnerID = PartnerIDFromMenuIndex[i];
+        if (!ttyd64_partner_hp_supported(partnerID) || !gPlayerData.partners[partnerID].enabled) {
+            continue;
+        }
+        menu->ptrIcon[count] = wPartnerHudScripts[partnerID];
+        menu->nameMsg[count] = gPartnerPopupProperties[partnerID].nameMsg;
+        menu->userIndex[count] = partnerID;
+        menu->descMsg[count] = gPartnerPopupProperties[partnerID].worldDescMsg;
+        menu->enabled[count] = true;
+        menu->value[count] = 0;
+        count++;
+    }
+    menu->numEntries = count;
     menu->initialPos = 0;
     menu->popupType = POPUP_MENU_SWITCH_PARTNER;
     menu->dipMode = 0;

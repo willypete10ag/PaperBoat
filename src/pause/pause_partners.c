@@ -328,13 +328,14 @@ static b32 pause_partners_hp_active(void) {
         && gGameStatusPtr->context == CONTEXT_PAUSE
         && gGameStatusPtr->demoState == DEMO_STATE_NONE
         && !(gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
-        && gPlayerData.partners[PARTNER_GOOMBARIO].enabled
+        && ttyd64_has_hp_partner()
         && gPausePartnersCurrentPartnerIdx >= 0
         && gPausePartnersCurrentPartnerIdx < gPausePartnersNumPartners
-        && gPausePartnersPartnerIDs[gPausePartnersPartnerIdx[gPausePartnersCurrentPartnerIdx]] == PARTNER_GOOMBARIO;
+        && ttyd64_partner_hp_supported(gPausePartnersPartnerIDs[gPausePartnersPartnerIdx[gPausePartnersCurrentPartnerIdx]]);
 }
 
 static void pause_partners_draw_hp(s32 baseX, s32 baseY, s32 opacity, s32 darkening) {
+    s32 partnerID = gPausePartnersPartnerIDs[gPausePartnersPartnerIdx[gPausePartnersCurrentPartnerIdx]];
     // Source 86x28 HP box and palette, using native pause textures/corners.
     // Native window coordinates also follow the page's own transition.
     draw_box(0, &Ttyd64PausePartnerHPStyle, baseX + 21, baseY + 121, 0, 86, 28,
@@ -342,11 +343,11 @@ static void pause_partners_draw_hp(s32 baseX, s32 baseY, s32 opacity, s32 darken
     hud_element_set_render_pos(Ttyd64PausePartnerHeartHID, baseX + 39, baseY + 134);
     hud_element_set_alpha(Ttyd64PausePartnerHeartHID, opacity);
     hud_element_draw_without_clipping(Ttyd64PausePartnerHeartHID);
-    draw_number(ttyd64_get_partner_hp(PARTNER_GOOMBARIO), baseX + 63, baseY + 129,
+    draw_number(ttyd64_get_partner_hp(partnerID), baseX + 63, baseY + 129,
                 DRAW_NUMBER_CHARSET_THIN, MSG_PAL_STANDARD, opacity, DRAW_NUMBER_STYLE_MONOSPACE_RIGHT);
     draw_msg(pause_get_menu_msg(PAUSE_MSG_SLASH), baseX + 66, baseY + 127,
              opacity, MSG_PAL_STANDARD, DRAW_MSG_STYLE_MENU);
-    draw_number(ttyd64_get_partner_max_hp(PARTNER_GOOMBARIO), baseX + 77, baseY + 129,
+    draw_number(ttyd64_get_partner_max_hp(partnerID), baseX + 77, baseY + 129,
                 DRAW_NUMBER_CHARSET_THIN, MSG_PAL_STANDARD, opacity, DRAW_NUMBER_STYLE_MONOSPACE);
 }
 
@@ -654,7 +655,7 @@ void pause_partners_init(MenuPanel* panel) {
         return;
     }
 
-    if (gTtyd64PartnerHPPrototypeEnabled && gPlayerData.partners[PARTNER_GOOMBARIO].enabled) {
+    if (gTtyd64PartnerHPPrototypeEnabled && ttyd64_has_hp_partner()) {
         Ttyd64PausePartnerHeartHID = hud_element_create(&HES_StatusHeart);
         hud_element_set_flags(Ttyd64PausePartnerHeartHID, HUD_ELEMENT_FLAG_MANUAL_RENDER);
         hud_element_set_scale(Ttyd64PausePartnerHeartHID, 22.0f / 16.0f);

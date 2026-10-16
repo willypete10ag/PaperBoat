@@ -815,7 +815,7 @@ void update_status_bar(void) {
 
     ttyd64_partner_hp_update_display();
     if (ttyd64_partner_hp_display() >= 0
-        && ttyd64_partner_hp_display() != ttyd64_get_partner_hp(PARTNER_GOOMBARIO)
+        && ttyd64_partner_hp_display() != ttyd64_get_partner_hp(gPlayerData.curPartner)
         && !statusBar->ignoreChanges) {
         statusBar->showTimer = 70;
         statusBar->hidden = false;
@@ -1451,13 +1451,13 @@ void update_status_bar(void) {
                  0, 82 * StatusBarScale, 25 * StatusBarScale, 255, 0,
                  StatusBarScale, StatusBarScale, 0.0f, 0.0f, 0.0f,
                  nullptr, nullptr, nullptr, SCREEN_WIDTH, SCREEN_HEIGHT, nullptr);
-        hud_element_set_script(hid, wPartnerHudScripts[PARTNER_GOOMBARIO]);
+        hud_element_set_script(hid, wPartnerHudScripts[ttyd64_partner_hp_display_partner()]);
         hud_element_set_scale(hid, 0.6f);
         hud_element_set_render_pos(hid, rowX + 15, rowY + 12);
         status_bar_draw_next(hid);
         hud_element_set_scale(hid, 1.0f);
         status_bar_draw_stat(hid, rowX + 25, rowY + 5, partnerHP,
-                             ttyd64_get_partner_max_hp(PARTNER_GOOMBARIO));
+                             ttyd64_get_partner_max_hp(gPlayerData.curPartner));
     }
 }
 

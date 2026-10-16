@@ -9,9 +9,6 @@
 #define NAMESPACE battle_partner_goombario
 
 extern s32 bActorTattles[];
-API_CALLABLE(LifeShroomShroudWorld);
-API_CALLABLE(LifeShroomRevealWorld);
-API_CALLABLE(SetItemAsLifeShroom);
 
 static EffectInstance* N(TattleWindowEffect);
 static b32 N(isCharged);
@@ -569,176 +566,12 @@ ActorBlueprint NAMESPACE = {
     .statusTextOffset = { 10, 20 },
 };
 
-API_CALLABLE(N(TtydHPState)) {
-    Actor* actor = gBattleStatus.partnerActor;
-    script->varTable[0] = ttyd64_partner_combat_active(actor);
-    script->varTable[1] = ttyd64_get_partner_hp(PARTNER_GOOMBARIO);
-    return ApiStatus_DONE2;
-}
-
-API_CALLABLE(N(TtydDeathBegin)) {
-    ttyd64_partner_combat_mark_dead(gBattleStatus.partnerActor);
-    return ApiStatus_DONE2;
-}
-
-API_CALLABLE(N(TtydNeedsMarioFront)) {
-    script->varTable[0] = ttyd64_partner_team_active()
-        && (gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK)
-        && find_item(ITEM_LIFE_SHROOM) < 0;
-    return ApiStatus_DONE2;
-}
-
-API_CALLABLE(N(TtydMarioFrontMoved)) {
-    if (ttyd64_partner_team_active()) {
-        gBattleStatus.flags1 &= ~BS_FLAGS1_PLAYER_IN_BACK;
-    }
-    return ApiStatus_DONE2;
-}
-
-API_CALLABLE(N(TtydLifeShroom)) {
-    script->varTable[0] = ttyd64_partner_combat_use_life_shroom(gBattleStatus.partnerActor);
-    return ApiStatus_DONE2;
-}
-
-API_CALLABLE(N(TtydRestoreDeadPose)) {
-    Actor* actor = gBattleStatus.partnerActor;
-    if (ttyd64_partner_combat_death_handled(actor) && ttyd64_get_partner_hp(PARTNER_GOOMBARIO) == 0) {
-        actor->rot.x = 86.0f;
-        actor->flags &= ~ACTOR_FLAG_USING_IDLE_ANIM;
-        set_actor_anim(ACTOR_PARTNER, -1, ANIM_BattleGoombario_HurtStill);
-    }
-    return ApiStatus_DONE2;
-}
-
-// A short native Recover can finish before the 20-frame world reveal. Track
-// the reveal independently and await it before releasing the death event.
-EvtScript N(EVS_TtydRevealWorld) = {
-    Call(LifeShroomRevealWorld)
-    Return
-    End
-};
-
-// PartnersHP.patch $UseLifeShroom_Actor, scoped to Goombario. Native effects,
-// item ownership and recovery execute in the normal event interpreter.
-EvtScript N(EVS_TtydLifeShroom) = {
-    Call(LifeShroomShroudWorld)
-    Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
-    Call(MakeItemEntity, ITEM_LIFE_SHROOM, LVar0, LVar1, LVar2, ITEM_SPAWN_MODE_DECORATION, 0)
-    Set(LVarA, LVar0)
-    Call(GetActorPos, ACTOR_PARTNER, LVar3, LVar4, LVar5)
-    Add(LVar4, 30)
-    Call(SetItemPos, LVarA, LVar3, LVar4, LVar5)
-    Wait(1)
-    Call(SetItemAsLifeShroom)
-    Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_LIFE_SHROOM_CHIME)
-    Add(LVar4, 15)
-    PlayEffect(EFFECT_ENERGY_IN_OUT, 3, LVar3, LVar4, LVar5, Float(1.0))
-    Set(LVarB, LVarF)
-    Loop(3)
-        Call(SetItemFlags, LVarA, 64, true)
-        Wait(2)
-        Call(SetItemFlags, LVarA, 64, false)
-        Wait(6)
-    EndLoop
-    Call(RemoveEffect, LVarB)
-    Call(RemoveItemEntity, LVarA)
-    Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_START_RECOVERY)
-    PlayEffect(EFFECT_STARS_SHIMMER, 1, LVar3, LVar4, LVar5, 70, 70, 10, 20)
-    Wait(20)
-    Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_REVIVAL_MAGIC)
-    Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
-    PlayEffect(EFFECT_STARS_SHIMMER, 2, LVar0, LVar1, LVar2, 50, 20, 32, 30)
-    Wait(25)
-    PlayEffect(EFFECT_STARS_SHIMMER, 2, LVar0, LVar1, LVar2, 30, 50, 32, 30)
-    Wait(26)
-    ExecGetTID(N(EVS_TtydRevealWorld), LVarE)
-    Call(N(TtydLifeShroom))
-    IfEq(LVar0, 0)
-        Goto(90)
-    EndIf
-    Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_PLAYER_REVIVE)
-    Call(SetActorRotation, ACTOR_PARTNER, 0, 0, 0)
-    Call(SetActorYaw, ACTOR_PARTNER, 0)
-    Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
-    Add(LVar1, 25)
-    PlayEffect(EFFECT_RECOVER, 0, LVar0, LVar1, LVar2, 10)
-    Call(FreezeBattleCam, false)
-    Call(UseBattleCamPreset, BTL_CAM_DEFAULT)
-    Call(MoveBattleCamOver, 15)
-    SetConst(LVar1, ANIM_BattleGoombario_Idle)
-    SetConst(LVar2, ANIM_BattleGoombario_Run)
-    Set(LVar3, 0)
-    ExecWait(EVS_Partner_Recover)
-    Call(UseIdleAnimation, ACTOR_PARTNER, true)
-    Label(90)
-    Loop(0)
-        IsThreadRunning(LVarE, LVar0)
-        IfEq(LVar0, false)
-            BreakLoop
-        EndIf
-        Wait(1)
-    EndLoop
-    Return
-    End
-};
-
-// PartnersHP.patch $PartnerDies: ground-partner timing and 86-degree collapse.
-EvtScript N(EVS_TtydDeath) = {
-    Call(N(TtydDeathBegin))
-    Call(N(StopCharge))
-    Call(ClearStatusEffects, ACTOR_PARTNER)
-    Call(SetAnimation, ACTOR_PARTNER, -1, ANIM_BattleGoombario_HurtStill)
-    Wait(40)
-    // Source death keeps the front position for Life Shroom, but moves Mario
-    // forward before collapse when no revival item exists (ground partner).
-    Call(N(TtydNeedsMarioFront))
-    IfEq(LVar0, true)
-        Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
-        Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
-        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
-        Call(SetGoalPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
-        Thread
-            Call(RunToGoal, ACTOR_PARTNER, 4, false)
-        EndThread
-        Call(RunToGoal, ACTOR_PLAYER, 4, false)
-        Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
-        Call(SetHomePos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
-        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
-        Call(SetHomePos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
-        Call(N(TtydMarioFrontMoved))
-    EndIf
-    Wait(10)
-    ChildThread
-        Wait(5)
-        Call(PlaySound, SOUND_PLAYER_COLLAPSE)
-    EndChildThread
-    Call(MakeLerp, 0, 86, 10, EASING_COS_IN)
-    Loop(0)
-        Call(UpdateLerp)
-        Call(SetActorRotation, ACTOR_PARTNER, LVar0, 0, 0)
-        Wait(1)
-        IfEq(LVar1, false)
-            BreakLoop
-        EndIf
-    EndLoop
-    Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
-    Call(SetHomePos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
-    PlayEffect(EFFECT_LANDING_DUST, 0, LVar0, LVar1, LVar2)
-    Wait(15)
-    Call(FindItem, ITEM_LIFE_SHROOM, LVar0)
-    IfNe(LVar0, -1)
-        ExecWait(N(EVS_TtydLifeShroom))
-    EndIf
-    Return
-    End
-};
-
 EvtScript N(EVS_Init) = {
     Call(BindTakeTurn, ACTOR_PARTNER, Ref(N(EVS_TakeTurn)))
     Call(BindIdle, ACTOR_PARTNER, Ref(N(EVS_Idle)))
     Call(BindHandleEvent, ACTOR_PARTNER, Ref(N(EVS_HandleEvent)))
     Call(BindHandlePhase, ACTOR_PARTNER, Ref(N(EVS_HandlePhase)))
-    Call(N(TtydRestoreDeadPose))
+    Call(Ttyd64PartnerRestoreDeadPose)
     Return
     End
 };
@@ -754,10 +587,11 @@ EvtScript N(EVS_HandleEvent) = {
     Call(GetLastEvent, ACTOR_PARTNER, LVar0)
     Switch(LVar0)
         CaseEq(EVENT_DEATH)
-            Call(N(TtydHPState))
+            Call(Ttyd64PartnerHPState)
             IfNe(LVar0, 0)
                 IfEq(LVar1, 0)
-                    ExecWait(N(EVS_TtydDeath))
+                    Call(N(StopCharge))
+                    ExecWait(EVS_Ttyd64PartnerDeath)
                     Return
                 EndIf
             EndIf
@@ -819,10 +653,10 @@ EvtScript N(EVS_HandleEvent) = {
         EndCaseGroup
         CaseDefault
     EndSwitch
-    Call(N(TtydHPState))
+    Call(Ttyd64PartnerHPState)
     IfNe(LVar0, 0)
         IfEq(LVar1, 0)
-            Call(N(TtydRestoreDeadPose))
+            Call(Ttyd64PartnerRestoreDeadPose)
             Return
         EndIf
     EndIf
@@ -897,7 +731,7 @@ EvtScript N(EVS_FirstStrike) = {
 };
 
 EvtScript N(EVS_RunAway) = {
-    Call(N(TtydHPState))
+    Call(Ttyd64PartnerHPState)
     IfEq(LVar0, true)
         IfEq(LVar1, 0)
             Return
@@ -911,7 +745,7 @@ EvtScript N(EVS_RunAway) = {
 };
 
 EvtScript N(EVS_RunAwayFail) = {
-    Call(N(TtydHPState))
+    Call(Ttyd64PartnerHPState)
     IfEq(LVar0, true)
         IfEq(LVar1, 0)
             Return

@@ -9,7 +9,7 @@ b32 ttyd64_world_item_can_target_partner(s32 itemID) {
     if (!gTtyd64PartnerHPPrototypeEnabled || gGameStatusPtr->context != CONTEXT_WORLD
         || gGameStatusPtr->demoState != DEMO_STATE_NONE
         || (gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
-        || !gPlayerData.partners[PARTNER_GOOMBARIO].enabled) {
+        || !ttyd64_has_hp_partner()) {
         return false;
     }
     switch (itemID) {
@@ -26,8 +26,8 @@ API_CALLABLE(WorldItem_GetHPRecipientPos) {
     Bytecode* args = script->ptrReadPos;
     Vec3f* pos = &gPlayerStatus.pos;
 
-    if (gTtyd64PartnerHPPrototypeEnabled && script->varTable[14] == PARTNER_GOOMBARIO
-        && wCurrentPartnerId == PARTNER_GOOMBARIO && wPartnerNpc != nullptr) {
+    if (gTtyd64PartnerHPPrototypeEnabled && ttyd64_partner_hp_supported(script->varTable[14])
+        && wCurrentPartnerId == script->varTable[14] && wPartnerNpc != nullptr) {
         pos = &wPartnerNpc->pos;
     }
     evt_set_variable(script, *args++, pos->x);
@@ -73,11 +73,13 @@ API_CALLABLE(WorldItem_RestoreHP) {
     s32 amount = evt_get_variable(script, *script->ptrReadPos);
     s32 newHP;
 
-    if (script->varTable[14] == PARTNER_GOOMBARIO) {
-        if (gTtyd64PartnerHPPrototypeEnabled && playerData->partners[PARTNER_GOOMBARIO].enabled) {
+    s32 partnerID = script->varTable[14];
+    if (partnerID != PARTNER_NONE) {
+        if (gTtyd64PartnerHPPrototypeEnabled && ttyd64_partner_hp_supported(partnerID)
+            && playerData->partners[partnerID].enabled) {
             // Active world-item source adds/caps even from zero HP. Battle
             // food's separate no-revival rule must not leak into this path.
-            ttyd64_set_partner_hp(PARTNER_GOOMBARIO, ttyd64_get_partner_hp(PARTNER_GOOMBARIO) + amount);
+            ttyd64_set_partner_hp(partnerID, ttyd64_get_partner_hp(partnerID) + amount);
         }
         return ApiStatus_DONE2;
     }
@@ -206,7 +208,7 @@ EvtScript EVS_World_UseItem = {
     Call(WorldItem_PauseTime)
     Call(WorldItem_GetItemProperties, LVarA)
     ExecWait(EVS_WorldItem_ShowUsedItem)
-    IfEq(LVarE, PARTNER_GOOMBARIO)
+    IfNe(LVarE, PARTNER_NONE)
         // Mario presents the food; retain the native partner's own idle AI.
         Call(SetPlayerAnimation, ANIM_Mario1_UsePower)
         Call(PlaySound, SOUND_EAT_OR_DRINK)

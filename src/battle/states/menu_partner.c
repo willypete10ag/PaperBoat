@@ -298,7 +298,7 @@ void btl_state_update_partner_menu(void) {
         battleStatus->curAttackElement = 0;
         if (!btl_partner_can_act()) {
             if (ttyd64_partner_combat_active(partnerActor)
-                && ttyd64_get_partner_hp(PARTNER_GOOMBARIO) <= 0) {
+                && ttyd64_get_partner_hp(gPlayerData.curPartner) <= 0) {
                 // Fresh rounds clear turn bits. A dead partner must consume
                 // the unavailable turn instead of cycling menu/transfer.
                 battleStatus->flags2 |= BS_FLAGS2_PARTNER_TURN_USED;
