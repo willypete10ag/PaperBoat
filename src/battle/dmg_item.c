@@ -431,6 +431,7 @@ HitResult calc_item_damage_enemy(void) {
         cancel_action_rating_combo(target);
     }
 
+    dispatchEvent = ttyd64_partner_combat_damage_event(target, dispatchEvent, battleStatus->curAttackElement);
     dispatch_event_actor(target, dispatchEvent);
 
     if (actorClass == ACTOR_PARTNER) {

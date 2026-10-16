@@ -54,6 +54,16 @@ b32 ttyd64_partner_combat_death_handled(Actor* actor);
 void ttyd64_partner_combat_mark_dead(Actor* actor);
 s32 ttyd64_partner_combat_use_life_shroom(Actor* actor);
 
+// Battle-local Kooper state survives actor replacement, never save serialization.
+b32 ttyd64_kooper_flipped(Actor* actor);
+s32 ttyd64_kooper_flip_turns(void);
+void ttyd64_kooper_set_flipped(Actor* actor, b32 flipped);
+s32 ttyd64_kooper_enemy_end(Actor* actor);
+void ttyd64_partner_combat_begin_round(void);
+void ttyd64_partner_combat_begin_player_turn(void);
+b32 ttyd64_partner_combat_turn_blocked(Actor* actor);
+s32 ttyd64_partner_combat_damage_event(Actor* actor, s32 event, s32 elements);
+
 // Source team positions/targeting, scoped to the bound supported ground partner.
 // Keep physical position (native PLAYER_IN_BACK) separate from acting turn.
 b32 ttyd64_partner_team_active(void);

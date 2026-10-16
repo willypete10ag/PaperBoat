@@ -350,6 +350,18 @@ EvtScript N(EVS_Idle) = {
     End
 };
 
+// TTYD64 removes the legacy drop after these contact/explosion reactions.
+// Keep the original presentation for ordinary PaperBoat play.
+EvtScript N(EVS_Ttyd64Drop) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, false)
+        SetConst(LVar1, ANIM_BattleBombette_Hurt)
+        ExecWait(EVS_Partner_Drop)
+    EndIf
+    Return
+    End
+};
+
 EvtScript N(EVS_HandleEvent) = {
     Call(UseIdleAnimation, ACTOR_PARTNER, false)
     Call(InterruptActionCommand)
@@ -370,7 +382,7 @@ EvtScript N(EVS_HandleEvent) = {
             SetConst(LVar2, ANIM_BattleBombette_Backfire2)
             ExecWait(EVS_Partner_Hit)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         EndCaseGroup
         CaseOrEq(EVENT_ZERO_DAMAGE)
         CaseOrEq(EVENT_IMMUNE)
@@ -385,7 +397,7 @@ EvtScript N(EVS_HandleEvent) = {
             SetConst(LVar3, ANIM_BattleBombette_Injured)
             ExecWait(EVS_Partner_BombetteSpikeContact)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_BURN_HIT)
             SetConst(LVar1, ANIM_BattleBombette_BurnHurt)
             SetConst(LVar2, ANIM_BattleBombette_BurnStill)
@@ -438,7 +450,7 @@ EvtScript N(EVS_HandleEvent) = {
             Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
             Call(JumpToGoal, ACTOR_PARTNER, 5, false, true, false)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_BURN_CONTACT)
             Call(SetActorRotation, ACTOR_SELF, 0, 0, 0)
             Call(SetActorDispOffset, ACTOR_SELF, 0, 0, 0)
@@ -503,7 +515,7 @@ EvtScript N(EVS_HandleEvent) = {
             Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
             Call(JumpToGoal, ACTOR_PARTNER, 5, false, true, false)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_SHOCK_HIT)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
             Set(LVar2, 15)
@@ -578,10 +590,10 @@ EvtScript N(EVS_HandleEvent) = {
             Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
             Call(JumpToGoal, ACTOR_PARTNER, 5, false, true, false)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_33)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_RECOVER_FROM_KO)
             SetConst(LVar0, PRT_MAIN)
             SetConst(LVar1, ANIM_BattleBombette_Idle)

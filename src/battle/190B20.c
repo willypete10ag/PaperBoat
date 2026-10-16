@@ -1971,6 +1971,14 @@ s32 get_defense(Actor* actor, s32* defenseTable, s32 elementFlags) {
     s32 elemDefense;
     s32 minDefense = 255;
 
+    // Source Kooper normal DEF1 / flipped DEF0. Keep hooks and ignore-defense
+    // processing below shared by all damage routes; flag-off tables stay native.
+    s32 kooperDefense[] = { ELEMENT_NORMAL, 1, ELEMENT_END };
+    if (ttyd64_partner_combat_active(actor) && gPlayerData.curPartner == PARTNER_KOOPER) {
+        kooperDefense[1] = ttyd64_kooper_flipped(actor) && ttyd64_kooper_flip_turns() > 0 ? 0 : 1;
+        defenseTable = kooperDefense;
+    }
+
     if (defenseTable != nullptr) {
 
         #define CHECK_DEFENSE(element) \

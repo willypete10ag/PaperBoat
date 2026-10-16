@@ -376,6 +376,7 @@ void btl_state_update_begin_player_turn(void) {
                 battleStatus->stateFreezeCount = 0;
                 BattleSkipActorTurn = false;
                 BattleStatusUpdateDelay = 0;
+                ttyd64_partner_combat_begin_player_turn();
 
                 if (battleStatus->outtaSightActive != 0) {
                     battleStatus->battlePhase = PHASE_ENEMY_BEGIN;

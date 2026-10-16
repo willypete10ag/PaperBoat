@@ -53,8 +53,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','team','victory','victory-dead'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -85,7 +85,7 @@ def run():
             if val(expression):
                 return
             tick()
-        print('PARTNER_PAUSE_TIMEOUT=' + json.dumps({k:val(k) for k in ('gGameStatusPtr->context','StepPauseState','StepPauseDelay','WorldMenuState','gPauseMenuCurrentTab','gPauseTabsCurrentTab','gPausePanelTabs.col','gPlayerStatus.flags','gBattleState','gBattleSubState','BattleMenuState','gPopupState','StratsCursorPos')}))
+        print('PARTNER_PAUSE_TIMEOUT=' + json.dumps({k:val(k) for k in ('gGameStatusPtr->context','StepPauseState','StepPauseDelay','WorldMenuState','gPauseMenuCurrentTab','gPauseTabsCurrentTab','gPausePanelTabs.col','gPlayerStatus.flags','gBattleState','gBattleSubState','BattleMenuState','gPopupState','StratsCursorPos','gBattleStatus.inputBitmask','BattleMenu_ChooseDelay','gBattleStatus.curButtonsPressed')}))
         raise AssertionError('Native frame budget: ' + expression)
     def focus():
         window = subprocess.check_output(['xdotool','search','--onlyvisible','--pid',str(gdb.selected_inferior().pid)],text=True,env=runtime_env).splitlines()[0]
@@ -224,7 +224,12 @@ def run():
             key('a' if index < current else 'd')
             tick(12)
         assert val('BattleMenu_CurPos + BattleMenu_HomePos') == index
-        key('x')
+        key('x',6)
+        # A short render-pass tap can land between native input polls. Retry
+        # only while the same wheel still owns input; never force menu state.
+        if val('BattleMenuState') == val('BTL_MENU_STATE_CHOOSING') and val('gBattleSubState') < 4:
+            print('PARTNER_WHEEL_CONFIRM_RETRY=' + kind)
+            key('x',8)
     def strategies():
         wheel('BTL_MENU_TYPE_STRATEGIES')
         wait('gBattleSubState == 201 && StratsMenuState == BTL_SUBMENU_STATE_CHOOSING')
@@ -561,6 +566,132 @@ def run():
         capture('battle-route-world-return')
         check('route-final-capture-remains-in-world',val('gGameStatusPtr->context') == val('CONTEXT_WORLD') and val('gEncounterState') == val('ENCOUNTER_STATE_NEUTRAL'))
         put('gTtyd64PartnerHPPrototypeEnabled',0)
+    if 'ground-contracts' in phases:
+        assert partner_id in (2,3)
+        enter_road_battle()
+        actor = 'gBattleStatus.partnerActor'
+        def reaction_done():
+            wait('!does_script_exist(gBattleStatus.partnerActor->handleEventScriptID)',1200)
+            tick(3)
+        def item_hit(damage, element):
+            put('gBattleStatus.curTargetID',val('ACTOR_PARTNER'))
+            put('gBattleStatus.curTargetPart',1)
+            put('gBattleStatus.curAttackDamage',damage)
+            put('gBattleStatus.curAttackElement',val(element))
+            put('gBattleStatus.curAttackStatus',0)
+            cmd('set variable gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS')
+            val('calc_item_damage_enemy()')
+            reaction_done()
+        if partner_id == 2:
+            check('kooper-normal-defense-one',val(f'get_defense({actor},(int*){actor}->partsTable->defenseTable,0)') == 1)
+            put('gTtyd64PartnerHPPrototypeEnabled',0)
+            check('kooper-flag-off-native-defense-zero',val(f'get_defense({actor},(int*){actor}->partsTable->defenseTable,0)') == 0)
+            put('gTtyd64PartnerHPPrototypeEnabled',1)
+            check('kooper-ignore-defense-remains-zero',val(f'get_defense({actor},(int*){actor}->partsTable->defenseTable,DAMAGE_TYPE_IGNORE_DEFENSE)') == 0)
+            item_hit(1,'0')
+            check('kooper-defense-prevents-one-damage-item',hp() == 3 and not val(f'ttyd64_kooper_flipped({actor})'))
+            blocks = []
+            class BlockTrace(gdb.Breakpoint):
+                def __init__(self):
+                    super().__init__('check_block_input',internal=True)
+                    self.silent = True
+                def stop(self):
+                    blocks.append(1)
+                    return False
+            block_point = BlockTrace()
+            def enemy_hit(damage, element):
+                put('gBattleStatus.curTargetID',val('ACTOR_PARTNER'))
+                put('gBattleStatus.curTargetPart',1)
+                put('gBattleStatus.curAttackDamage',damage)
+                put('gBattleStatus.curAttackElement',val(element))
+                put('gBattleStatus.curAttackStatus',0)
+                cmd('set variable gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS')
+                val('calc_enemy_damage_target(gBattleStatus.enemyActors[0])')
+                reaction_done()
+            enemy_hit(1,'0')
+            check('kooper-enemy-route-defense-and-native-guard-window',hp() == 3 and len(blocks) == 1)
+            enemy_hit(1,'DAMAGE_TYPE_JUMP | DAMAGE_TYPE_UNBLOCKABLE')
+            check('kooper-zero-damage-jump-flips-for-two-rounds',hp() == 3 and val(f'ttyd64_kooper_flipped({actor})') == 1 and val('ttyd64_kooper_flip_turns()') == 2)
+            check('kooper-flipped-defense-and-turn-unavailable',val(f'get_defense({actor},(int*){actor}->partsTable->defenseTable,0)') == 0 and val('btl_partner_can_act()') == 0 and val(f'{actor}->flags & ACTOR_FLAG_FLIPPED') != 0)
+            check('kooper-enemy-jump-route-dispatches-flip',val(f'ttyd64_kooper_flipped({actor})'))
+            blocks.clear()
+            enemy_hit(1,'0')
+            check('kooper-flipped-enemy-hit-cannot-guard',hp() == 2 and not blocks)
+            block_point.delete()
+            capture('contracts-kooper-flipped')
+            # Controlled wounds avoid death while natural Goomba rounds advance
+            # the phase callback and the begin-round latch; no countdown writes.
+            assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+            spend_turn()
+            check('kooper-first-native-enemy-end-stays-flipped',val('ttyd64_kooper_flip_turns()') == 1 and val(f'ttyd64_kooper_flipped({actor})') and not val('btl_partner_can_act()'))
+            spend_turn()
+            check('kooper-second-native-enemy-end-recovers-but-spends-round',val('ttyd64_kooper_flip_turns()') == 0 and not val(f'ttyd64_kooper_flipped({actor})') and not val('btl_partner_can_act()') and val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED') != 0)
+            check('kooper-recovery-restores-defense-pose-and-offsets',val(f'get_defense({actor},(int*){actor}->partsTable->defenseTable,0)') == 1 and val(f'{actor}->flags & ACTOR_FLAG_FLIPPED') == 0 and val(f'{actor}->rot.z') == 0)
+            capture('contracts-kooper-recovered')
+            spend_turn()
+            check('kooper-following-round-can-act-again',val('btl_partner_can_act()') == 1)
+            # A POW uses the independent item route; lethal attacks must retain
+            # death ownership instead of being replaced by another flip event.
+            item_hit(1,'DAMAGE_TYPE_POW')
+            check('kooper-pow-reflips',val('ttyd64_kooper_flip_turns()') == 2 and val(f'ttyd64_kooper_flipped({actor})'))
+            inventory('ITEM_LIFE_SHROOM')
+            assert val('ttyd64_set_partner_hp($slicePartner,1)') == 1
+            item_hit(1,'DAMAGE_TYPE_QUAKE')
+            wait('ttyd64_get_partner_hp($slicePartner) == 10',1200)
+            reaction_done()
+            check('kooper-lethal-flipped-hit-life-shroom-clears-flip',hp() == 10 and item_count() == 1 and not val(f'ttyd64_kooper_flipped({actor})') and val(f'{actor}->flags & ACTOR_FLAG_FLIPPED') == 0 and val(f'{actor}->koStatus') == 0)
+            item_hit(1,'DAMAGE_TYPE_POW')
+            battle_partners()
+            for _ in range(3):
+                if val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == 1:
+                    break
+                key('w')
+            key('x')
+            wait('gPlayerData.curPartner == 1 && gBattleState == BATTLE_STATE_PARTNER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING',1200)
+            check('kooper-swap-away-keeps-private-countdown',val('ttyd64_kooper_flip_turns()') == 2 and not val(f'ttyd64_kooper_flipped({actor})'))
+            spend_turn()
+            check('kooper-inactive-countdown-advances-once-per-round',val('ttyd64_kooper_flip_turns()') == 1)
+            battle_partners()
+            for _ in range(3):
+                if val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == 2:
+                    break
+                key('s')
+            key('x')
+            wait('gPlayerData.curPartner == 2 && gBattleState == BATTLE_STATE_PLAYER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+            check('kooper-swap-back-recovers-preserved-flip-on-second-round',val('ttyd64_kooper_flip_turns()') == 0 and not val(f'ttyd64_kooper_flipped({actor})') and not val(f'{actor}->flags & ACTOR_FLAG_FLIPPED') and not val('btl_partner_can_act()'))
+            spend_turn()
+            check('kooper-swapped-recovery-can-act-following-round',val('ttyd64_kooper_flip_turns()') == 0 and val('btl_partner_can_act()'))
+        else:
+            explosions = []
+            class ExplosionTrace(gdb.Breakpoint):
+                def __init__(self):
+                    super().__init__('battle_partner_bombette_PlayExplosionFX',internal=True)
+                    self.silent = True
+                def stop(self):
+                    explosions.append(hp())
+                    return False
+            explosion_point = ExplosionTrace()
+            for event in ('EVENT_BURN_HIT','EVENT_BURN_CONTACT','EVENT_SHOCK_HIT'):
+                assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+                val(f'dispatch_damage_event_partner(1,{event},0)')
+                reaction_done()
+                check('bombette-' + event.lower() + '-hp-and-pose',hp() == 9 and val(f'{actor}->koStatus') == 0 and val(f'{actor}->rot.z') == 0 and val(f'{actor}->curPos.y') == val(f'{actor}->homePos.y'))
+            check('bombette-three-native-explosion-effects',len(explosions) == 3)
+            capture('contracts-bombette-explosion-return')
+            inventory('ITEM_LIFE_SHROOM')
+            assert val('ttyd64_set_partner_hp($slicePartner,1)') == 1
+            val('dispatch_damage_event_partner(1,EVENT_BURN_CONTACT,0)')
+            wait('ttyd64_get_partner_hp($slicePartner) == 10',1800)
+            reaction_done()
+            check('bombette-lethal-contact-revives-once-without-stale-rotation',hp() == 10 and item_count() == 1 and val(f'{actor}->rot.x') == 0 and val(f'{actor}->rot.z') == 0 and val(f'{actor}->koStatus') == 0)
+            check('bombette-lethal-contact-dispatches-death-without-extra-explosion',len(explosions) == 3)
+            explosion_point.delete()
+        # Let any revived/available partner finish the round before Mario flees.
+        while val('gBattleState') != val('BATTLE_STATE_PLAYER_MENU') or val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED'):
+            spend_turn()
+        flee_battle()
+        put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
+        check('contracts-native-world-return',val('WorldPartnerID') == partner_id and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED'))
     if 'ground-combat' in phases:
         enter_road_battle()
         # Controlled native API boundaries complement ordinary Goomba hits:
@@ -591,7 +722,7 @@ def run():
         put('gBattleStatus.curAttackStatus',0)
         val('calc_item_damage_enemy()')
         wait('!does_script_exist(gBattleStatus.partnerActor->handleEventScriptID)')
-        check('ground-item-damage-updates-owned-hp',hp() == 4 and val('gBattleStatus.partnerActor->curHP') == 4)
+        check('ground-item-damage-updates-owned-hp',hp() == (5 if partner_id == 2 else 4) and val('gBattleStatus.partnerActor->curHP') == (5 if partner_id == 2 else 4))
         assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
         check('ground-battle-food-rejects-dead-recipient',val('ttyd64_partner_combat_can_heal_with_item(ITEM_MUSHROOM)') == 0 and val('ttyd64_partner_combat_heal(gBattleStatus.partnerActor,5)') == 0)
         assert val('ttyd64_set_partner_hp($slicePartner,4)') == 4
@@ -604,6 +735,11 @@ def run():
         check('ground-combat-native-flee-rebinds-world-owner',val('WorldPartnerID') == partner_id and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED'))
     if 'team' in phases:
         enter_road_battle()
+        if partner_id == 2:
+            for i in range(24):
+                if val(f'gBattleStatus.enemyActors[{i}]'):
+                    put(f'gBattleStatus.enemyActors[{i}]->attackBoost',1)
+            team_trace.append({'event':'controlled-kooper-enemy-attack-boost','amount':1})
         check('team-native-front-back-helper-mario-front',val('ttyd64_partner_team_target(0)') == val('ACTOR_PLAYER') and val('ttyd64_partner_team_target(1)') == val('ACTOR_PARTNER'))
         key('z')
         wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
@@ -695,6 +831,11 @@ def run():
         wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
         dead_victory = victory_phase == 'victory-dead'
         if dead_victory:
+            if partner_id == 2:
+                for i in range(24):
+                    if val(f'gBattleStatus.enemyActors[{i}]'):
+                        put(f'gBattleStatus.enemyActors[{i}]->attackBoost',1)
+                team_trace.append({'event':'controlled-kooper-enemy-attack-boost','amount':1})
             assert val('ttyd64_set_partner_hp($slicePartner,1)') == 1
             for i in range(10):
                 put(f'gPlayerData.invItems[{i}]',0)
@@ -802,7 +943,7 @@ def run():
         put('gTtyd64PartnerHPPrototypeEnabled',0)
     assert save.read_bytes() == original
     Path(os.environ['PARTNER_SLICE_RESULT']).write_text(json.dumps({'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
-        'limits':'Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
+        'limits':'Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
     print('PARTNER_SLICE_PHASES_PASSED=' + ','.join(phases) + ':' + str(len(checks)))
     cmd('kill')
 

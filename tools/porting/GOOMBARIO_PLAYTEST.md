@@ -119,18 +119,26 @@ one. `--verify --ground-partners` checks setup/input and closes automatically.
 Default invocation still recruits only Goombario; normal launches remain off.
 
 The supported HP group shares damage/death/Life Shroom, turn skipping, team
-positions, shrooms and HP presentation. This does not port complete partner move
-sets, Kooper's source one-point defense/flipped-shell state, Bombette's special
-explosion/status changes, other enemy targeting or flying-partner rules. Native
-moves/defense remain unless separately translated. These are explicit limits of
-the current prototype, not accepted TTYD64 parity.
+positions, shrooms and HP presentation. Kooper additionally has source DEF1
+(flipped DEF0), jump/POW/quake flipping, two-round recovery and unavailable
+recovery turns. His countdown also advances while another supported partner is
+active. Basic one-damage Goomba hits should deal zero to an upright Kooper.
+Bombette retains native burn/contact/shock explosions and skips the legacy drop
+in HP mode. Lethal contact selects death/revival directly.
 
-For developer acceptance, `PARTNER_SLICE_PARTNER=2` or `3` selects Kooper/Bombette
-in the shared `ground-combat`, `team`, `victory` and `victory-dead` phases.
-`ground-ui` checks world swaps, pause rows, supported world-recipient identities
-and zero-HP world food recovery together. Contact/item API boundaries are
-controlled; healing menus and ordinary Goomba combat/outcomes use keyboard input.
-The disposable slot guard and byte-for-byte restoration still apply.
+Complete move sets, ordinary partner status infliction/lifecycle, broader enemy
+AI and flying exceptions remain unfinished. Native status tables alone do not
+enable partner statuses: PaperBoat suppresses them in inflict_status. Normal
+play stays off, and original save layouts are preserved.
 
-The [shared ground HP handoff](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-15-ground-partner-hp.md)
-records exact implementation/evidence pins and the next source-parity batch.
+For developer acceptance, PARTNER_SLICE_PARTNER=2 or 3 selects Kooper/Bombette
+in the shared ground-contracts, ground-combat, team, victory and victory-dead
+phases. Kooper team/dead-victory fixtures give enemies a controlled +1 attack
+boost to exercise death through DEF1; this is distinct from an unmodified
+Goomba encounter. Ground-contracts combines controlled enemy/item/contact APIs
+with keyboard rounds, swaps, flee and normal death/Life Shroom ownership.
+Ground-ui checks world swaps, pause rows and world recipients together. Strict
+disposable-slot guards and byte-for-byte restoration still apply.
+
+The [shared ground combat handoff](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-16-ground-combat-contracts.md)
+records exact implementation/evidence pins, limits and the next subsystem batch.

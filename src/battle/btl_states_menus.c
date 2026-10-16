@@ -755,7 +755,7 @@ b32 btl_partner_can_act(void) {
     }
 
     partnerDebuff = partner->debuff;
-    if (ttyd64_partner_combat_active(partner) && ttyd64_get_partner_hp(gPlayerData.curPartner) <= 0) {
+    if (ttyd64_partner_combat_turn_blocked(partner)) {
         return false;
     }
     partnerCantMove = false;

@@ -500,7 +500,7 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
         case ACTOR_CLASS_PARTNER:
             if (target->stoneStatus == 0) {
                 if (target->koStatus == 0 && !(battleStatus->curAttackElement & DAMAGE_TYPE_UNBLOCKABLE)) {
-                    if (check_block_input(BUTTON_A)) {
+                    if (!ttyd64_kooper_flipped(target) && check_block_input(BUTTON_A)) {
                         // PartnersHP.patch 80277A20: ordinary guard saves one HP.
                         damage = ttyd64_partner_combat_active(target) ? damage - 1 : 0;
                         sfx_play_sound_at_position(SOUND_DAMAGE_STARS, SOUND_SPACE_DEFAULT, state->goalPos.x, state->goalPos.y, state->goalPos.z);
@@ -709,6 +709,7 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
             dispatch_event_player(event);
             break;
         case ACTOR_CLASS_PARTNER:
+            event = ttyd64_partner_combat_damage_event(target, event, battleStatus->curAttackElement);
             dispatch_event_partner(event);
             break;
         case ACTOR_CLASS_ENEMY:

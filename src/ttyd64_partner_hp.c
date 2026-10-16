@@ -70,6 +70,12 @@ void ttyd64_partner_hp_normalize(Ttyd64PartnerHP* health, const PlayerData* play
     }
 }
 
+// Active 01 Kooper.bpat C/D contracts, represented without legacy actor bytes.
+static struct {
+    b32 flipped;
+    s32 turns;
+} KooperFlip;
+
 static void clear_binding(void) {
     BoundPartnerActor = nullptr;
     BoundPartnerID = PARTNER_NONE;
@@ -84,6 +90,8 @@ static void clear_binding(void) {
 void ttyd64_partner_hp_begin_battle(void) {
     clear_binding();
     DeathHandledMask = 0;
+    KooperFlip.flipped = false;
+    KooperFlip.turns = 0;
 }
 
 void ttyd64_partner_hp_new_game(void) {
@@ -213,6 +221,64 @@ b32 ttyd64_partner_combat_active(Actor* actor) {
     return can_bind_actor() && actor != nullptr && actor == BoundPartnerActor
         && actor == gBattleStatus.partnerActor && ttyd64_partner_hp_supported(BoundPartnerID)
         && gPlayerData.curPartner == BoundPartnerID;
+}
+
+b32 ttyd64_kooper_flipped(Actor* actor) {
+    return ttyd64_partner_combat_active(actor) && BoundPartnerID == PARTNER_KOOPER && KooperFlip.flipped;
+}
+
+s32 ttyd64_kooper_flip_turns(void) {
+    return KooperFlip.turns;
+}
+
+void ttyd64_kooper_set_flipped(Actor* actor, b32 flipped) {
+    if (ttyd64_partner_combat_active(actor) && BoundPartnerID == PARTNER_KOOPER) {
+        KooperFlip.flipped = flipped;
+        KooperFlip.turns = flipped ? 2 : 0;
+    }
+}
+
+s32 ttyd64_kooper_enemy_end(Actor* actor) {
+    if (!ttyd64_kooper_flipped(actor) || actor->curHP <= 0 || KooperFlip.turns <= 0) {
+        return -1;
+    }
+    return --KooperFlip.turns;
+}
+
+b32 ttyd64_partner_combat_turn_blocked(Actor* actor) {
+    return ttyd64_partner_combat_active(actor)
+        && (ttyd64_get_partner_hp(BoundPartnerID) <= 0 || ttyd64_kooper_flipped(actor));
+}
+
+void ttyd64_partner_combat_begin_round(void) {
+    Actor* actor = gBattleStatus.partnerActor;
+    if (ttyd64_partner_combat_turn_blocked(actor)) {
+        gBattleStatus.flags2 |= BS_FLAGS2_PARTNER_TURN_USED;
+        // PartnersHP.patch 80241B74: the recovery round is still unavailable.
+        // GetsUp restores the pose/defense at enemy end, before this latch clears.
+        if (ttyd64_kooper_flipped(actor) && KooperFlip.turns == 0) {
+            KooperFlip.flipped = false;
+        }
+    }
+}
+
+void ttyd64_partner_combat_begin_player_turn(void) {
+    Actor* actor = gBattleStatus.partnerActor;
+    // Battle_PartnersExtraActorData.patch AdvancePartnersExtraData: inactive
+    // Kooper also recovers over rounds. Saturate rather than wrap the source byte.
+    if (ttyd64_partner_combat_active(actor) && BoundPartnerID != PARTNER_KOOPER
+        && KooperFlip.flipped && KooperFlip.turns > 0) {
+        KooperFlip.turns--;
+    }
+}
+
+s32 ttyd64_partner_combat_damage_event(Actor* actor, s32 event, s32 elements) {
+    if (ttyd64_partner_combat_active(actor) && BoundPartnerID == PARTNER_KOOPER
+        && actor->curHP > 0 && (elements & (DAMAGE_TYPE_JUMP | DAMAGE_TYPE_POW | DAMAGE_TYPE_QUAKE))
+        && (event == EVENT_HIT || event == EVENT_HIT_COMBO || event == EVENT_IMMUNE || event == EVENT_ZERO_DAMAGE)) {
+        return EVENT_FLIP_TRIGGER;
+    }
+    return event;
 }
 
 // Battle_PlayerTeam_DontSwapPositions: native position flags remain physical

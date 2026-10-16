@@ -203,6 +203,136 @@ s32 N(DefaultAnims)[] = {
     STATUS_END,
 };
 
+// Active TTYD64 01 Kooper.bpat flip pose. Native part is 1, not source part 0.
+s32 N(FlippedAnims)[] = {
+    STATUS_KEY_NORMAL, ANIM_BattleKooper_Toppled,
+    STATUS_KEY_STONE, ANIM_BattleKooper_StillToppled,
+    STATUS_KEY_SLEEP, ANIM_BattleKooper_StillToppled,
+    STATUS_KEY_POISON, ANIM_BattleKooper_Toppled,
+    STATUS_KEY_STOP, ANIM_BattleKooper_StillToppled,
+    STATUS_KEY_FROZEN, ANIM_BattleKooper_StillToppled,
+    STATUS_KEY_DIZZY, ANIM_BattleKooper_Injured,
+    STATUS_KEY_KO, ANIM_BattleKooper_Injured,
+    STATUS_KEY_INACTIVE, ANIM_BattleKooper_Toppled,
+    STATUS_END,
+};
+
+API_CALLABLE(N(Ttyd64KooperState)) {
+    Actor* actor = gBattleStatus.partnerActor;
+    script->varTable[0] = ttyd64_partner_combat_active(actor);
+    script->varTable[1] = ttyd64_kooper_flipped(actor);
+    script->varTable[2] = ttyd64_kooper_flip_turns();
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(N(Ttyd64KooperFlip)) {
+    ttyd64_kooper_set_flipped(gBattleStatus.partnerActor, evt_get_variable(script, *script->ptrReadPos));
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(N(Ttyd64KooperInit)) {
+    Actor* actor = gBattleStatus.partnerActor;
+    script->varTable[0] = false;
+    if (ttyd64_kooper_flipped(actor) && actor->curHP > 0) {
+        gBattleStatus.flags2 |= BS_FLAGS2_PARTNER_TURN_USED;
+        if (ttyd64_kooper_flip_turns() == 0) {
+            ttyd64_kooper_set_flipped(actor, false);
+            script->varTable[0] = true;
+        }
+    }
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(N(Ttyd64KooperEnemyEnd)) {
+    script->varTable[0] = ttyd64_kooper_enemy_end(gBattleStatus.partnerActor);
+    return ApiStatus_DONE2;
+}
+
+EvtScript N(EVS_Ttyd64FlipPose) = {
+    Call(N(Ttyd64KooperState))
+    IfEq(LVar0, false)
+        Return
+    EndIf
+    IfGt(LVar2, 0)
+        Call(SetIdleAnimations, ACTOR_PARTNER, PRT_MAIN, Ref(N(FlippedAnims)))
+        Call(SetTargetOffset, ACTOR_PARTNER, PRT_MAIN, -5, 15)
+        Call(SetProjectileTargetOffset, ACTOR_PARTNER, PRT_MAIN, 0, 0)
+        Call(SetActorFlagBits, ACTOR_PARTNER, ACTOR_FLAG_FLIPPED, true)
+    Else
+        Call(SetIdleAnimations, ACTOR_PARTNER, PRT_MAIN, Ref(N(DefaultAnims)))
+        Call(SetTargetOffset, ACTOR_PARTNER, PRT_MAIN, 8, 27)
+        Call(SetProjectileTargetOffset, ACTOR_PARTNER, PRT_MAIN, -1, -4)
+        Call(SetActorFlagBits, ACTOR_PARTNER, ACTOR_FLAG_FLIPPED, false)
+    EndIf
+    Return
+    End
+};
+
+s32 N(FlipBounce)[] = {9,16,22,26,30,32,33,32,30,26,22,16,9,0,4,6,7,6,4,0,2,0};
+EvtScript N(EVS_Ttyd64Flip) = {
+    Call(N(Ttyd64KooperFlip), true)
+    ExecWait(N(EVS_Ttyd64FlipPose))
+    Call(SetAnimation, ACTOR_PARTNER, -1, ANIM_BattleKooper_Hurt)
+    Call(SetActorRotationOffset, ACTOR_PARTNER, 0, 12, 0)
+    ChildThread
+        Wait(4)
+        Call(SetActorRotation, ACTOR_PARTNER, 0, 0, -30)
+        Wait(1)
+        Call(SetActorRotation, ACTOR_PARTNER, 0, 0, 0)
+        Wait(1)
+        Call(SetActorRotation, ACTOR_PARTNER, 0, 0, 30)
+        Wait(1)
+        Call(SetActorRotation, ACTOR_PARTNER, 0, 0, 60)
+        Wait(1)
+        Call(SetActorRotation, ACTOR_PARTNER, 0, 0, 75)
+    EndChildThread
+    UseBuf(Ref(N(FlipBounce)))
+    Loop(22)
+        BufRead1(LVar0)
+        Call(SetActorDispOffset, ACTOR_PARTNER, 0, LVar0, 0)
+        Wait(1)
+    EndLoop
+    Call(SetActorRotationOffset, ACTOR_PARTNER, 0, 0, 0)
+    Call(SetActorRotation, ACTOR_PARTNER, 0, 0, 0)
+    Call(SetActorDispOffset, ACTOR_PARTNER, 0, 0, 0)
+    Call(SetAnimation, ACTOR_PARTNER, -1, ANIM_BattleKooper_Toppled)
+    Return
+    End
+};
+
+EvtScript N(EVS_Ttyd64GetUp) = {
+    Call(AddActorDecoration, ACTOR_PARTNER, PRT_MAIN, 0, ACTOR_DECORATION_SWEAT)
+    Call(SetAnimationRate, ACTOR_PARTNER, PRT_MAIN, Float(3.0))
+    Wait(20)
+    Call(SetAnimationRate, ACTOR_PARTNER, PRT_MAIN, Float(1.0))
+    Call(RemoveActorDecoration, ACTOR_PARTNER, PRT_MAIN, 0)
+    Call(SetActorSounds, ACTOR_PARTNER, ACTOR_SOUND_JUMP, 0, 0)
+    Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_ACTOR_JUMP)
+    Call(SetAnimation, ACTOR_PARTNER, -1, ANIM_BattleKooper_Toppled)
+    Call(SetActorRotationOffset, ACTOR_PARTNER, 0, 12, 0)
+    ChildThread
+        Set(LVar0, 0)
+        Loop(5)
+            Add(LVar0, -15)
+            Call(SetActorRotation, ACTOR_PARTNER, 0, 0, LVar0)
+            Wait(1)
+        EndLoop
+    EndChildThread
+    Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+    Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+    Call(SetActorJumpGravity, ACTOR_PARTNER, Float(3.0))
+    Call(JumpToGoal, ACTOR_PARTNER, 8, false, true, false)
+    Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_ACTOR_STEP_A)
+    Call(SetActorRotationOffset, ACTOR_PARTNER, 0, 0, 0)
+    Call(SetActorRotation, ACTOR_PARTNER, 0, 0, 0)
+    Call(SetActorDispOffset, ACTOR_PARTNER, 0, 0, 0)
+    Call(SetAnimation, ACTOR_PARTNER, -1, ANIM_BattleKooper_Idle)
+    ExecWait(N(EVS_Ttyd64FlipPose))
+    Call(ResetActorSounds, ACTOR_PARTNER, ACTOR_SOUND_JUMP)
+    Return
+    End
+};
+
 s32 N(DefenseTable)[] = {
     ELEMENT_NORMAL,   0,
     ELEMENT_END,
@@ -276,12 +406,31 @@ EvtScript N(EVS_Init) = {
     Call(BindIdle, ACTOR_PARTNER, Ref(N(EVS_Idle)))
     Call(BindHandleEvent, ACTOR_PARTNER, Ref(N(EVS_HandleEvent)))
     Call(BindHandlePhase, ACTOR_PARTNER, Ref(N(EVS_HandlePhase)))
+    Call(N(Ttyd64KooperInit))
+    IfEq(LVar0, true)
+        Wait(15)
+        ExecWait(N(EVS_Ttyd64GetUp))
+    Else
+        ExecWait(N(EVS_Ttyd64FlipPose))
+    EndIf
     Call(Ttyd64PartnerRestoreDeadPose)
     Return
     End
 };
 
 EvtScript N(EVS_Idle) = {
+    Return
+    End
+};
+
+// TTYD64 removes the legacy drop after these contact/explosion reactions.
+// Keep the original presentation for ordinary PaperBoat play.
+EvtScript N(EVS_Ttyd64Drop) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, false)
+        SetConst(LVar1, ANIM_BattleKooper_Hurt)
+        ExecWait(EVS_Partner_Drop)
+    EndIf
     Return
     End
 };
@@ -295,9 +444,16 @@ EvtScript N(EVS_HandleEvent) = {
             Call(Ttyd64PartnerHPState)
             IfNe(LVar0, 0)
                 IfEq(LVar1, 0)
+                    Call(N(Ttyd64KooperFlip), false)
+                    ExecWait(N(EVS_Ttyd64FlipPose))
                     ExecWait(EVS_Ttyd64PartnerDeath)
                     Return
                 EndIf
+            EndIf
+        CaseEq(EVENT_FLIP_TRIGGER)
+            Call(N(Ttyd64KooperState))
+            IfNe(LVar0, false)
+                ExecWait(N(EVS_Ttyd64Flip))
             EndIf
         CaseOrEq(EVENT_HIT_COMBO)
         CaseOrEq(EVENT_HIT)
@@ -305,7 +461,7 @@ EvtScript N(EVS_HandleEvent) = {
             SetConst(LVar2, ANIM_BattleKooper_Hurt)
             ExecWait(EVS_Partner_Hit)
             SetConst(LVar1, ANIM_BattleKooper_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         EndCaseGroup
         CaseOrEq(EVENT_ZERO_DAMAGE)
         CaseOrEq(EVENT_IMMUNE)
@@ -319,20 +475,20 @@ EvtScript N(EVS_HandleEvent) = {
             Set(LVar2, 16)
             ExecWait(EVS_Partner_SpikeContact)
             SetConst(LVar1, ANIM_BattleKooper_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_BURN_CONTACT)
             SetConst(LVar1, ANIM_BattleKooper_BurnHurt)
             Set(LVar2, 16)
             SetConst(LVar3, ANIM_BattleKooper_BurnStill)
             ExecWait(EVS_Partner_BurnContact)
             SetConst(LVar1, ANIM_BattleKooper_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_BURN_HIT)
             SetConst(LVar1, ANIM_BattleKooper_BurnHurt)
             SetConst(LVar2, ANIM_BattleKooper_BurnStill)
             ExecWait(EVS_Partner_BurnHit)
             SetConst(LVar1, ANIM_BattleKooper_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_SHOCK_HIT)
             SetConst(LVar0, PRT_MAIN)
             SetConst(LVar1, ANIM_BattleKooper_Hurt)
@@ -340,7 +496,7 @@ EvtScript N(EVS_HandleEvent) = {
             ExecWait(EVS_Partner_ShockHit)
         CaseEq(EVENT_33)
             SetConst(LVar1, ANIM_BattleKooper_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_RECOVER_FROM_KO)
             SetConst(LVar0, PRT_MAIN)
             SetConst(LVar1, ANIM_BattleKooper_Idle)
@@ -432,6 +588,24 @@ EvtScript N(runAwayFail) = {
 };
 
 EvtScript N(EVS_HandlePhase) = {
+    Call(GetBattlePhase, LVar0)
+    IfEq(LVar0, PHASE_ENEMY_END)
+        Call(N(Ttyd64KooperEnemyEnd))
+        IfGe(LVar0, 0)
+            Call(UseIdleAnimation, ACTOR_PARTNER, false)
+            IfGt(LVar0, 0)
+                Call(AddActorDecoration, ACTOR_PARTNER, PRT_MAIN, 0, ACTOR_DECORATION_SWEAT)
+                Call(SetAnimationRate, ACTOR_PARTNER, PRT_MAIN, Float(3.0))
+                Wait(30)
+                Call(SetAnimationRate, ACTOR_PARTNER, PRT_MAIN, Float(1.0))
+                Call(RemoveActorDecoration, ACTOR_PARTNER, PRT_MAIN, 0)
+            Else
+                ExecWait(N(EVS_Ttyd64GetUp))
+            EndIf
+            Call(EnableIdleScript, ACTOR_PARTNER, true)
+            Call(UseIdleAnimation, ACTOR_PARTNER, true)
+        EndIf
+    EndIf
     Return
     End
 };
