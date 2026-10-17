@@ -103,6 +103,11 @@ def run():
         subprocess.run(['xdotool','windowfocus',window],check=True,env=runtime_env)
         assert int(subprocess.check_output(['xdotool','getwindowfocus'],text=True,env=runtime_env)) == int(window)
     def key(name, frames=3):
+        # A visible popup can still be in its native input debounce interval.
+        # Wait for actual readiness; keep all selection/cancel actions keyboard driven.
+        if val('gPopupState') == val('POPUP_STATE_CHOOSING') and val('PopupDelayTime') > 0:
+            print('PARTNER_INPUT_WAITS_POPUP_READY=' + name)
+            wait('gPopupState != POPUP_STATE_CHOOSING || PopupDelayTime == 0')
         focus()
         subprocess.run(['xdotool','keydown',name],check=True,env=runtime_env)
         try:
@@ -527,7 +532,11 @@ def run():
         check('mario-battle-list-native-identities-and-geometry',val('gPopupMenu->numEntries') == 2 and val('gPopupMenu->userIndex[0]') == 1 and val('gPopupMenu->userIndex[1]') == 2 and val('gPopupMenu->enabled[0]') == 0 and val('gWindows[WIN_POPUP_CONTENT].width') == 181 and val('gWindows[WIN_POPUP_TITLE_B].pos.x') == 37)
         capture('battle-swap-wounded')
         key('x')
-        wait('gBattleSubState == 31 && gPopupState == POPUP_STATE_CHOOSING')
+        # Observe the real rejection message before waiting for the list again.
+        # An immediate CHOOSING check can return before the press is processed;
+        # Cancel would then only dismiss the message rather than close the list.
+        wait('gPopupState == POPUP_STATE_ALREADY_HAVE_PARTNER_AWAIT')
+        wait('gBattleSubState == 31 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
         check('battle-current-row-rejection-preserves-hp-and-turns',hp() == 3 and val('gPlayerData.curPartner') == 1 and val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED') == 0)
         cancel_battle_partners()
         put('gTtyd64PartnerHPPrototypeEnabled',0)
