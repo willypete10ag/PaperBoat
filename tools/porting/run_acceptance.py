@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build/extract and run ROM-dependent native fixtures in owned Linux sandboxes."""
 
-import argparse, datetime, hashlib, json, os, shutil, signal, subprocess, sys, time
+import argparse, datetime, hashlib, json, os, shutil, signal, subprocess, sys, time, uuid
 from pathlib import Path
 
 
@@ -408,7 +408,9 @@ def main():
     add(
         "playtest-startup",
         "partner_playable_slice_gdb.py",
-        "partner-playable-slice",
+        "goombario-playtest/sessions/"
+        + datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S-")
+        + uuid.uuid4().hex[:8],
         {
             "PARTNER_SLICE_PARTNER": "1",
             "PARTNER_SLICE_PLAYTEST": "1",
@@ -477,6 +479,8 @@ def main():
                 if home.exists():
                     shutil.rmtree(home)
                 home = runtime(group, suffix)
+                if extra.get("PARTNER_SLICE_PLAYTEST") == "1":
+                    (home.parent / ".owned-playtest").write_text("PaperBoat Goombario isolated playtest v1\n")
             if not execute(
                 name,
                 script,

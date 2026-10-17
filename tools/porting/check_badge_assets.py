@@ -30,6 +30,6 @@ for name, width, height in (
                    "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                    "rgba_sha256": hashlib.sha256(pixels).hexdigest()})
 report = {"checks_passed": len(checks), "independent_decoder": "ImageMagick RGBA", "checks": checks}
-if os.environ.get("BADGE_ASSETS_RESULT"):
-    Path(os.environ["BADGE_ASSETS_RESULT"]).write_text(json.dumps(report, indent=2) + "\n")
+if required_env("BADGE_ASSETS_RESULT"):
+    Path(required_env("BADGE_ASSETS_RESULT")).write_text(json.dumps(report, indent=2) + "\n")
 print(json.dumps(report, indent=2))

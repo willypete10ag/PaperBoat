@@ -134,7 +134,7 @@ def run_checks():
         "damage_applied": actual_damage, "hp_after": actual_hp,
     }}
     print("LAST_STAND_RESULT=" + json.dumps(report, sort_keys=True))
-    output = os.environ.get("LAST_STAND_RESULT")
+    output = required_env("LAST_STAND_RESULT")
     if output:
         Path(output).write_text(json.dumps(report, indent=2) + "\n")
     command("kill")
