@@ -488,8 +488,13 @@ def main():
 
         if not select.select([read_fd], [], [], 20)[0]:
             raise RuntimeError("Xvfb did not allocate a display")
-        display_number = os.read(read_fd, 100).decode().strip()
-        os.close(read_fd)
+        # Xvfb writes the digits and newline separately. A single os.read can
+        # return only the digits; closing then breaks its second write (SIGPIPE).
+        # Consume the full readiness line before closing our end of the pipe.
+        with os.fdopen(read_fd) as display_pipe:
+            display_number = display_pipe.readline().strip()
+        if not display_number.isdigit() or xvfb.poll() is not None:
+            raise RuntimeError("Xvfb failed before reporting a ready display; see xvfb.log")
         env["DISPLAY"] = ":" + display_number
         run(["xdpyinfo"], env=env, stdout=subprocess.DEVNULL)
         seedhome = runtime("seed")
