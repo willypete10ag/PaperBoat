@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "ttyd64_rules.h"
 #include "ttyd64_partner_status.h"
 #include "common.h"
@@ -1848,6 +1849,16 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
                 !is_ability_active(ABILITY_BERSERKER) && battleStatus->hustleTurns == 0)) {
 
                 if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
+                    // Source Shrink is a timed -1 attack effect plus tiny, not
+                    // the exclusive vanilla debuff slot. Sleep/Poison coexist.
+                    if (statusTypeKey == STATUS_KEY_SHRINK && ttyd64_actor_modifiers_active(target)) {
+                        if (!ttyd64_actor_add_modifier(target, false, -1, duration)) {
+                            return false;
+                        }
+                        ttyd64_actor_set_size(target, -1);
+                        target->statusAfflicted = STATUS_KEY_SHRINK;
+                        return true;
+                    }
                     if (ttyd64_partner_combat_active(target) && target->debuff == STATUS_KEY_FROZEN
                         && statusTypeKey != STATUS_KEY_FROZEN) {
                         ttyd64_partner_status_cure_debuff(target);
@@ -2577,10 +2588,12 @@ void remove_player_buffs(s32 buffs) {
     ActorPart* playerActorParts = player->partsTable;
 
     if (buffs & PLAYER_BUFF_JUMP_CHARGE) {
+        ttyd64_actor_modifiers_clear_axis(player, false);
         battleStatus->jumpCharge = 0;
         battleStatus->flags1 &= ~BS_FLAGS1_JUMP_CHARGED;
     }
     if (buffs & PLAYER_BUFF_HAMMER_CHARGE) {
+        ttyd64_actor_modifiers_clear_axis(player, true);
         battleStatus->hammerCharge = 0;
         battleStatus->flags1 &= ~BS_FLAGS1_HAMMER_CHARGED;
     }

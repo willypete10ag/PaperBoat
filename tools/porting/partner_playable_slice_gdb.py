@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','team','victory','victory-dead'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -103,6 +103,11 @@ def run():
         subprocess.run(['xdotool','windowfocus',window],check=True,env=runtime_env)
         assert int(subprocess.check_output(['xdotool','getwindowfocus'],text=True,env=runtime_env)) == int(window)
     def key(name, frames=3):
+        # A visible popup can still be in its native input debounce interval.
+        # Wait for actual readiness; keep all selection/cancel actions keyboard driven.
+        if val('gPopupState') == val('POPUP_STATE_CHOOSING') and val('PopupDelayTime') > 0:
+            print('PARTNER_INPUT_WAITS_POPUP_READY=' + name)
+            wait('gPopupState != POPUP_STATE_CHOOSING || PopupDelayTime == 0')
         focus()
         subprocess.run(['xdotool','keydown',name],check=True,env=runtime_env)
         try:
@@ -527,7 +532,11 @@ def run():
         check('mario-battle-list-native-identities-and-geometry',val('gPopupMenu->numEntries') == 2 and val('gPopupMenu->userIndex[0]') == 1 and val('gPopupMenu->userIndex[1]') == 2 and val('gPopupMenu->enabled[0]') == 0 and val('gWindows[WIN_POPUP_CONTENT].width') == 181 and val('gWindows[WIN_POPUP_TITLE_B].pos.x') == 37)
         capture('battle-swap-wounded')
         key('x')
-        wait('gBattleSubState == 31 && gPopupState == POPUP_STATE_CHOOSING')
+        # Observe the real rejection message before waiting for the list again.
+        # An immediate CHOOSING check can return before the press is processed;
+        # Cancel would then only dismiss the message rather than close the list.
+        wait('gPopupState == POPUP_STATE_ALREADY_HAVE_PARTNER_AWAIT')
+        wait('gBattleSubState == 31 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
         check('battle-current-row-rejection-preserves-hp-and-turns',hp() == 3 and val('gPlayerData.curPartner') == 1 and val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED') == 0)
         cancel_battle_partners()
         put('gTtyd64PartnerHPPrototypeEnabled',0)
@@ -576,6 +585,138 @@ def run():
         capture('battle-route-world-return')
         check('route-final-capture-remains-in-world',val('gGameStatusPtr->context') == val('CONTEXT_WORLD') and val('gEncounterState') == val('ENCOUNTER_STATE_NEUTRAL'))
         put('gTtyd64PartnerHPPrototypeEnabled',0)
+    if 'modifiers' in phases:
+        enter_road_battle()
+        actor = 'gBattleStatus.partnerActor'
+        enemy = 'gBattleStatus.enemyActors[0]'
+        other = 2 if partner_id == 1 else 1
+        assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        put(f'{actor}->attackBoost',2)
+        check('modifier-off-preserves-native-fields-and-rejects-api',val(f'ttyd64_actor_attack_boost({actor})') == 2 and val(f'ttyd64_actor_add_modifier({actor},0,4,3)') == 0)
+        put(f'{actor}->attackBoost',0)
+        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        # Synthetic API arguments exercise the public event adapters. These
+        # calls are debugger driven; round/swap controls below use keyboard UI.
+        cmd('set $modifierEvt = (Evt*)heap_malloc(sizeof(Evt))')
+        cmd('call (void*)memset($modifierEvt,0,sizeof(Evt))')
+        cmd('set $modifierArgs = (Bytecode*)heap_malloc(3*sizeof(Bytecode))')
+        put('$modifierEvt->ptrReadPos','$modifierArgs')
+        put('$modifierEvt->owner1.actorID',val('ACTOR_PARTNER'))
+        def api(name, values):
+            for i,value in enumerate(values): put(f'$modifierArgs[{i}]',value)
+            return val(f'{name}($modifierEvt,1)')
+        api('Ttyd64AddAttackBoost',[val('ACTOR_SELF'),2,4])
+        api('GetActorAttackBoost',[val('ACTOR_SELF'),-30000000])
+        check('modifier-event-self-query-and-explicit-duration',val('$modifierEvt->varTable[0]') == 2 and val('PartnerModifiers[$slicePartner].attack.turns') == 4)
+        api('Ttyd64AddAttackBoost',[val('ACTOR_SELF'),1,3])
+        check('modifier-same-sign-replaces-strength-and-turns',val(f'ttyd64_actor_attack_boost({actor})') == 1 and val('PartnerModifiers[$slicePartner].attack.turns') == 3)
+        api('Ttyd64MakeActorGiant',[val('ACTOR_SELF')])
+        tick(30)
+        check('modifier-giant-native-render-scale',float(gdb.parse_and_eval(f'{actor}->scalingFactor')) > 1.9)
+        api('Ttyd64AddAttackBoost',[val('ACTOR_SELF'),-2,3])
+        check('modifier-opposite-sign-cancels-and-removes-giant',val(f'ttyd64_actor_attack_boost({actor})') == 0 and val('PartnerModifiers[$slicePartner].size') == 0)
+        assert val(f'inflict_status({actor},STATUS_KEY_SLEEP,3)') == 1
+        assert val(f'inflict_status({actor},STATUS_KEY_SHRINK,3)') == 1
+        api('GetStatusFlags',[val('ACTOR_SELF'),-30000000])
+        expected_flags = val('STATUS_FLAG_SLEEP | STATUS_FLAG_SHRINK | STATUS_FLAG_ATTACK_BOOST')
+        check('modifier-shrink-coexists-with-sleep-and-status-query',val(f'{actor}->debuff') == val('STATUS_KEY_SLEEP') and val(f'ttyd64_actor_attack_boost({actor})') == -1 and (val('$modifierEvt->varTable[0]') & expected_flags) == expected_flags)
+        tick(30)
+        check('modifier-tiny-native-render-scale',float(gdb.parse_and_eval(f'{actor}->scalingFactor')) < 0.5)
+        cmd(f'call ttyd64_partner_status_cure_debuff({actor})')
+        check('modifier-debuff-cure-preserves-timed-shrink',val(f'{actor}->debuff') == 0 and val(f'ttyd64_actor_is_tiny({actor})') == 1)
+        put('$modifierEvt->varTable[0]',5)
+        put('$modifierArgs[0]',-30000000)
+        val('ApplyShrinkFromOwner($modifierEvt,1)')
+        check('modifier-item-scaling-adds-signed-power-not-halving',val('$modifierEvt->varTable[0]') == 4)
+        cmd(f'call ttyd64_actor_modifiers_clear({actor})')
+        enemy_hp = val(f'{enemy}->curHP')
+        put(f'{enemy}->curHP',0)
+        check('modifier-shrink-rejects-dead-target',val(f'inflict_status({enemy},STATUS_KEY_SHRINK,3)') == 0)
+        put(f'{enemy}->curHP',enemy_hp)
+        # Direct native Mario damage with controlled attack inputs, then an
+        # item damage call sharing the same target-defense consumer.
+        put(f'{enemy}->maxHP',99)
+        put(f'{enemy}->curHP',99)
+        def player_hit(item=False):
+            put('gBattleStatus.curTargetID',val('ACTOR_ENEMY0'))
+            put('gBattleStatus.curTargetPart',1)
+            put('gBattleStatus.curAttackDamage',4)
+            put('gBattleStatus.curAttackElement',val('DAMAGE_TYPE_JUMP | DAMAGE_TYPE_NO_CONTACT'))
+            put('gBattleStatus.curAttackStatus',0)
+            put('gBattleStatus.curAttackEventSuppression',0)
+            put('gBattleStatus.curDamageSource',val('DMG_SRC_DEFAULT'))
+            cmd('set variable gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS')
+            val('calc_item_damage_enemy()' if item else 'calc_player_damage_enemy()')
+            wait('!does_script_exist(gBattleStatus.enemyActors[0]->handleEventScriptID)',1800)
+            return val('gBattleStatus.lastAttackDamage')
+        base_hit = player_hit()
+        api('Ttyd64AddAttackBoost',[val('ACTOR_PLAYER'),2,3])
+        boosted_hit = player_hit()
+        print('MODIFIER_MARIO_DAMAGE=' + json.dumps({'base':base_hit,'boosted':boosted_hit,'boost':val('ttyd64_actor_attack_boost(gBattleStatus.playerActor)'),'live_hp':val('gPlayerData.curHP')}))
+        check('modifier-native-mario-attack-adds-timed-power',base_hit > 0 and boosted_hit == base_hit + 2)
+        api('Ttyd64AddDefenseBoost',[val('ACTOR_ENEMY0'),1,3])
+        armored_hit = player_hit()
+        check('modifier-native-player-damage-reads-enemy-defense',armored_hit == boosted_hit - 1)
+        item_hit = player_hit(True)
+        cmd(f'call ttyd64_actor_modifiers_clear({enemy})')
+        item_without_defense = player_hit(True)
+        check('modifier-native-item-damage-reads-enemy-defense',item_hit == item_without_defense - 1)
+        cmd('call ttyd64_actor_modifiers_clear(gBattleStatus.playerActor)')
+        # Native enemy damage, with controlled power, recipient and no guard.
+        val(f'ttyd64_actor_add_modifier({actor},1,2,4)')
+        val(f'ttyd64_actor_add_modifier({enemy},0,1,3)')
+        check('modifier-enemy-stores-extra-turn',val('ModifierActors[1].state.attack.turns') == 4)
+        def damage(ignore=False):
+            assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+            put('gBattleStatus.curTargetID',val('ACTOR_PARTNER'))
+            put('gBattleStatus.curTargetPart',1)
+            put('gBattleStatus.curAttackDamage',4)
+            put('gBattleStatus.curAttackElement',val('DAMAGE_TYPE_UNBLOCKABLE | DAMAGE_TYPE_NO_CONTACT' + (' | DAMAGE_TYPE_IGNORE_DEFENSE' if ignore else '')))
+            put('gBattleStatus.curAttackStatus',0)
+            put('gBattleStatus.curAttackEventSuppression',0)
+            cmd('set variable gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS')
+            val(f'calc_enemy_damage_target({enemy})')
+            wait('!does_script_exist(gBattleStatus.partnerActor->handleEventScriptID)',1800)
+        damage()
+        check('modifier-native-enemy-attack-and-partner-defense',hp() == (8 if partner_id == 2 else 7))
+        damage(True)
+        check('modifier-ignore-defense-bypasses-timed-defense',hp() == 5)
+        cmd(f'call ttyd64_actor_modifiers_clear({enemy})')
+        # Reset recipient before keyboard rounds and swaps; keep the AI native.
+        assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+        val(f'ttyd64_actor_add_modifier({actor},0,2,4)')
+        val(f'ttyd64_actor_add_modifier({actor},1,1,3)')
+        val(f'ttyd64_actor_set_size({actor},1)')
+        def modifier_swap(pid):
+            battle_partners()
+            for _ in range(12):
+                if val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == pid: break
+                key('s')
+            assert val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == pid
+            key('x',6)
+            wait(f'gPlayerData.curPartner == {pid} && (gBattleState == BATTLE_STATE_PLAYER_MENU || gBattleState == BATTLE_STATE_PARTNER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+            if val('gBattleState') == val('BATTLE_STATE_PARTNER_MENU'):
+                spend_turn()
+        modifier_swap(other)
+        check('modifier-keyboard-swap-away-pauses-inactive-record',val('PartnerModifiers[$slicePartner].attack.turns') == 4 and val(f'ttyd64_actor_attack_boost({actor})') == 0)
+        modifier_swap(partner_id)
+        tick(30)
+        check('modifier-keyboard-swap-back-restores-size-and-ticks-once',val('PartnerModifiers[$slicePartner].attack.turns') == 3 and val('PartnerModifiers[$slicePartner].defense.turns') == 2 and val(f'ttyd64_actor_attack_boost({actor})') == 2 and float(gdb.parse_and_eval(f'{actor}->scalingFactor')) > 1.9)
+        for _ in range(3):
+            spend_turn()
+            spend_turn()
+        check('modifier-native-rounds-expire-independent-effects',val(f'ttyd64_actor_attack_boost({actor})') == 0 and val(f'ttyd64_actor_defense_boost({actor})') == 0 and val('PartnerModifiers[$slicePartner].size') == 0)
+        val(f'ttyd64_actor_add_modifier({actor},0,-1,4)')
+        val(f'ttyd64_actor_add_modifier({actor},1,-2,4)')
+        cmd(f'call ttyd64_partner_status_clear({actor})')
+        check('modifier-full-clear-removes-signed-effects',val(f'ttyd64_actor_attack_boost({actor})') == 0 and val(f'ttyd64_actor_defense_boost({actor})') == 0)
+        val(f'ttyd64_actor_add_modifier({actor},0,2,4)')
+        cmd('call heap_free($modifierArgs)')
+        cmd('call heap_free($modifierEvt)')
+        flee_battle()
+        put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
+        check('modifier-battle-exit-clears-owned-partner-record',val('PartnerModifiers[$slicePartner].attack.turns') == 0 and val('ModifierPartnerOwner') == 0)
     if 'recovery' in phases:
         # Recruitment, attacks, statuses and progression are controlled setup;
         # item targets/payment, rounds and Refresh run through native keyboard UI.
@@ -698,7 +839,7 @@ def run():
         val(f'inflict_status({actor},STATUS_KEY_SLEEP,3)')
         check('status-off-keeps-native-partner-immunity',val(f'{actor}->debuff') == 0)
         put('gTtyd64PartnerHPPrototypeEnabled',1)
-        for status in ('UNUSED','DIZZY','PARALYZE','SLEEP','FROZEN','STOP','POISON','SHRINK','STONE','STATIC','TRANSPARENT'):
+        for status in ('UNUSED','DIZZY','PARALYZE','SLEEP','FROZEN','STOP','POISON','STONE','STATIC','TRANSPARENT'):
             keyname = 'STATUS_KEY_' + status
             assert val(f'inflict_status({actor},{keyname},3)') == 1
             tick(3)
@@ -767,12 +908,14 @@ def run():
         check('status-second-poison-tick-expires-all-three',hp() == 8 and val(f'{actor}->debuff') == 0 and val(f'{actor}->staticStatus') == 0 and val(f'{actor}->transparentStatus') == 0)
         inventory('ITEM_LIFE_SHROOM')
         assert val('ttyd64_set_partner_hp($slicePartner,1)') == 1
+        val(f'ttyd64_actor_add_modifier({actor},0,2,4)')
         val(f'inflict_status({actor},STATUS_KEY_POISON,2)')
         val(f'inflict_status({actor},STATUS_KEY_TRANSPARENT,2)')
         spend_turn()
         spend_turn()
         wait('ttyd64_get_partner_hp($slicePartner) == 10 && !does_script_exist(gBattleStatus.partnerActor->handleEventScriptID)',1800)
         check('status-lethal-poison-revives-once-and-clears-cache',hp() == 10 and item_count() == 1 and val(f'{actor}->debuff') == 0 and val(f'{actor}->transparentStatus') == 0 and val('PartnerStatuses[$slicePartner].debuff') == 0 and val(f'{actor}->koStatus') == 0)
+        check('modifier-native-poison-death-and-revival-clear-power',val(f'ttyd64_actor_attack_boost({actor})') == 0)
         capture('status-poison-revived')
         val(f'inflict_status({actor},STATUS_KEY_STATIC,3)')
         flee_battle()

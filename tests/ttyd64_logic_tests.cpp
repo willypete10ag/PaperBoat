@@ -151,5 +151,37 @@ int main() {
     CHECK(ttyd64_fp_recovery_cap(64, 98, 99) == 1);
     CHECK(ttyd64_fp_recovery_cap(3, 10, 10) == 0);
     CHECK(ttyd64_fp_recovery_cap(2, 1, 10) == 2);
+    // Shared source overwrite/cancel/expiry rules, both axes and byte bounds.
+    for (int enemy : { 0, 1 }) {
+        Ttyd64ActorModifiers m {};
+        ttyd64_modifier_apply(&m.attack, 2, 3, enemy);
+        CHECK(m.attack.amount == 2 && m.attack.turns == 3 + enemy);
+        ttyd64_modifier_apply(&m.attack, 1, 2, enemy);
+        CHECK(m.attack.amount == 1 && m.attack.turns == 2 + enemy);
+        m.size = 1;
+        ttyd64_modifier_apply(&m.defense, -2, 1, enemy);
+        ttyd64_modifiers_advance(&m);
+        CHECK(m.attack.turns == 1 + enemy && m.size == 1);
+        CHECK(m.defense.amount == (enemy ? -2 : 0));
+        ttyd64_modifier_apply(&m.attack, -3, 4, enemy);
+        ttyd64_modifiers_normalize_size(&m);
+        CHECK(m.attack.amount == 0 && m.attack.turns == 0 && m.size == 0);
+        ttyd64_modifier_apply(&m.attack, -1, 1, enemy);
+        m.size = -1;
+        for (int i = 0; i < 1 + enemy; ++i)
+            ttyd64_modifiers_advance(&m);
+        CHECK(m.attack.amount == 0 && m.size == 0);
+        ttyd64_modifier_apply(&m.defense, -4, 3, enemy);
+        ttyd64_modifier_apply(&m.defense, 1, 3, enemy);
+        CHECK(m.defense.amount == 0 && m.defense.turns == 0);
+        ttyd64_modifier_apply(&m.attack, INT_MIN, INT_MAX, enemy);
+        CHECK(m.attack.amount == -128 && m.attack.turns == 255);
+        ttyd64_modifier_apply(&m.attack, -2, 0, enemy);
+        CHECK(m.attack.amount == 0 && m.attack.turns == 0);
+        ttyd64_modifier_apply(&m.attack, INT_MAX, INT_MAX, enemy);
+        CHECK(m.attack.amount == 127 && m.attack.turns == 255);
+        ttyd64_modifier_apply(&m.attack, 0, 3, enemy);
+        CHECK(m.attack.amount == 0 && m.attack.turns == 0);
+    }
     std::cout << checks << " ROM-free gameplay assertions passed\n";
 }

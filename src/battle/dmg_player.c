@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "ttyd64_rules.h"
 #include "common.h"
 #include "effects.h"
@@ -444,7 +445,7 @@ HitResult calc_player_damage_enemy(void) {
         targetDefense = get_defense(target, targetPart->defenseTable, battleStatus->curAttackElement);
 
         if (!(battleStatus->curAttackElement & DAMAGE_TYPE_IGNORE_DEFENSE)) {
-            targetDefense += target->defenseBoost;
+            targetDefense += ttyd64_actor_defense_boost(target);
         }
 
         if (targetPart->eventFlags & ACTOR_EVENT_FLAG_EXTREME_DEFENSE) {
@@ -502,7 +503,7 @@ HitResult calc_player_damage_enemy(void) {
             currentAttackDamage++;
         }
 
-        currentAttackDamage += player->attackBoost;
+        currentAttackDamage += ttyd64_actor_attack_boost(player);
 
         // TTYD64 FP Drain hook (8027208C): one flat power penalty and one
         // counted calculation per hit, capped at five. First strikes count;

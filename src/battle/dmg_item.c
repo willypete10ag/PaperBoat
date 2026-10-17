@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "battle/battle.h"
 #include "script_api/battle.h"
 #include "effects.h"
@@ -150,7 +151,7 @@ HitResult calc_item_damage_enemy(void) {
 
     temp = get_defense(target, targetPart->defenseTable, battleStatus->curAttackElement);
     if (!(battleStatus->curAttackElement & DAMAGE_TYPE_IGNORE_DEFENSE)) {
-        temp += target->defenseBoost;
+        temp += ttyd64_actor_defense_boost(target);
     }
 
     attackDamage = battleStatus->curAttackDamage;
@@ -247,9 +248,12 @@ HitResult calc_item_damage_enemy(void) {
 
     if (battleStatus->curAttackElement & DAMAGE_TYPE_REMOVE_BUFFS) {
         if (gBattleStatus.flags1 & BS_FLAGS1_TRIGGER_EVENTS) {
-            if ((target->attackBoost > 0 || target->defenseBoost > 0) ||
+            if (((ttyd64_actor_modifiers_active(target)
+                ? (ttyd64_actor_attack_boost(target) != 0 || ttyd64_actor_defense_boost(target) != 0)
+                : (ttyd64_actor_attack_boost(target) > 0 || ttyd64_actor_defense_boost(target) > 0))) ||
                 ((target->staticStatus == 0 && target->transparentStatus != 0) || target->staticStatus != 0))
             {
+                ttyd64_actor_modifiers_clear(target);
                 target->attackBoost = 0;
                 target->defenseBoost = 0;
                 target->isGlowing = false;

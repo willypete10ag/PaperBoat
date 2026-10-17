@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "battle/battle.h"
 #include "script_api/battle.h"
 #include "effects.h"
@@ -395,12 +396,12 @@ HitResult calc_partner_damage_enemy(void) {
         statusChanceOrDefense = get_defense(target, targetPart->defenseTable, battleStatus->curAttackElement);
 
         if (!(battleStatus->curAttackElement & DAMAGE_TYPE_IGNORE_DEFENSE)) {
-            statusChanceOrDefense += target->defenseBoost;
+            statusChanceOrDefense += ttyd64_actor_defense_boost(target);
         }
 
         damageDealt = battleStatus->curAttackDamage;
         CALL_EVENT(OnPartnerAttackDamage, partner, target, &damageDealt);
-        damageDealt += partner->attackBoost;
+        damageDealt += ttyd64_actor_attack_boost(partner);
 
         if (gBattleStatus.flags1 & BS_FLAGS1_TRIGGER_EVENTS) {
             if (battleStatus->curAttackElement & DAMAGE_TYPE_BLAST

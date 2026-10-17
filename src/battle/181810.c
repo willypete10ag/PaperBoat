@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "battle/battle.h"
 #include "vars_access.h"
 #include "port/patches/Patches.h"
@@ -652,7 +653,9 @@ API_CALLABLE(ApplyShrinkFromOwner) {
     Actor* actor = get_actor(script->owner1.actorID);
     s32 amt = evt_get_variable(script, *args);
 
-    if (actor->debuff == STATUS_KEY_SHRINK && amt > 0) {
+    if (ttyd64_actor_is_tiny(actor)) {
+        amt += ttyd64_actor_attack_boost(actor);
+    } else if (actor->debuff == STATUS_KEY_SHRINK && amt > 0) {
         amt /= 2;
     }
 
