@@ -30,6 +30,7 @@ extern EvtScript battle_item_life_shroom_EVS_UseItem;
 extern EvtScript battle_item_coconut_EVS_UseItem;
 extern EvtScript battle_item_electro_pop_EVS_UseItem;
 extern EvtScript battle_item_strange_cake_EVS_UseItem;
+extern EvtScript battle_item_ttyd64_status_EVS_UseItem;
 
 #define GENERIC_FOOD_ITEM -1
 
@@ -67,6 +68,10 @@ s32 ItemKeys[] = {
     ITEM_ELECTRO_POP,
     ITEM_STRANGE_CAKE,
     ITEM_KOOKY_COOKIE,
+    ITEM_COURAGE_SHELL,
+    ITEM_POWER_PUNCH,
+    ITEM_MINI_MR_MINI,
+    ITEM_MR_SOFTENER,
     ITEM_NONE
 };
 
@@ -103,6 +108,10 @@ BattleMoveEntry gBattleItemTable[] = {
     BTL_ITEM(electro_pop),
     BTL_ITEM(strange_cake),
     BTL_ITEM(strange_cake),
+    { .mainScript = battle_item_ttyd64_status_EVS_UseItem },
+    { .mainScript = battle_item_ttyd64_status_EVS_UseItem },
+    { .mainScript = battle_item_ttyd64_status_EVS_UseItem },
+    { .mainScript = battle_item_ttyd64_status_EVS_UseItem },
 };
 
 // Offsets into gBattleItemTable?

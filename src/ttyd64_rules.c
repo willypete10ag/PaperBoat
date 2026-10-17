@@ -1,5 +1,19 @@
 #include "ttyd64_rules.h"
 #include "item_enum.h"
+// Appended consumables are separated from the original contiguous range by
+// badges/keys/menu IDs. Preserve those IDs and keep every legacy list valid.
+int ttyd64_consumable_id_at(int index) {
+    if (index < 0 || index >= ITEM_NUM_CONSUMABLES)
+        return ITEM_NONE;
+    if (index < ITEM_NUM_VANILLA_CONSUMABLES)
+        return ITEM_FIRST_CONSUMABLE + index;
+    return ITEM_COURAGE_SHELL + index - ITEM_NUM_VANILLA_CONSUMABLES;
+}
+int ttyd64_softener_amount(int defense, int potency) {
+    if (defense <= 0 || potency <= 0)
+        return 0;
+    return -(defense < potency ? defense : potency);
+}
 // PartnersHP.patch, $PartnersHPTable. IDs 5, 10, 11 are noncombat partners.
 static const int16_t PartnerBaseHP[TTYD64_PARTNER_HP_COUNT][3] = { { 0, 0, 0 },    { 10, 20, 30 }, { 10, 15, 25 },
                                                                    { 15, 25, 40 }, { 15, 20, 25 }, { 0, 0, 0 },

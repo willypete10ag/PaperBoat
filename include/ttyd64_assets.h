@@ -34,4 +34,29 @@ static const ALIGN_ASSET(2) char ICON_badge_FPDrain_disabled_palette[] = "__OTR_
 static const ALIGN_ASSET(2) char ui_battle_status_fp_drain_png[] = "__OTR__ui/battle/status/fp_drain";
 static const ALIGN_ASSET(2) char ui_battle_status_fp_drain_pal[] = "__OTR__ui/battle/status/fp_drain.pal";
 
+#define MSG_TTYD64_CourageShellName MESSAGE_ID(0x2F, 8)
+#define MSG_TTYD64_CourageShellDesc MESSAGE_ID(0x2F, 9)
+static const ALIGN_ASSET(2) char ICON_item_CourageShell_raster[] = "__OTR__icons/item/CourageShell";
+static const ALIGN_ASSET(2) char ICON_item_CourageShell_palette[] = "__OTR__icons/item/CourageShell.pal";
+#define ICON_item_CourageShell_disabled_raster ICON_item_CourageShell_raster
+static const ALIGN_ASSET(2) char ICON_item_CourageShell_disabled_palette[] = "__OTR__icons/item/CourageShell.disabled.pal";
+#define MSG_TTYD64_PowerPunchName MESSAGE_ID(0x2F, 10)
+#define MSG_TTYD64_PowerPunchDesc MESSAGE_ID(0x2F, 11)
+static const ALIGN_ASSET(2) char ICON_item_PowerPunch_raster[] = "__OTR__icons/item/PowerPunch";
+static const ALIGN_ASSET(2) char ICON_item_PowerPunch_palette[] = "__OTR__icons/item/PowerPunch.pal";
+#define ICON_item_PowerPunch_disabled_raster ICON_item_PowerPunch_raster
+static const ALIGN_ASSET(2) char ICON_item_PowerPunch_disabled_palette[] = "__OTR__icons/item/PowerPunch.disabled.pal";
+#define MSG_TTYD64_MiniMrMiniName MESSAGE_ID(0x2F, 12)
+#define MSG_TTYD64_MiniMrMiniDesc MESSAGE_ID(0x2F, 13)
+static const ALIGN_ASSET(2) char ICON_item_MiniMrMini_raster[] = "__OTR__icons/item/MiniMrMini";
+static const ALIGN_ASSET(2) char ICON_item_MiniMrMini_palette[] = "__OTR__icons/item/MiniMrMini.pal";
+#define ICON_item_MiniMrMini_disabled_raster ICON_item_MiniMrMini_raster
+static const ALIGN_ASSET(2) char ICON_item_MiniMrMini_disabled_palette[] = "__OTR__icons/item/MiniMrMini.disabled.pal";
+#define MSG_TTYD64_MrSoftenerName MESSAGE_ID(0x2F, 14)
+#define MSG_TTYD64_MrSoftenerDesc MESSAGE_ID(0x2F, 15)
+static const ALIGN_ASSET(2) char ICON_item_MrSoftener_raster[] = "__OTR__icons/item/MrSoftener";
+static const ALIGN_ASSET(2) char ICON_item_MrSoftener_palette[] = "__OTR__icons/item/MrSoftener.pal";
+#define ICON_item_MrSoftener_disabled_raster ICON_item_MrSoftener_raster
+static const ALIGN_ASSET(2) char ICON_item_MrSoftener_disabled_palette[] = "__OTR__icons/item/MrSoftener.disabled.pal";
+
 #endif

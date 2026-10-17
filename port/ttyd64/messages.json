@@ -6,5 +6,13 @@
   "HammermanName": "Hammerman",
   "HammermanDesc": "Increase hammer power by 1\nbut lose the ability to jump.",
   "FPDrainName": "FP Drain",
-  "FPDrainDesc": "Drop Mario's Attack power by\n1 but regain 1 FP per attack."
+  "FPDrainDesc": "Drop Mario's Attack power by\n1 but regain 1 FP per attack.",
+  "CourageShellName": "Courage Shell",
+  "CourageShellDesc": "Boost your defense by\n\n3 for three turns.",
+  "PowerPunchName": "Power Punch",
+  "PowerPunchDesc": "Boost your attack power by\n\n2 for three turns.",
+  "MiniMrMiniName": "Mini Mr. Mini",
+  "MiniMrMiniDesc": "Briefly shrinks enemies,\n\ndropping their Attack power.",
+  "MrSoftenerName": "Mr. Softener",
+  "MrSoftenerDesc": "Softens up enemies for a bit,\n\ndecreasing their Defense."
 }

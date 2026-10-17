@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_rules.h"
 
 API_CALLABLE(N(BuildItemChoiceList)) {
     Bytecode* args = script->ptrReadPos;
@@ -12,9 +13,9 @@ API_CALLABLE(N(BuildItemChoiceList)) {
         N(ItemChoiceList)[i] = ITEM_NONE;
     } else {
         for (i = 0; i < ITEM_NUM_CONSUMABLES; i++) {
-            N(ItemChoiceList)[i] = ITEM_FIRST_CONSUMABLE + i;
-            N(ItemChoiceList)[ITEM_NUM_CONSUMABLES] = ITEM_NONE;
+            N(ItemChoiceList)[i] = ttyd64_consumable_id_at(i);
         }
+        N(ItemChoiceList)[i] = ITEM_NONE;
     }
     return ApiStatus_DONE2;
 }

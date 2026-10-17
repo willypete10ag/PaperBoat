@@ -28,6 +28,20 @@ static int fixed(int max) {
     return boundary;
 }
 int main() {
+    CHECK(ttyd64_consumable_id_at(-1) == ITEM_NONE);
+    CHECK(ttyd64_consumable_id_at(0) == ITEM_FIRST_CONSUMABLE);
+    CHECK(ttyd64_consumable_id_at(95) == ITEM_FIRST_CONSUMABLE + 95);
+    const int addedItems[] = { ITEM_COURAGE_SHELL, ITEM_POWER_PUNCH, ITEM_MINI_MR_MINI, ITEM_MR_SOFTENER };
+    for (int i = 0; i < 4; ++i)
+        CHECK(ttyd64_consumable_id_at(96 + i) == addedItems[i]);
+    CHECK(ttyd64_consumable_id_at(ITEM_NUM_CONSUMABLES) == ITEM_NONE);
+    CHECK(ttyd64_softener_amount(-1, 3) == 0);
+    CHECK(ttyd64_softener_amount(0, 3) == 0);
+    CHECK(ttyd64_softener_amount(1, 3) == -1);
+    CHECK(ttyd64_softener_amount(2, 3) == -2);
+    CHECK(ttyd64_softener_amount(3, 3) == -3);
+    CHECK(ttyd64_softener_amount(INT_MAX, 3) == -3);
+    CHECK(ttyd64_softener_amount(3, 0) == 0);
     const int table[12][3] = { { 0, 0, 0 },    { 10, 20, 30 }, { 10, 15, 25 }, { 15, 25, 40 },
                                { 15, 20, 25 }, { 0, 0, 0 },    { 10, 15, 20 }, { 15, 25, 35 },
                                { 15, 20, 30 }, { 10, 20, 30 }, { 0, 0, 0 },    { 0, 0, 0 } };

@@ -32,6 +32,8 @@ extern "C" {
 void ttyd64_modifier_apply(Ttyd64TimedModifier* effect, int amount, int turns, int enemy);
 void ttyd64_modifiers_advance(Ttyd64ActorModifiers* state);
 void ttyd64_modifiers_normalize_size(Ttyd64ActorModifiers* state);
+int ttyd64_consumable_id_at(int index);
+int ttyd64_softener_amount(int defense, int potency);
 int ttyd64_partner_base_max_hp(int partner, int rank);
 void ttyd64_health_init(Ttyd64PartnerHP* health, const int* ranks);
 void ttyd64_health_normalize(Ttyd64PartnerHP* health, const int* ranks);

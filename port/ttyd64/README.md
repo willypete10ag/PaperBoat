@@ -14,3 +14,9 @@ same revision, copied as `fp_drain_label.png`. It is a 40x16 indexed Adam7 PNG;
 the converter decodes its interlacing without altering the artwork. Native
 CI4/palette resources use the existing UI HUD path and are generated only in
 build staging.
+
+Courage Shell, Power Punch, Mini Mr. Mini and Mr. Softener artwork comes from
+`image/assets/item/new/item/{courageshell,powerpunch,minimrmini,mrsoftener}.png`
+at the same reference revision; names/descriptions from string sections23/26.
+These are published source assets. The same converter generates native item
+textures/palettes and messages; no ROM-derived resource is committed.

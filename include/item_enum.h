@@ -373,10 +373,15 @@ enum ItemIDs {
     ITEM_JUMPMAN                            = 0x16E,
     ITEM_HAMMERMAN                          = 0x16F,
     ITEM_FP_DRAIN                           = 0x170,
+    ITEM_COURAGE_SHELL                          = 0x171,
+    ITEM_POWER_PUNCH                            = 0x172,
+    ITEM_MINI_MR_MINI                           = 0x173,
+    ITEM_MR_SOFTENER                            = 0x174,
 };
 
-#define NUM_ITEMS 369
-#define ITEM_NUM_CONSUMABLES 96
+#define NUM_ITEMS 373
+#define ITEM_NUM_VANILLA_CONSUMABLES 96
+#define ITEM_NUM_CONSUMABLES 100
 #define ITEM_NUM_BADGES 122
 #define ITEM_NUM_KEYS 119
 #define ITEM_FIRST_CONSUMABLE 128
