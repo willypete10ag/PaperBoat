@@ -590,7 +590,7 @@ def run():
         # Synthetic API arguments exercise the public event adapters. These
         # calls are debugger driven; round/swap controls below use keyboard UI.
         cmd('set $modifierEvt = (Evt*)heap_malloc(sizeof(Evt))')
-        cmd('call memset($modifierEvt,0,sizeof(Evt))')
+        cmd('call (void*)memset($modifierEvt,0,sizeof(Evt))')
         cmd('set $modifierArgs = (Bytecode*)heap_malloc(3*sizeof(Bytecode))')
         put('$modifierEvt->ptrReadPos','$modifierArgs')
         put('$modifierEvt->owner1.actorID',val('ACTOR_PARTNER'))
