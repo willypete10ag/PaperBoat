@@ -1,4 +1,6 @@
+#include "ttyd64_partner_status.h"
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 
 b32 dispatch_damage_tick_event_player(s32 damageAmount, s32 event);
@@ -153,6 +155,7 @@ void update_status_damage(void) {
     s32 i;
 
     if (gBattleSubState == BTL_SUBSTATE_TRY_STATUS_DAMAGE) {
+        ttyd64_partner_status_poison();
         if (player->debuff == STATUS_KEY_POISON && player->stoneStatus == 0) {
             gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS;
             dispatch_damage_tick_event_player(1, EVENT_HIT);
@@ -185,6 +188,7 @@ void update_status_damage(void) {
                 return;
             }
 
+            ttyd64_partner_combat_begin_player_turn();
             BattleSkipActorTurn = false;
             player->disableDismissTimer = 0;
             player->flags |= ACTOR_FLAG_SHOW_STATUS_ICONS | ACTOR_FLAG_USING_IDLE_ANIM;
@@ -405,6 +409,10 @@ void btl_state_update_begin_player_turn(void) {
     update_command_loss();
 
     if (gBattleSubState == BTL_SUBSTATE_END_DELAY) {
+        if (ttyd64_partner_combat_active(partner) && partner->handleEventScript != nullptr
+            && does_script_exist(partner->handleEventScriptID)) {
+            return;
+        }
         if (player->handleEventScript == nullptr || !does_script_exist(player->handleEventScriptID)) {
             player->handleEventScript = nullptr;
 
@@ -421,7 +429,15 @@ void btl_state_update_begin_player_turn(void) {
                 btl_set_state(BATTLE_STATE_BEGIN_PARTNER_TURN);
                 gBattleStatus.flags2 |= BS_FLAGS2_PLAYER_TURN_USED;
             } else{
-                btl_set_state(BATTLE_STATE_SWITCH_TO_PLAYER);
+                // Source starts the next round with the living front actor. Mario's
+                // native status/turn maintenance above still runs exactly once.
+                if (ttyd64_partner_team_active() && (gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK)
+                    && btl_partner_can_act()) {
+                    gBattleStatus.flags1 |= BS_FLAGS1_PARTNER_ACTING;
+                    btl_set_state(BATTLE_STATE_SWITCH_TO_PARTNER);
+                } else {
+                    btl_set_state(BATTLE_STATE_SWITCH_TO_PLAYER);
+                }
             }
         }
     }

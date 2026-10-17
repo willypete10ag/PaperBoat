@@ -369,11 +369,15 @@ enum ItemIDs {
     ITEM_MENU_BOOTS2                        = 0x16A,
     ITEM_MENU_BOOTS3                        = 0x16B,
     ITEM_MENU_ITEMS                         = 0x16C,
+    ITEM_PITY_FLOWER                        = 0x16D,
+    ITEM_JUMPMAN                            = 0x16E,
+    ITEM_HAMMERMAN                          = 0x16F,
+    ITEM_FP_DRAIN                           = 0x170,
 };
 
-#define NUM_ITEMS 365
+#define NUM_ITEMS 369
 #define ITEM_NUM_CONSUMABLES 96
-#define ITEM_NUM_BADGES 118
+#define ITEM_NUM_BADGES 122
 #define ITEM_NUM_KEYS 119
 #define ITEM_FIRST_CONSUMABLE 128
 

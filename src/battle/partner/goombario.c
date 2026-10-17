@@ -4,6 +4,7 @@
 #include "script_api/battle.h"
 #include "battle/action_cmd/jump.h"
 #include "sprite/npc/BattleGoombario.h"
+#include "ttyd64_partner_hp.h"
 
 #define NAMESPACE battle_partner_goombario
 
@@ -570,6 +571,7 @@ EvtScript N(EVS_Init) = {
     Call(BindIdle, ACTOR_PARTNER, Ref(N(EVS_Idle)))
     Call(BindHandleEvent, ACTOR_PARTNER, Ref(N(EVS_HandleEvent)))
     Call(BindHandlePhase, ACTOR_PARTNER, Ref(N(EVS_HandlePhase)))
+    Call(Ttyd64PartnerRestoreDeadPose)
     Return
     End
 };
@@ -584,6 +586,15 @@ EvtScript N(EVS_HandleEvent) = {
     Call(InterruptActionCommand)
     Call(GetLastEvent, ACTOR_PARTNER, LVar0)
     Switch(LVar0)
+        CaseEq(EVENT_DEATH)
+            Call(Ttyd64PartnerHPState)
+            IfNe(LVar0, 0)
+                IfEq(LVar1, 0)
+                    Call(N(StopCharge))
+                    ExecWait(EVS_Ttyd64PartnerDeath)
+                    Return
+                EndIf
+            EndIf
         CaseOrEq(EVENT_HIT_COMBO)
         CaseOrEq(EVENT_HIT)
             SetConst(LVar1, ANIM_BattleGoombario_HurtStill)
@@ -642,6 +653,13 @@ EvtScript N(EVS_HandleEvent) = {
         EndCaseGroup
         CaseDefault
     EndSwitch
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, true)
     Return
     End
@@ -713,6 +731,12 @@ EvtScript N(EVS_FirstStrike) = {
 };
 
 EvtScript N(EVS_RunAway) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, true)
+        IfEq(LVar1, 0)
+            Return
+        EndIf
+    EndIf
     SetConst(LVar0, PRT_MAIN)
     SetConst(LVar1, ANIM_BattleGoombario_Run)
     ExecWait(EVS_Partner_RunAway)
@@ -721,6 +745,12 @@ EvtScript N(EVS_RunAway) = {
 };
 
 EvtScript N(EVS_RunAwayFail) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, true)
+        IfEq(LVar1, 0)
+            Return
+        EndIf
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, false)
     Call(SetGoalToHome, ACTOR_PARTNER)
     Call(SetActorSpeed, ACTOR_PARTNER, Float(6.0))

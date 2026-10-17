@@ -25,6 +25,7 @@ typedef struct WorldPartner {
 } WorldPartner; // size = 0x40
 
 extern Npc* wPartnerNpc; // wPartnerNpc
+extern s32 wCurrentPartnerId;
 
 s32 partner_init_get_out(Npc*);
 s32 partner_get_out(Npc*);

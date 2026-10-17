@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "battle/battle.h"
 #include "battle/battle_menu.h"
 #include "battle/action_cmd.h"
@@ -324,7 +325,7 @@ void btl_state_update_player_menu(void) {
             }
             btl_cam_use_preset(BTL_CAM_DEFAULT);
             btl_cam_move(10);
-            if (!(battleStatus->flags1 & BS_FLAGS1_PLAYER_IN_BACK)) {
+            if (!ttyd64_partner_team_should_swap((battleStatus->flags1 & BS_FLAGS1_PLAYER_IN_BACK))) {
                 gBattleSubState = BTL_SUBSTATE_CREATE_MAIN_MENU;
             } else {
                 gBattleSubState = BTL_SUBSTATE_PERFORM_SWAP;
@@ -360,7 +361,7 @@ void btl_state_update_player_menu(void) {
                 playerActor->homePos.x = playerActor->curPos.x;
                 playerActor->homePos.z = playerActor->curPos.z;
                 gBattleSubState = BTL_SUBSTATE_CREATE_MAIN_MENU;
-                battleStatus->flags1 &= ~BS_FLAGS1_PLAYER_IN_BACK;
+                ttyd64_partner_team_swap_completed(false);
             }
             break;
     }
@@ -535,6 +536,7 @@ void btl_state_update_player_menu(void) {
                 BattleMenu_SwapDelay--;
             } else if (!(gBattleStatus.flags1 & BS_FLAGS1_TUTORIAL_BATTLE) && (gGameStatusPtr->pressedButtons[0] & BUTTON_Z)) {
                 if (btl_partner_can_act() && battleStatus->hustleTurns != 1) {
+                    ttyd64_partner_team_request_swap();
                     sfx_play_sound(SOUND_PARTNER_SWAP_BATTLE_POS);
                     battleStatus->lastPlayerMenuSelection[BTL_MENU_IDX_MAIN] = WheelOptionSubmenu[BattleMenu_CurPos + BattleMenu_HomePos];
                     btl_main_menu_destroy();
@@ -590,8 +592,16 @@ void btl_state_update_player_menu(void) {
                                 battleStatus->submenuIcons[entryIdx] = playerData->equippedBadges[i];
                                 battleStatus->submenuStatus[entryIdx] = 1;
 
-                                cost -= player_team_is_ability_active(playerActor, ABILITY_FLOWER_SAVER);
-                                cost -= 2 * player_team_is_ability_active(playerActor, ABILITY_FLOWER_FANATIC);
+                                // TTYD64 Fix_DoubleDip_FlowerSavers.patch: match
+                                // the minimum paid by deduct_current_move_fp.
+                                // Free moves still cost zero, as in other menus.
+                                if (cost != 0) {
+                                    cost -= player_team_is_ability_active(playerActor, ABILITY_FLOWER_SAVER);
+                                    cost -= 2 * player_team_is_ability_active(playerActor, ABILITY_FLOWER_FANATIC);
+                                    if (cost < 1) {
+                                        cost = 1;
+                                    }
+                                }
 
                                 if (playerData->curFP < cost) {
                                     battleStatus->submenuStatus[entryIdx] = 0;

@@ -1,3 +1,4 @@
+#include "ttyd64_partner_hp.h"
 #include "common.h"
 #include "effects.h"
 #include "battle/battle.h"
@@ -339,11 +340,24 @@ EvtScript N(EVS_Init) = {
     Call(BindIdle, ACTOR_PARTNER, Ref(N(EVS_Idle)))
     Call(BindHandleEvent, ACTOR_PARTNER, Ref(N(EVS_HandleEvent)))
     Call(BindHandlePhase, ACTOR_PARTNER, Ref(N(EVS_HandlePhase)))
+    Call(Ttyd64PartnerRestoreDeadPose)
     Return
     End
 };
 
 EvtScript N(EVS_Idle) = {
+    Return
+    End
+};
+
+// TTYD64 removes the legacy drop after these contact/explosion reactions.
+// Keep the original presentation for ordinary PaperBoat play.
+EvtScript N(EVS_Ttyd64Drop) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, false)
+        SetConst(LVar1, ANIM_BattleBombette_Hurt)
+        ExecWait(EVS_Partner_Drop)
+    EndIf
     Return
     End
 };
@@ -354,13 +368,21 @@ EvtScript N(EVS_HandleEvent) = {
     Call(StopSound, SOUND_LRAW_BOMBETTE_FUSE)
     Call(GetLastEvent, ACTOR_PARTNER, LVar0)
     Switch(LVar0)
+        CaseEq(EVENT_DEATH)
+            Call(Ttyd64PartnerHPState)
+            IfNe(LVar0, 0)
+                IfEq(LVar1, 0)
+                    ExecWait(EVS_Ttyd64PartnerDeath)
+                    Return
+                EndIf
+            EndIf
         CaseOrEq(EVENT_HIT_COMBO)
         CaseOrEq(EVENT_HIT)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
             SetConst(LVar2, ANIM_BattleBombette_Backfire2)
             ExecWait(EVS_Partner_Hit)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         EndCaseGroup
         CaseOrEq(EVENT_ZERO_DAMAGE)
         CaseOrEq(EVENT_IMMUNE)
@@ -375,7 +397,7 @@ EvtScript N(EVS_HandleEvent) = {
             SetConst(LVar3, ANIM_BattleBombette_Injured)
             ExecWait(EVS_Partner_BombetteSpikeContact)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_BURN_HIT)
             SetConst(LVar1, ANIM_BattleBombette_BurnHurt)
             SetConst(LVar2, ANIM_BattleBombette_BurnStill)
@@ -428,7 +450,7 @@ EvtScript N(EVS_HandleEvent) = {
             Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
             Call(JumpToGoal, ACTOR_PARTNER, 5, false, true, false)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_BURN_CONTACT)
             Call(SetActorRotation, ACTOR_SELF, 0, 0, 0)
             Call(SetActorDispOffset, ACTOR_SELF, 0, 0, 0)
@@ -493,7 +515,7 @@ EvtScript N(EVS_HandleEvent) = {
             Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
             Call(JumpToGoal, ACTOR_PARTNER, 5, false, true, false)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_SHOCK_HIT)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
             Set(LVar2, 15)
@@ -568,10 +590,10 @@ EvtScript N(EVS_HandleEvent) = {
             Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
             Call(JumpToGoal, ACTOR_PARTNER, 5, false, true, false)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_33)
             SetConst(LVar1, ANIM_BattleBombette_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_RECOVER_FROM_KO)
             SetConst(LVar0, PRT_MAIN)
             SetConst(LVar1, ANIM_BattleBombette_Idle)
@@ -588,6 +610,13 @@ EvtScript N(EVS_HandleEvent) = {
         EndCaseGroup
         CaseDefault
     EndSwitch
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, true)
     Return
     End
@@ -665,6 +694,12 @@ EvtScript N(EVS_FirstStrike) = {
 };
 
 EvtScript N(EVS_RunAway) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, true)
+        IfEq(LVar1, 0)
+            Return
+        EndIf
+    EndIf
     SetConst(LVar0, PRT_MAIN)
     SetConst(LVar1, ANIM_BattleBombette_Run)
     ExecWait(EVS_Partner_RunAway)
@@ -673,6 +708,12 @@ EvtScript N(EVS_RunAway) = {
 };
 
 EvtScript N(EVS_RunAwayFail) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, true)
+        IfEq(LVar1, 0)
+            Return
+        EndIf
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, false)
     Call(SetGoalToHome, ACTOR_PARTNER)
     Call(SetActorSpeed, ACTOR_PARTNER, Float(6.0))

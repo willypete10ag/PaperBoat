@@ -3,6 +3,7 @@
 #include "effects.h"
 #include "entity.h"
 #include "sprite/player.h"
+#include "ttyd64_partner_hp.h"
 
 #define NAMESPACE battle_item_mushroom
 
@@ -28,6 +29,17 @@ API_CALLABLE(N(func_802A12EC_715B3C)) {
     BattleStatus* battleStatus = &gBattleStatus;
     Actor* partner = battleStatus->partnerActor;
     Bytecode* args = script->ptrReadPos;
+
+    if (ttyd64_partner_combat_active(partner)) {
+        // Item_Shroom.bpat uses selected-recipient HP, not vanilla KO turns.
+        // Reuse native item flight/shimmers; allocate no source ROM hooks.
+        if (ttyd64_partner_combat_can_heal_with_item(battleStatus->moveArgument)) {
+            s32 amount = evt_get_variable(script, *args++);
+            ttyd64_partner_combat_heal(partner, amount);
+            fx_recover(0, partner->curPos.x, partner->curPos.y + 35, partner->curPos.z, amount);
+        }
+        return ApiStatus_DONE2;
+    }
 
     if (partner->koDuration == 0) {
         return ApiStatus_DONE2;

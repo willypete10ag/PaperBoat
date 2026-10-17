@@ -1,4 +1,5 @@
 #include "common_structs.h"
+#include "ttyd64_partner_hp.h"
 #include "world/partners.h"
 #include "macros.h"
 
@@ -478,7 +479,7 @@ UseItemStruct UseItemDmaArgs = {
 
 BSS s32 D_8010CD20;
 
-s32 use_consumable(s32 invSlot) {
+static s32 start_consumable(s32 invSlot, s32 partnerID) {
     Evt* script;
 
     D_8010CD20 = invSlot;
@@ -486,7 +487,21 @@ s32 use_consumable(s32 invSlot) {
     dma_copy(UseItemDmaArgs.dmaStart, UseItemDmaArgs.dmaEnd, world_use_item_VRAM);
     script = start_script(UseItemDmaArgs.main, EVT_PRIORITY_1, 0);
     script->varTable[10] = invSlot;
+    script->varTable[14] = partnerID;
     return script->id;
+}
+
+s32 use_consumable(s32 invSlot) {
+    return start_consumable(invSlot, PARTNER_NONE);
+}
+
+s32 ttyd64_use_consumable_on_partner(s32 invSlot, s32 partnerID) {
+    if (invSlot < 0 || invSlot >= ARRAY_COUNT(gPlayerData.invItems)
+        || (!ttyd64_partner_hp_supported(partnerID) || !gPlayerData.partners[partnerID].enabled)
+        || !ttyd64_world_item_can_target_partner(gPlayerData.invItems[invSlot])) {
+        return -1;
+    }
+    return start_consumable(invSlot, partnerID);
 }
 
 void remove_consumable(void) {
@@ -618,9 +633,11 @@ void create_partner_npc(void) {
     }
 
     TweesterTouchingPartner = nullptr;
+    ttyd64_partner_hp_world_bind(wCurrentPartnerId);
 }
 
 void partner_free_npc(void) {
+    ttyd64_partner_hp_world_unbind();
     free_npc_by_index(wPartnerNpcIndex);
 }
 
@@ -1003,6 +1020,7 @@ void partner_reset_data(void) {
     PlayerStatus* playerStatus = &gPlayerStatus;
     s32 currentPartner = gPlayerData.curPartner;
 
+    ttyd64_partner_hp_world_unbind();
     mem_clear(&gPartnerStatus, sizeof(gPartnerStatus));
     get_worker(create_worker_frontUI(_use_partner_ability, nullptr));
 
@@ -1034,6 +1052,7 @@ void partner_reset_data(void) {
 void partner_initialize_data(void) {
     PartnerStatus* partnerStatus = &gPartnerStatus;
 
+    ttyd64_partner_hp_world_unbind();
     wCurrentPartnerId = 0;
     D_8010CFE0 = 0;
     NextPartnerCommand = PARTNER_CMD_NONE;
@@ -1106,6 +1125,10 @@ void partner_handle_after_battle(void) {
             wPartner->postBattle(wPartnerNpc);
         }
     }
+
+    // Battle return restores the existing world NPC pool without calling
+    // create_partner_npc. Resume its HP display ownership as well.
+    ttyd64_partner_hp_world_bind(wCurrentPartnerId);
 }
 
 void partner_kill_ability_script(void) {

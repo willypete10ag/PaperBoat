@@ -6,6 +6,7 @@
 #include "ld_addrs.h"
 #include "assets/entities.h"
 #include "Engine.h"
+#include "ttyd64_partner_hp.h"
 
 extern EntityModelScript Entity_HeartBlockContent_RenderScriptIdle;
 extern EntityModelScript Entity_HeartBlockContent_RenderScriptAfterHit;
@@ -211,6 +212,10 @@ void entity_HeartBlockContent__anim_heal(Entity* entity, s32 arg1) {
                 data->sparkleTrailTimer = 0;
                 recover_hp(-1);
                 recover_fp(-1);
+                // PartnersHP.patch hook 106848: Heart Blocks also refill SP
+                // and the passive partner-health model, even with combat off.
+                gPlayerData.starPower = gPlayerData.maxStarPower * SP_PER_BAR;
+                ttyd64_fully_restore_partner_hp();
                 sfx_play_sound(SOUND_HEART_BLOCK);
             }
             data->yawBuffer[data->yawBufferPos] = entity->rot.y;

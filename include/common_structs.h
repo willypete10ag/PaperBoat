@@ -993,7 +993,9 @@ typedef struct BattleStatus {
     /* 0x43C */ struct EffectInstance* buffEffect;
     /* 0x440 */ u8 tattleFlags[28];
     /* 0x45C */ char unk_45C[4];
-} BattleStatus; // size = 0x460
+    // Native TTYD64 extension: battle-local hit count, never serialized in saves.
+    u8 fpDrainCount;
+} BattleStatus; // original N64 layout size before native extensions: 0x460
 
 typedef struct TextureHeader {
     /* 0x00 */ s8 name[32];

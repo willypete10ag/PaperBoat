@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "effects.h"
 
 enum {
@@ -18,7 +19,7 @@ void btl_state_update_begin_partner_turn(void) {
     s32 i;
 
     if (gBattleSubState == BTL_SUBSTATE_INIT) {
-        if (partner == nullptr) {
+        if (partner == nullptr || ttyd64_partner_combat_turn_blocked(partner)) {
             BattleSkipActorTurn = true;
             gBattleSubState = BTL_SUBSTATE_END_DELAY;
         } else if ((battleStatus->flags2 & (BS_FLAGS2_PARTNER_TURN_USED | BS_FLAGS2_PLAYER_TURN_USED)) == (BS_FLAGS2_PARTNER_TURN_USED | BS_FLAGS2_PLAYER_TURN_USED)) {
@@ -46,7 +47,7 @@ void btl_state_update_begin_partner_turn(void) {
             gBattleStatus.flags2 |= BS_FLAGS1_PLAYER_IN_BACK;
             partner->flags |= ACTOR_FLAG_SHOW_STATUS_ICONS;
 
-            if (partner->koStatus != 0) {
+            if (!ttyd64_partner_combat_active(partner) && partner->koStatus != 0) {
                 partner->koDuration--;
                 BattleSkipActorTurn = true;
                 BattleStatusUpdateDelay = 20;

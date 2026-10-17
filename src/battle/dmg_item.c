@@ -1,6 +1,7 @@
 #include "battle/battle.h"
 #include "script_api/battle.h"
 #include "effects.h"
+#include "ttyd64_partner_hp.h"
 
 HitResult calc_item_check_hit(void) {
     BattleStatus* battleStatus = &gBattleStatus;
@@ -79,6 +80,13 @@ HitResult calc_item_damage_enemy(void) {
 
     if (target == nullptr) {
         return HIT_RESULT_HIT;
+    }
+
+    if (ttyd64_partner_combat_active(target)) {
+        ttyd64_partner_combat_load_hp(target);
+        if (target->curHP == 0) {
+            return HIT_RESULT_MISS;
+        }
     }
 
     targetPart = get_actor_part(target, currentTargetPartID);
@@ -189,6 +197,8 @@ HitResult calc_item_damage_enemy(void) {
         target->lastDamageTaken = battleStatus->lastAttackDamage;
         target->hpChangeCounter = 0;
     }
+
+    ttyd64_partner_combat_store_hp(target);
 
     if (targetPart->flags & ACTOR_PART_FLAG_DAMAGE_IMMUNE) {
         dispatch_event_actor(target, dispatchEvent);
@@ -421,6 +431,7 @@ HitResult calc_item_damage_enemy(void) {
         cancel_action_rating_combo(target);
     }
 
+    dispatchEvent = ttyd64_partner_combat_damage_event(target, dispatchEvent, battleStatus->curAttackElement);
     dispatch_event_actor(target, dispatchEvent);
 
     if (actorClass == ACTOR_PARTNER) {

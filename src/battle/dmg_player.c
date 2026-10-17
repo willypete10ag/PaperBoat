@@ -473,6 +473,18 @@ HitResult calc_player_damage_enemy(void) {
             currentAttackDamage += 2;
         }
 
+        // TTYD64 Jumpman hook (80272044): every copy adds attack power in
+        // this badge-modifier path, except an opposing Hammer first strike.
+        if (battleStatus->selectedMoveID != MOVE_FIRST_STRIKE_HAMMER) {
+            currentAttackDamage += player_team_is_ability_active(player, ABILITY_JUMPMAN);
+        }
+
+        // Paired Hammerman boost excludes Jump first strikes. Both bonuses
+        // accumulate when both badges are equipped, matching the source hook.
+        if (battleStatus->selectedMoveID != MOVE_FIRST_STRIKE_JUMP) {
+            currentAttackDamage += player_team_is_ability_active(player, ABILITY_HAMMERMAN);
+        }
+
         if (player_team_is_ability_active(player, ABILITY_BERSERKER)) {
             currentAttackDamage += 2;
         }
@@ -490,6 +502,16 @@ HitResult calc_player_damage_enemy(void) {
         }
 
         currentAttackDamage += player->attackBoost;
+
+        // TTYD64 FP Drain hook (8027208C): one flat power penalty and one
+        // counted calculation per hit, capped at five. First strikes count;
+        // the upstream exclusion is commented out. Zero final damage still counts.
+        if (player_team_is_ability_active(player, ABILITY_FP_DRAIN)) {
+            currentAttackDamage--;
+            if (battleStatus->fpDrainCount < 5) {
+                battleStatus->fpDrainCount++;
+            }
+        }
 
         if (player_team_is_ability_active(player, ABILITY_HP_DRAIN)) {
             battleStatus->hpDrainCount++;

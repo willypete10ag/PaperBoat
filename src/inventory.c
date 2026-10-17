@@ -1,4 +1,5 @@
 #include "inventory.h"
+#include "ttyd64_partner_hp.h"
 #include "hud_element.h"
 #include "dx/config.h"
 #include "port/Engine.h"
@@ -160,6 +161,7 @@ void clear_player_data(void) {
     playerData->smashGamePlays = 0;
     playerData->smashGameTotal = 0;
     playerData->smashGameRecord = 0;
+    ttyd64_partner_hp_new_game();
 }
 
 s32 add_item(s32 itemID) {
@@ -235,13 +237,6 @@ s32 remove_item(s32 itemID) {
 
     // handle badges
     if (item_is_badge(itemID)) {
-        // unequip
-        for (idx = 0; idx < ARRAY_COUNT(gPlayerData.equippedBadges); idx++) {
-            if (gPlayerData.equippedBadges[idx] == itemID) {
-                gPlayerData.equippedBadges[idx] = ITEM_NONE;
-            }
-        }
-
         for (idx = 0; idx < ARRAY_COUNT(gPlayerData.badges); idx++) {
             if (gPlayerData.badges[idx] == itemID) {
                 break;
@@ -253,6 +248,13 @@ s32 remove_item(s32 itemID) {
         }
 
         gPlayerData.badges[idx] = ITEM_NONE;
+        // TTYD64 RemoveBadge: removing one owned copy unequips at most one copy.
+        for (s32 equippedIdx = 0; equippedIdx < ARRAY_COUNT(gPlayerData.equippedBadges); equippedIdx++) {
+            if (gPlayerData.equippedBadges[equippedIdx] == itemID) {
+                gPlayerData.equippedBadges[equippedIdx] = ITEM_NONE;
+                break;
+            }
+        }
         return idx;
     }
 
@@ -497,6 +499,8 @@ void initialize_status_bar(void) {
     StatusBar* statusBar = &gStatusBar;
     PlayerData* playerData = &gPlayerData;
     HudElemID hid;
+
+    ttyd64_partner_hp_sync_display();
 
     statusBar->drawPosX = 12;
     ShowingCoinCounter = false;
@@ -808,6 +812,14 @@ void update_status_bar(void) {
         i = (i + 4) / 5;
     }
     statusBar->displayCoins += i;
+
+    ttyd64_partner_hp_update_display();
+    if (ttyd64_partner_hp_display() >= 0
+        && ttyd64_partner_hp_display() != ttyd64_get_partner_hp(gPlayerData.curPartner)
+        && !statusBar->ignoreChanges) {
+        statusBar->showTimer = 70;
+        statusBar->hidden = false;
+    }
 
     // show the status bar if HP has changed
     if (statusBar->displayHP != playerData->curHP && !statusBar->ignoreChanges) {
@@ -1424,6 +1436,29 @@ void update_status_bar(void) {
     if (showStarPower) {
         star_power_shimmer_draw();
     }
+
+    // Guarded NewStatsMenu partner-HP row for world/battle, beneath native HUD.
+    // Keep native configurable bars and their star-power layout intact for now.
+    // hpTimesHID is already scratch space for per-digit HUD script switching.
+    s32 partnerHP = ttyd64_partner_hp_display();
+    if (partnerHP >= 0 && port_status_bar_show(PORT_STATUS_BAR_HP)
+        && statusBar->drawPosY >= FULLY_EXTENDED_Y) {
+        s32 rowY = statusBar->drawPosY + (showStarPower && playerData->maxStarPower > 0 ? 48 : 36);
+        s32 rowX = statusBar->drawPosX;
+        s32 hid = statusBar->hpTimesHID;
+        draw_box(DRAW_FLAG_TEXEL_SCALE, port_status_bar_box_style(WINDOW_STYLE_5),
+                 rowX, statusBar->drawPosY + (rowY - statusBar->drawPosY) * StatusBarScale,
+                 0, 82 * StatusBarScale, 25 * StatusBarScale, 255, 0,
+                 StatusBarScale, StatusBarScale, 0.0f, 0.0f, 0.0f,
+                 nullptr, nullptr, nullptr, SCREEN_WIDTH, SCREEN_HEIGHT, nullptr);
+        hud_element_set_script(hid, wPartnerHudScripts[ttyd64_partner_hp_display_partner()]);
+        hud_element_set_scale(hid, 0.6f);
+        hud_element_set_render_pos(hid, rowX + 15, rowY + 12);
+        status_bar_draw_next(hid);
+        hud_element_set_scale(hid, 1.0f);
+        status_bar_draw_stat(hid, rowX + 25, rowY + 5, partnerHP,
+                             ttyd64_get_partner_max_hp(gPlayerData.curPartner));
+    }
 }
 
 void coin_counter_draw_content(UNK_TYPE arg0, s32 posX, s32 posY) {
@@ -1803,6 +1838,8 @@ void sync_status_bar(void) {
     PlayerData* playerData = &gPlayerData;
     StatusBar* statusBar = &gStatusBar;
 
+    ttyd64_partner_hp_sync_display();
+
     statusBar->displayHP = playerData->curHP;
     statusBar->displayFP = playerData->curFP;
     statusBar->displayStarPower = playerData->starPower;
@@ -1896,6 +1933,26 @@ s32 is_ability_active(s32 ability) {
         badgeMoveID = gItemTable[badgeItemID].moveID;
 
         switch (ability) {
+            case ABILITY_FP_DRAIN:
+                if (badgeMoveID == MOVE_FP_DRAIN) {
+                    ret++;
+                }
+                break;
+            case ABILITY_HAMMERMAN:
+                if (badgeMoveID == MOVE_HAMMERMAN) {
+                    ret++;
+                }
+                break;
+            case ABILITY_JUMPMAN:
+                if (badgeMoveID == MOVE_JUMPMAN) {
+                    ret++;
+                }
+                break;
+            case ABILITY_PITY_FLOWER:
+                if (badgeMoveID == MOVE_PITY_FLOWER) {
+                    ret++;
+                }
+                break;
             case ABILITY_DODGE_MASTER:
                 if (badgeMoveID == MOVE_DODGE_MASTER) {
                     ret++;

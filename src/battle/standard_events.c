@@ -4,6 +4,198 @@
 #include "script_api/battle.h"
 #include "sprite/player.h"
 
+#include "ttyd64_partner_hp.h"
+#include "sprite/npc/BattleGoombario.h"
+#include "sprite/npc/BattleKooper.h"
+#include "sprite/npc/BattleBombette.h"
+
+API_CALLABLE(LifeShroomShroudWorld);
+API_CALLABLE(LifeShroomRevealWorld);
+API_CALLABLE(SetItemAsLifeShroom);
+
+// PartnersHP.patch $PartnerDies + ground partner event scripts. Animation
+// identities stay native; do not reuse source ROM offsets or flying rules.
+static const struct { AnimID hurt, idle, run; } Ttyd64GroundAnims[TTYD64_PARTNER_HP_COUNT] = {
+    [PARTNER_GOOMBARIO] = { ANIM_BattleGoombario_HurtStill, ANIM_BattleGoombario_Idle, ANIM_BattleGoombario_Run },
+    [PARTNER_KOOPER] = { ANIM_BattleKooper_Hurt, ANIM_BattleKooper_Idle, ANIM_BattleKooper_Run },
+    [PARTNER_BOMBETTE] = { ANIM_BattleBombette_Hurt, ANIM_BattleBombette_Idle, ANIM_BattleBombette_Run },
+};
+
+API_CALLABLE(Ttyd64PartnerSetHurtAnimation) {
+    if (ttyd64_partner_combat_active(gBattleStatus.partnerActor)) {
+        set_actor_anim(ACTOR_PARTNER, -1, Ttyd64GroundAnims[gPlayerData.curPartner].hurt);
+    }
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerRecoveryAnims) {
+    script->varTable[1] = Ttyd64GroundAnims[gPlayerData.curPartner].idle;
+    script->varTable[2] = Ttyd64GroundAnims[gPlayerData.curPartner].run;
+    script->varTable[3] = 0;
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerHPState) {
+    Actor* actor = gBattleStatus.partnerActor;
+    script->varTable[0] = ttyd64_partner_combat_active(actor);
+    script->varTable[1] = ttyd64_get_partner_hp(gPlayerData.curPartner);
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerDeathBegin) {
+    ttyd64_partner_combat_mark_dead(gBattleStatus.partnerActor);
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerNeedsMarioFront) {
+    script->varTable[0] = ttyd64_partner_team_active()
+        && (gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK)
+        && find_item(ITEM_LIFE_SHROOM) < 0;
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerMarioFrontMoved) {
+    if (ttyd64_partner_team_active()) {
+        gBattleStatus.flags1 &= ~BS_FLAGS1_PLAYER_IN_BACK;
+    }
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerUseLifeShroom) {
+    script->varTable[0] = ttyd64_partner_combat_use_life_shroom(gBattleStatus.partnerActor);
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerRestoreDeadPose) {
+    Actor* actor = gBattleStatus.partnerActor;
+    if (ttyd64_partner_combat_death_handled(actor) && ttyd64_get_partner_hp(gPlayerData.curPartner) == 0) {
+        actor->rot.x = 86.0f;
+        actor->flags &= ~ACTOR_FLAG_USING_IDLE_ANIM;
+        set_actor_anim(ACTOR_PARTNER, -1, Ttyd64GroundAnims[gPlayerData.curPartner].hurt);
+    }
+    return ApiStatus_DONE2;
+}
+
+// A short native Recover can finish before the 20-frame world reveal. Track
+// the reveal independently and await it before releasing the death event.
+EvtScript EVS_Ttyd64PartnerRevealWorld = {
+    Call(LifeShroomRevealWorld)
+    Return
+    End
+};
+
+// PartnersHP.patch $UseLifeShroom_Actor, shared by the supported ground partners. Native effects,
+// item ownership and recovery execute in the normal event interpreter.
+EvtScript EVS_Ttyd64PartnerLifeShroom = {
+    Call(LifeShroomShroudWorld)
+    Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+    Call(MakeItemEntity, ITEM_LIFE_SHROOM, LVar0, LVar1, LVar2, ITEM_SPAWN_MODE_DECORATION, 0)
+    Set(LVarA, LVar0)
+    Call(GetActorPos, ACTOR_PARTNER, LVar3, LVar4, LVar5)
+    Add(LVar4, 30)
+    Call(SetItemPos, LVarA, LVar3, LVar4, LVar5)
+    Wait(1)
+    Call(SetItemAsLifeShroom)
+    Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_LIFE_SHROOM_CHIME)
+    Add(LVar4, 15)
+    PlayEffect(EFFECT_ENERGY_IN_OUT, 3, LVar3, LVar4, LVar5, Float(1.0))
+    Set(LVarB, LVarF)
+    Loop(3)
+        Call(SetItemFlags, LVarA, 64, true)
+        Wait(2)
+        Call(SetItemFlags, LVarA, 64, false)
+        Wait(6)
+    EndLoop
+    Call(RemoveEffect, LVarB)
+    Call(RemoveItemEntity, LVarA)
+    Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_START_RECOVERY)
+    PlayEffect(EFFECT_STARS_SHIMMER, 1, LVar3, LVar4, LVar5, 70, 70, 10, 20)
+    Wait(20)
+    Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_REVIVAL_MAGIC)
+    Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+    PlayEffect(EFFECT_STARS_SHIMMER, 2, LVar0, LVar1, LVar2, 50, 20, 32, 30)
+    Wait(25)
+    PlayEffect(EFFECT_STARS_SHIMMER, 2, LVar0, LVar1, LVar2, 30, 50, 32, 30)
+    Wait(26)
+    ExecGetTID(EVS_Ttyd64PartnerRevealWorld, LVarE)
+    Call(Ttyd64PartnerUseLifeShroom)
+    IfEq(LVar0, 0)
+        Goto(90)
+    EndIf
+    Call(PlaySoundAtActor, ACTOR_PARTNER, SOUND_PLAYER_REVIVE)
+    Call(SetActorRotation, ACTOR_PARTNER, 0, 0, 0)
+    Call(SetActorYaw, ACTOR_PARTNER, 0)
+    Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+    Add(LVar1, 25)
+    PlayEffect(EFFECT_RECOVER, 0, LVar0, LVar1, LVar2, 10)
+    Call(FreezeBattleCam, false)
+    Call(UseBattleCamPreset, BTL_CAM_DEFAULT)
+    Call(MoveBattleCamOver, 15)
+    Call(Ttyd64PartnerRecoveryAnims)
+    ExecWait(EVS_Partner_Recover)
+    Call(UseIdleAnimation, ACTOR_PARTNER, true)
+    Label(90)
+    Loop(0)
+        IsThreadRunning(LVarE, LVar0)
+        IfEq(LVar0, false)
+            BreakLoop
+        EndIf
+        Wait(1)
+    EndLoop
+    Return
+    End
+};
+
+// PartnersHP.patch $PartnerDies: ground-partner timing and 86-degree collapse.
+EvtScript EVS_Ttyd64PartnerDeath = {
+    Call(Ttyd64PartnerDeathBegin)
+    Call(ClearStatusEffects, ACTOR_PARTNER)
+    Call(Ttyd64PartnerSetHurtAnimation)
+    Wait(40)
+    // Source death keeps the front position for Life Shroom, but moves Mario
+    // forward before collapse when no revival item exists (ground partner).
+    Call(Ttyd64PartnerNeedsMarioFront)
+    IfEq(LVar0, true)
+        Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(SetGoalPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Thread
+            Call(RunToGoal, ACTOR_PARTNER, 4, false)
+        EndThread
+        Call(RunToGoal, ACTOR_PLAYER, 4, false)
+        Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Call(SetHomePos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(SetHomePos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(Ttyd64PartnerMarioFrontMoved)
+    EndIf
+    Wait(10)
+    ChildThread
+        Wait(5)
+        Call(PlaySound, SOUND_PLAYER_COLLAPSE)
+    EndChildThread
+    Call(MakeLerp, 0, 86, 10, EASING_COS_IN)
+    Loop(0)
+        Call(UpdateLerp)
+        Call(SetActorRotation, ACTOR_PARTNER, LVar0, 0, 0)
+        Wait(1)
+        IfEq(LVar1, false)
+            BreakLoop
+        EndIf
+    EndLoop
+    Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+    Call(SetHomePos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+    PlayEffect(EFFECT_LANDING_DUST, 0, LVar0, LVar1, LVar2)
+    Wait(15)
+    Call(FindItem, ITEM_LIFE_SHROOM, LVar0)
+    IfNe(LVar0, -1)
+        ExecWait(EVS_Ttyd64PartnerLifeShroom)
+    EndIf
+    Return
+    End
+};
+
 extern EvtScript EVS_Enemy_Hit_Impl;
 extern EvtScript EVS_Enemy_SpinAround_Impl;
 

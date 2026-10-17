@@ -1,0 +1,10 @@
+{
+  "PityFlowerName": "Pity Flower",
+  "PityFlowerDesc": "When Mario takes damage,\noccasionally recover 1FP.",
+  "JumpmanName": "Jumpman",
+  "JumpmanDesc": "Increase jump power by 1, but\nlose your hammer ability.",
+  "HammermanName": "Hammerman",
+  "HammermanDesc": "Increase hammer power by 1\nbut lose the ability to jump.",
+  "FPDrainName": "FP Drain",
+  "FPDrainDesc": "Drop Mario's Attack power by\n1 but regain 1 FP per attack."
+}

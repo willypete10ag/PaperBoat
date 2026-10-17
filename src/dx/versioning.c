@@ -11,6 +11,7 @@ void fio_serialize_state() {
     s32 i, j;
 
     saveData->player = gPlayerData;
+    ttyd64_partner_hp_normalize(saveData->shipSaveData.partnerHP, &saveData->player);
 
     saveData->areaID = gGameStatus.areaID;
     saveData->mapID = gGameStatus.mapID;
@@ -64,6 +65,7 @@ void ver_deserialize_standard() {
 
     // simply copy the saved player data
     gPlayerData = saveData->player;
+    ttyd64_partner_hp_normalize(saveData->shipSaveData.partnerHP, &gPlayerData);
 
     // copy saved game status fields to GameStatus
     gGameStatus.areaID = saveData->areaID;
@@ -563,6 +565,7 @@ void ver_deserialize_vanilla_save(SaveData* newSave) {
     for (i = 0; i < ARRAY_COUNT(oldPlayer->partners); i++) {
         newPlayer->partners[i].enabled = oldPlayer->partners[i].enabled;
         newPlayer->partners[i].level = oldPlayer->partners[i].level;
+        COPY_S16_ARRAY(newPlayer->partners[i].unk_02, oldPlayer->partners[i].unk_02);
     }
 
     COPY_S16_ARRAY(newPlayer->keyItems, oldPlayer->keyItems);
@@ -617,4 +620,5 @@ void ver_deserialize_vanilla_save(SaveData* newSave) {
     newPlayer->smashGamePlays = oldPlayer->smashGamePlays;
     newPlayer->smashGameTotal = oldPlayer->smashGameTotal;
     newPlayer->smashGameRecord = oldPlayer->smashGameRecord;
+    ttyd64_partner_hp_init(newSave->shipSaveData.partnerHP, newPlayer);
 }

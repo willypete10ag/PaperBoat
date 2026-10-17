@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_partner_hp.h"
 #include "npc.h"
 #include "effects.h"
 #include "hud_element.h"
@@ -85,6 +86,7 @@ API_CALLABLE(N(SuperBlock_GetPartnerRank)) {
     s32 evt_var = *args++;
 
     playerData->partners[partnerIdx].level++;
+    ttyd64_reset_partner_hp(partnerIdx);
     evt_set_variable(script, evt_var, playerData->partners[partnerIdx].level);
 
     return ApiStatus_DONE2;

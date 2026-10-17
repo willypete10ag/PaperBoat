@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_partner_status.h"
 #include "script_api/battle.h"
 #include "effects.h"
 #include "entity.h"
@@ -28,6 +29,18 @@ API_CALLABLE(N(func_802A12EC_724FCC)) {
     BattleStatus* battleStatus = &gBattleStatus;
     Actor* partner = battleStatus->partnerActor;
     Bytecode* args = script->ptrReadPos;
+
+    if (ttyd64_partner_status_can_target_item(ITEM_SUPER_SODA)) {
+        // Item_SuperSoda.bpat: team FP +5 and selected recipient's debuff cure.
+        b32 recover = partner->koStatus != 0;
+        recover_fp(5);
+        fx_recover(1, partner->curPos.x, partner->curPos.y + 35, partner->curPos.z, 5);
+        ttyd64_partner_status_cure_debuff(partner);
+        if (recover) {
+            dispatch_event_partner(EVENT_RECOVER_FROM_KO);
+        }
+        return ApiStatus_DONE2;
+    }
 
     if (partner->koDuration == 0) {
         return ApiStatus_DONE2;
@@ -172,6 +185,11 @@ EvtScript N(EVS_UseOnPartner) = {
     End
 };
 
+API_CALLABLE(N(SetPartnerRecovery)) {
+    script->varTable[11] = ttyd64_partner_status_can_target_item(ITEM_SUPER_SODA) ? 5 : 0;
+    return ApiStatus_DONE2;
+}
+
 EvtScript N(EVS_UseItem) = {
     SetConst(LVarA, ITEM_SUPER_SODA)
     ExecWait(N(UseItemWithEffect))
@@ -201,7 +219,7 @@ EvtScript N(EVS_UseItem) = {
         Call(N(func_802A1378_725058), 0)
         Wait(20)
     Else
-        Set(LVarB, 0)
+        Call(N(SetPartnerRecovery))
         Set(LVarC, 0)
         Set(LVarF, 0)
         ExecWait(N(EVS_UseOnPartner))

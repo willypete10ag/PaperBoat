@@ -16,6 +16,8 @@ void btl_substate_try_hpfp_recovery(void) {
     s32 drainRecovery = 0;
     s32 hpRecovery = 0;
     s32 fpRecovery = 0;
+    s32 fpDrainRecovery = 0;
+    s32 fpDrainBadges;
 
     if (battleStatus->moveCategory == BTL_MENU_TYPE_ITEMS && battleStatus->itemUsesLeft >= 2) {
         return;
@@ -40,7 +42,16 @@ void btl_substate_try_hpfp_recovery(void) {
     if (rand_int(100) < 50) {
         fpRecovery += is_ability_active(ABILITY_HAPPY_FLOWER);
     }
-    if (drainRecovery + hpRecovery + fpRecovery == 0) {
+    // Keep the existing item-dip/Stone/Outta Sight gates above. The source
+    // carries the count through skipped recovery phases and clears it here.
+    fpDrainBadges = is_ability_active(ABILITY_FP_DRAIN);
+    if (fpDrainBadges > 0) {
+        if (battleStatus->fpDrainCount > 0) {
+            fpDrainRecovery = battleStatus->fpDrainCount + fpDrainBadges - 1;
+        }
+        battleStatus->fpDrainCount = 0;
+    }
+    if (drainRecovery + hpRecovery + fpRecovery + fpDrainRecovery == 0) {
         return;
     }
 
@@ -53,6 +64,7 @@ void btl_substate_try_hpfp_recovery(void) {
     script->varTable[10] = drainRecovery;
     script->varTable[11] = hpRecovery;
     script->varTable[12] = fpRecovery;
+    script->varTable[13] = fpDrainRecovery;
 
     if (script->varTable[10] > 99) {
         script->varTable[10] = 99;
@@ -62,6 +74,9 @@ void btl_substate_try_hpfp_recovery(void) {
     }
     if (script->varTable[12] > 99) {
         script->varTable[12] = 99;
+    }
+    if (script->varTable[13] > 99) {
+        script->varTable[13] = 99;
     }
 }
 

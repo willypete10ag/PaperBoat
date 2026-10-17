@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "effects.h"
 #include "script_api/battle.h"
 
@@ -189,7 +190,7 @@ void btl_state_update_transfer_turn(void) {
 
         btl_cam_use_preset(BTL_CAM_DEFAULT);
 
-        if (partner == nullptr || !(gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK)) {
+        if (ttyd64_partner_team_active() || partner == nullptr || !(gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK)) {
             gBattleSubState = BTL_SUBSTATE_TRY_MERLEE_DEF;
         } else if (gBattleStatus.flags2 & BS_FLAGS2_PEACH_BATTLE) {
             gBattleSubState = BTL_SUBSTATE_TRY_MERLEE_DEF;

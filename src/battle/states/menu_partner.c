@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "battle/battle.h"
 #include "battle/battle_menu.h"
 
@@ -296,13 +297,18 @@ void btl_state_update_partner_menu(void) {
         battleStatus->selectedMoveID = MOVE_NONE;
         battleStatus->curAttackElement = 0;
         if (!btl_partner_can_act()) {
+            if (ttyd64_partner_combat_turn_blocked(partnerActor)) {
+                // Fresh rounds clear turn bits. Consume an unavailable
+                // partner turn instead of cycling menu/transfer.
+                battleStatus->flags2 |= BS_FLAGS2_PARTNER_TURN_USED;
+            }
             btl_set_state(BATTLE_STATE_TRANSFER_TURN);
         } else {
             btl_cam_use_preset(BTL_CAM_DEFAULT);
             battleStatus->flags1 |= BS_FLAGS1_MENU_OPEN;
             playerActor->flags &= ~(ACTOR_FLAG_USING_IDLE_ANIM | ACTOR_FLAG_SHOW_STATUS_ICONS);
             partnerActor->flags &= ~(ACTOR_FLAG_USING_IDLE_ANIM | ACTOR_FLAG_SHOW_STATUS_ICONS);
-            if (battleStatus->flags1 & BS_FLAGS1_PLAYER_IN_BACK) {
+            if (!ttyd64_partner_team_should_swap(!(battleStatus->flags1 & BS_FLAGS1_PLAYER_IN_BACK))) {
                 gBattleSubState = BTL_SUBSTATE_CREATE_MAIN_MENU;
             } else {
                 gBattleSubState = BTL_SUBSTATE_PERFORM_SWAP;
@@ -340,7 +346,7 @@ void btl_state_update_partner_menu(void) {
             partnerActor->homePos.z = partnerActor->curPos.z;
             playerActor->homePos.x = playerActor->curPos.x;
             playerActor->homePos.z = playerActor->curPos.z;
-            gBattleStatus.flags1 |= BS_FLAGS1_PLAYER_IN_BACK;
+            ttyd64_partner_team_swap_completed(true);
         }
     }
 
@@ -442,6 +448,7 @@ void btl_state_update_partner_menu(void) {
                 BattleMenu_SwapDelay--;
             } else if (!(gBattleStatus.flags1 & BS_FLAGS1_TUTORIAL_BATTLE) && (gGameStatusPtr->pressedButtons[0] & BUTTON_Z)) {
                 if (btl_player_can_act()) {
+                    ttyd64_partner_team_request_swap();
                     sfx_play_sound(SOUND_PARTNER_SWAP_BATTLE_POS);
                     battleStatus->lastPartnerMenuSelection[BTL_MENU_IDX_MAIN] = WheelOptionSubmenu[BattleMenu_CurPos + BattleMenu_HomePos];
                     btl_main_menu_destroy();

@@ -30,14 +30,14 @@ extern const s32 CookableDiscoveredFlags[];
 
 extern SaveData gCurrentSaveFile;
 extern s32 gPausePartnersPartnerIDs[8];
-extern intptr_t gItemIconRasterOffsets[349];
-extern intptr_t gItemIconPaletteOffsets[349];
+extern intptr_t gItemIconRasterOffsets[NUM_ITEMS];
+extern intptr_t gItemIconPaletteOffsets[NUM_ITEMS];
 }
 
 #pragma push_macro("End")
 #undef End
 
-#define MAX_ICON_RASTER_SIZE 349
+#define MAX_ICON_RASTER_SIZE NUM_ITEMS
 #define MAX_INVENTORY_SIZE   10
 #define MAX_KEY_ITEM_SIZE    32
 #define NUM_COOKABLE_RECIPES 52
@@ -619,8 +619,8 @@ void SaveEditor_DrawItemList(const char* itemType) {
             }
 
             for (int i = 0; i < MAX_ICON_RASTER_SIZE; i++) {
-                if (reinterpret_cast<const char*>(gItemIconRasterOffsets[i]) != nullptr
-                    && std::string_view(reinterpret_cast<const char*>(gItemIconRasterOffsets[i])).find(itemType)
+                if (gItemIconRasterOffsets[i] == 0
+                    || std::string_view(reinterpret_cast<const char*>(gItemIconRasterOffsets[i])).find(itemType)
                         == std::string_view::npos)
                 {
                     continue;

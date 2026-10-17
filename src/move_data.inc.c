@@ -1,6 +1,7 @@
 /* This file is auto-generated. Do not edit. */
 #include "common.h"
 #include "message_ids.h"
+#include "ttyd64_assets.h"
 
 MoveData gMoveTable[] = {
     {   // 0x00: None
@@ -540,8 +541,8 @@ MoveData gMoveTable[] = {
         .flags = 0,
         .category = MOVE_TYPE_ITEMS,
         .actionTip = -1,
-        .costFP = 3,
-        .costBP = 1,
+        .costFP = 4,
+        .costBP = 3,
     },
     {   // 0x36: TripleDip
         .nameMsg = MSG_PlayerMoveName_TripleDip,
@@ -550,7 +551,7 @@ MoveData gMoveTable[] = {
         .flags = 0,
         .category = MOVE_TYPE_ITEMS,
         .actionTip = -1,
-        .costFP = 6,
+        .costFP = 8,
         .costBP = 3,
     },
     {   // 0x37: ChangePartner
@@ -701,7 +702,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_DEFENSE_UP,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 6,
+        .costBP = 5, // TTYD64 globals/Moves.xml, DefendPlus (0x045).
     },
     {   // 0x46: LastStand
         .nameMsg = MSG_MoveName_LastStand,
@@ -991,7 +992,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_NONE,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 6,
+        .costBP = 4,
     },
     {   // 0x63: PayOff
         .nameMsg = MSG_ItemName_PayOff,
@@ -1852,6 +1853,46 @@ MoveData gMoveTable[] = {
         .actionTip = (BTL_MSG_ACTION_TIP_MASH_LEFT - BTL_MSG_FIRST_ACTION_TIP),
         .costFP = 5,
         .costBP = 0,
+    },
+    {   // 0xB9: PityFlower (TTYD64)
+        .nameMsg = MSG_TTYD64_PityFlowerName,
+        .fullDescMsg = MSG_TTYD64_PityFlowerDesc,
+        .shortDescMsg = MSG_TTYD64_PityFlowerDesc,
+        .flags = TARGET_FLAG_PLAYER,
+        .category = MOVE_TYPE_NONE,
+        .actionTip = -1,
+        .costFP = 0,
+        .costBP = 3,
+    },
+    {   // 0xBA: Jumpman (TTYD64)
+        .nameMsg = MSG_TTYD64_JumpmanName,
+        .fullDescMsg = MSG_TTYD64_JumpmanDesc,
+        .shortDescMsg = MSG_TTYD64_JumpmanDesc,
+        .flags = TARGET_FLAG_PLAYER,
+        .category = MOVE_TYPE_NONE,
+        .actionTip = -1,
+        .costFP = 0,
+        .costBP = 2,
+    },
+    {   // 0xBB: Hammerman (TTYD64)
+        .nameMsg = MSG_TTYD64_HammermanName,
+        .fullDescMsg = MSG_TTYD64_HammermanDesc,
+        .shortDescMsg = MSG_TTYD64_HammermanDesc,
+        .flags = TARGET_FLAG_PLAYER,
+        .category = MOVE_TYPE_NONE,
+        .actionTip = -1,
+        .costFP = 0,
+        .costBP = 2,
+    },
+    {   // 0xBC: FPDrain (TTYD64)
+        .nameMsg = MSG_TTYD64_FPDrainName,
+        .fullDescMsg = MSG_TTYD64_FPDrainDesc,
+        .shortDescMsg = MSG_TTYD64_FPDrainDesc,
+        .flags = TARGET_FLAG_PLAYER,
+        .category = MOVE_TYPE_NONE,
+        .actionTip = -1,
+        .costFP = 0,
+        .costBP = 3,
     },
 };
 

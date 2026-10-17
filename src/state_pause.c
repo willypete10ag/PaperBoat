@@ -9,6 +9,8 @@
 #include "port/Engine.h"
 #include "port/patches/Patches.h"
 #include "port/shape_loader.h"
+#include "ttyd64_partner_hp.h"
+#include "world/partners.h"
 
 #if VERSION_JP
 // TODO: split this segment
@@ -213,6 +215,9 @@ void state_step_unpause(void) {
                     gGameStatusPtr->backgroundDarkness = gGameStatusPtr->savedBackgroundDarkness;
                     mdl_calculate_model_sizes();
                     npc_reload_all();
+                    // Pause restores the saved world NPC pool without calling
+                    // create_partner_npc; resume its HP display ownership too.
+                    ttyd64_partner_hp_world_bind(wCurrentPartnerId);
                     set_windows_visible(WINDOW_GROUP_ALL);
                     status_bar_respond_to_changes();
                     set_time_freeze_mode(TIME_FREEZE_PARTIAL);

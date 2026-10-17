@@ -1,3 +1,4 @@
+#include "ttyd64_partner_status.h"
 #include "states.h"
 #include "script_api/battle.h"
 #include "game_modes.h"
@@ -22,6 +23,7 @@ void btl_state_update_end_battle(void) {
 
     switch (gBattleSubState) {
         case BTL_SUBSTATE_INIT:
+            ttyd64_partner_status_end_battle();
             BattleScreenFadeAmt = 0;
             if (gGameStatusPtr->debugEnemyContact == DEBUG_CONTACT_DIE_ON_TOUCH) {
                 BattleScreenFadeAmt = 255;

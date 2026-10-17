@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_partner_status.h"
 #include "script_api/battle.h"
 #include "effects.h"
 #include "sprite/player.h"
@@ -11,6 +12,16 @@ API_CALLABLE(N(func_802A123C_72223C)) {
     s32 actorId = evt_get_variable(script, *script->ptrReadPos);
     Actor* actor = get_actor(actorId);
     s32 id = actor->actorID & ACTOR_CLASS_MASK;
+
+    if (ttyd64_partner_combat_active(actor)) {
+        // Item_TastyTonic.bpat $Function_ClearDebuffs: retain static/invisibility.
+        b32 recover = actor->koStatus != 0;
+        ttyd64_partner_status_cure_debuff(actor);
+        if (recover) {
+            dispatch_event_partner(EVENT_RECOVER_FROM_KO);
+        }
+        return ApiStatus_DONE2;
+    }
 
     if (actor->debuff != 0) {
         actor->debuffDuration = 0;

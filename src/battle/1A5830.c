@@ -1,8 +1,32 @@
+#include "ttyd64_partner_status.h"
 #include "battle/battle.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 #include "effects.h"
 #include "hud_element.h"
 #include "sprite.h"
+
+static void try_pity_flower(Actor* target) {
+    s32 copies = is_ability_active(ABILITY_PITY_FLOWER);
+    s32 recovered = 0;
+    s32 i;
+
+    // TTYD64: TTYDBadges.patch, Pity Flower hook (802781B4).
+    // Preserve the original rand_int(100) < 33 predicate, once per copy.
+    for (i = 0; i < copies; i++) {
+        if (rand_int(100) < 33) {
+            recovered++;
+        }
+    }
+    if (recovered > 0) {
+        fx_recover(1, (s32) target->curPos.x, (s32) (target->curPos.y + 35.0f),
+                   (s32) target->curPos.z, recovered);
+        sfx_play_sound(SOUND_START_RECOVERY);
+        // Native FP is signed 8-bit. Clamp before recover_fp's addition so
+        // many successful copies cannot wrap a high FP total below zero.
+        recover_fp(MIN(recovered, MAX(0, gPlayerData.curMaxFP - gPlayerData.curFP)));
+    }
+}
 
 s32 has_enchanted_part(Actor* actor) {
     ActorPart* partIt = actor->partsTable;
@@ -100,6 +124,10 @@ void play_hit_sound(Actor* actor, f32 x, f32 y, f32 z, u32 hitSound) {
 }
 
 void dispatch_event_actor(Actor* actor, s32 event) {
+    if (ttyd64_partner_combat_active(actor)) {
+        dispatch_event_partner(event);
+        return;
+    }
     Evt* handleEventScript = actor->handleEventScript;
     s32 onHitID = actor->handleEventScriptID;
 
@@ -152,7 +180,14 @@ HitResult calc_enemy_test_target(Actor* actor) {
             target->curHP = playerData->curHP;
             break;
         case ACTOR_CLASS_PARTNER:
-            target->curHP = 127;
+            if (ttyd64_partner_combat_active(target)) {
+                ttyd64_partner_combat_load_hp(target);
+                if (target->curHP == 0) {
+                    return HIT_RESULT_MISS;
+                }
+            } else {
+                target->curHP = 127;
+            }
             break;
         case ACTOR_CLASS_ENEMY:
             break;
@@ -273,7 +308,14 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
             target->curHP = gPlayerData.curHP;
             break;
         case ACTOR_CLASS_PARTNER:
-            target->curHP = 127;
+            if (ttyd64_partner_combat_active(target)) {
+                ttyd64_partner_combat_load_hp(target);
+                if (target->curHP == 0) {
+                    return HIT_RESULT_MISS;
+                }
+            } else {
+                target->curHP = 127;
+            }
             break;
         case ACTOR_CLASS_ENEMY:
             break;
@@ -419,8 +461,11 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
         damage += player_team_is_ability_active(target, ABILITY_P_UP_D_DOWN);
 
         if (target->curHP <= 5) {
-            if (player_team_is_ability_active(target, ABILITY_LAST_STAND)) {
-                damage /= 2;
+            s32 lastStandCount = player_team_is_ability_active(target, ABILITY_LAST_STAND);
+
+            if (lastStandCount > 0) {
+                // TTYD64: TTYD_BadgeSystem.patch, Last Stand hook (80277950).
+                damage /= lastStandCount + 1;
             }
         }
     }
@@ -455,9 +500,12 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
             break;
         case ACTOR_CLASS_PARTNER:
             if (target->stoneStatus == 0) {
-                if (target->koStatus == 0 && !(battleStatus->curAttackElement & DAMAGE_TYPE_UNBLOCKABLE)) {
-                    if (check_block_input(BUTTON_A)) {
-                        damage = 0;
+                if ((ttyd64_partner_combat_active(target)
+                    ? (target->debuff == 0 || target->debuff == STATUS_KEY_POISON || target->debuff == STATUS_KEY_SHRINK)
+                    : target->koStatus == 0) && !(battleStatus->curAttackElement & DAMAGE_TYPE_UNBLOCKABLE)) {
+                    if (!ttyd64_kooper_flipped(target) && check_block_input(BUTTON_A)) {
+                        // PartnersHP.patch 80277A20: ordinary guard saves one HP.
+                        damage = ttyd64_partner_combat_active(target) ? damage - 1 : 0;
                         sfx_play_sound_at_position(SOUND_DAMAGE_STARS, SOUND_SPACE_DEFAULT, state->goalPos.x, state->goalPos.y, state->goalPos.z);
                         show_action_rating(ACTION_RATING_NICE, target, state->goalPos.x, state->goalPos.y, state->goalPos.z);
                         gBattleStatus.flags1 |= BS_FLAGS1_ATK_BLOCKED;
@@ -653,6 +701,8 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
         }
     }
 
+    ttyd64_partner_combat_store_hp(target);
+
     // dispatch events and play damage effects
 
     battleStatus->wasStatusInflicted = statusInflicted;
@@ -662,6 +712,7 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
             dispatch_event_player(event);
             break;
         case ACTOR_CLASS_PARTNER:
+            event = ttyd64_partner_combat_damage_event(target, event, battleStatus->curAttackElement);
             dispatch_event_partner(event);
             break;
         case ACTOR_CLASS_ENEMY:
@@ -689,6 +740,12 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
                     show_next_damage_popup(state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage, 1);
                     show_damage_fx(target, state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage);
                 } else {
+                    // The Star Rod hook is at this primary-popup call, after HP
+                    // application. Zero damage, suppressed and multiple popups
+                    // bypass it; preserve that placement for source parity.
+                    if (actorClass == ACTOR_CLASS_PLAYER) {
+                        try_pity_flower(target);
+                    }
                     show_primary_damage_popup(state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage, 1);
                     show_damage_fx(target, state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage);
                     break;
@@ -2567,6 +2624,23 @@ API_CALLABLE(GetLastEvent) {
     return ApiStatus_DONE2;
 }
 
+// Source 00_Goomba.bpat: back when RandInt(100) < 30, front otherwise.
+API_CALLABLE(Ttyd64GoombaChooseTarget) {
+    s32 actorID = evt_get_variable(script, *script->ptrReadPos);
+    if (actorID == ACTOR_SELF) {
+        actorID = script->owner1.actorID;
+    }
+    Actor* actor = get_actor(actorID);
+    s32 target = ACTOR_PLAYER;
+    if ((actorID & ACTOR_CLASS_MASK) == ACTOR_CLASS_ENEMY
+        && actor->actorType == ACTOR_TYPE_GOOMBA && ttyd64_partner_team_active()) {
+        target = ttyd64_partner_team_target(rand_int(100) < 30);
+    }
+    actor->targetActorID = target;
+    actor->targetPartID = 1;
+    return ApiStatus_DONE2;
+}
+
 API_CALLABLE(SetTargetActor) {
     Bytecode* args = script->ptrReadPos;
     s32 actorID = evt_get_variable(script, *args++);
@@ -2579,7 +2653,7 @@ API_CALLABLE(SetTargetActor) {
 
     targetActorID = evt_get_variable(script, *args++);
     actor = get_actor(actorID);
-    actor->targetActorID = targetActorID;
+    actor->targetActorID = ttyd64_partner_team_resolve_target(targetActorID);
     actor->targetPartID = 1;
     return ApiStatus_DONE2;
 }
@@ -2601,6 +2675,7 @@ API_CALLABLE(SetEnemyHP) {
     if (newHP > actor->maxHP) {
         actor->curHP = actor->maxHP;
     }
+    ttyd64_partner_combat_store_hp(actor);
 
     actor->healthFraction = (actor->curHP * 25) / actor->maxHP;
 
@@ -2628,6 +2703,9 @@ API_CALLABLE(GetActorHP) {
             break;
         case ACTOR_CLASS_PARTNER:
             outVal = 99;
+            if (ttyd64_partner_combat_active(actor)) {
+                outVal = ttyd64_get_partner_hp(gPlayerData.curPartner);
+            }
             break;
         default:
             outVal = actor->curHP;
@@ -3425,6 +3503,7 @@ API_CALLABLE(ClearStatusEffects) {
     }
 
     actor = get_actor(actorID);
+    ttyd64_partner_status_clear(actor);
 
     if (actor->debuff != 0) {
         actor->debuffDuration = 0;

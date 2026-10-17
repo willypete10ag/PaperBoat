@@ -1,6 +1,7 @@
 #include "battle/battle.h"
 #include "script_api/battle.h"
 #include "effects.h"
+#include "ttyd64_partner_hp.h"
 
 s32 dispatch_damage_event_partner_1(s32, s32);
 
@@ -11,11 +12,16 @@ void dispatch_event_partner(s32 lastEventType) {
     s32 onHitID = partnerActor->handleEventScriptID;
     Evt* script;
 
+    if (!ttyd64_partner_combat_allow_event(partnerActor, lastEventType)) {
+        return;
+    }
+
     partnerActor->lastEventType = lastEventType;
     script = start_script(partnerActor->handleEventSource, EVT_PRIORITY_A, EVT_FLAG_RUN_IMMEDIATELY);
     partnerActor->handleEventScript = script;
     partnerActor->handleEventScriptID = script->id;
     script->owner1.actorID = ACTOR_PARTNER;
+    ttyd64_partner_combat_event_started(partnerActor, lastEventType, script->id);
 
     if (partnerActor->takeTurnScript != nullptr) {
         kill_script_by_ID(partnerActor->takeTurnScriptID);
@@ -34,11 +40,16 @@ void dispatch_event_partner_continue_turn(s8 lastEventType) {
     s32 onHitID = partnerActor->handleEventScriptID;
     Evt* script;
 
+    if (!ttyd64_partner_combat_allow_event(partnerActor, lastEventType)) {
+        return;
+    }
+
     partnerActor->lastEventType = lastEventType;
     script = start_script(partnerActor->handleEventSource, EVT_PRIORITY_A, EVT_FLAG_RUN_IMMEDIATELY);
     partnerActor->handleEventScript = script;
     partnerActor->handleEventScriptID = script->id;
     script->owner1.actorID = ACTOR_PARTNER;
+    ttyd64_partner_combat_event_started(partnerActor, lastEventType, script->id);
 
     if (handleEventScript != nullptr) {
         kill_script_by_ID(onHitID);
@@ -926,9 +937,23 @@ s32 dispatch_damage_event_partner(s32 damageAmount, s32 event, s32 stopMotion) {
     partner->hpChangeCounter += hpChange;
 
     hpChange = partner->hpChangeCounter;
-    partner->curHP = 127;
+    if (ttyd64_partner_combat_active(partner)) {
+        ttyd64_partner_combat_load_hp(partner);
+        if (partner->curHP == 0) {
+            partner->hpChangeCounter = 0;
+            return false;
+        }
+        if (hpChange < 0) {
+            hpChange = 0;
+        }
+    } else {
+        partner->curHP = 127;
+    }
     partner->damageCounter += hpChange;
     partner->hpChangeCounter -= hpChange;
+    if (ttyd64_partner_combat_active(partner)) {
+        partner->hpChangeCounter = 0;
+    }
     battleStatus->lastAttackDamage = 0;
     partner->curHP -= hpChange;
 
@@ -939,6 +964,7 @@ s32 dispatch_damage_event_partner(s32 damageAmount, s32 event, s32 stopMotion) {
     }
 
     battleStatus->lastAttackDamage += hpChange;
+    ttyd64_partner_combat_store_hp(partner);
     partner->lastDamageTaken = battleStatus->lastAttackDamage;
     battleStatus->curDamageSource = DMG_SRC_DEFAULT;
     if (gBattleStatus.flags1 & BS_FLAGS1_TRIGGER_EVENTS) {
@@ -953,7 +979,10 @@ s32 dispatch_damage_event_partner(s32 damageAmount, s32 event, s32 stopMotion) {
     if (battleStatus->lastAttackDamage > 0) {
         gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS;
 
-        inflict_status(partner, STATUS_KEY_KO, battleStatus->lastAttackDamage);
+        // Contact/backfire uses the same guarded KO policy as enemy damage.
+        if (!ttyd64_partner_combat_active(partner)) {
+            inflict_status(partner, STATUS_KEY_KO, battleStatus->lastAttackDamage);
+        }
     }
 
     if (!stopMotion) {

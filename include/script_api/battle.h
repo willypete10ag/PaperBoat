@@ -1238,6 +1238,8 @@ API_CALLABLE(GetLastEvent);
 /// @param attackerID
 /// @param defenderID
 API_CALLABLE(SetTargetActor);
+// First guarded source enemy-AI target consumer; vanilla Mario target off.
+API_CALLABLE(Ttyd64GoombaChooseTarget);
 
 /// @evtapi
 /// @param actorID

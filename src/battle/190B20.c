@@ -1,3 +1,4 @@
+#include "ttyd64_partner_status.h"
 #include "common.h"
 #include "nu/nusys.h"
 #include "effects.h"
@@ -5,6 +6,7 @@
 #include "script_api/battle.h"
 #include "model.h"
 #include "sprite.h"
+#include "ttyd64_partner_hp.h"
 
 f32 D_802938A4 = 0.0f;
 
@@ -103,7 +105,15 @@ void create_target_list(Actor* actor, b32 targetHomePos) {
     }
 
     // try adding the partner
-    if (battleStatus->curTargetListFlags & TARGET_FLAG_PARTNER) {
+    // PartnersHP.patch create_target_list hook 8026240C admits living partners
+    // for recovery items. Admit only the translated shroom and cure consumers.
+    b32 healingPartner = actor == playerActor
+        && !(battleStatus->flags1 & BS_FLAGS1_PARTNER_ACTING)
+        && battleStatus->moveCategory == BTL_MENU_TYPE_ITEMS
+        && (battleStatus->curTargetListFlags & TARGET_FLAG_PLAYER)
+        && (ttyd64_partner_combat_can_heal_with_item(battleStatus->moveArgument)
+            || ttyd64_partner_status_can_target_item(battleStatus->moveArgument));
+    if ((battleStatus->curTargetListFlags & TARGET_FLAG_PARTNER) || healingPartner) {
         if (partnerActor != nullptr) {
             targetDataList->actorID = ACTOR_PARTNER;
             targetDataList->partID = 1;
@@ -583,9 +593,9 @@ void btl_check_can_change_partner(void) {
         }
 
         if (partnersEnabled >= 2) {
-            if (partner->koStatus == STATUS_KEY_KO) {
+            if (!ttyd64_partner_combat_active(partner) && partner->koStatus == STATUS_KEY_KO) {
                 battleStatus->changePartnerAllowed = 0;
-            } else if (partner->debuff == STATUS_KEY_FROZEN) {
+            } else if (!ttyd64_partner_combat_active(partner) && partner->debuff == STATUS_KEY_FROZEN) {
                 battleStatus->changePartnerAllowed = 0;
             } else if (playerData->curPartner == PARTNER_GOOMPA) {
                 battleStatus->changePartnerAllowed = -1;
@@ -652,6 +662,7 @@ s32 btl_are_all_enemies_defeated(void) {
 
 s32 btl_check_enemies_defeated(void) {
     if (btl_are_all_enemies_defeated()) {
+        ttyd64_partner_status_end_battle();
         btl_set_state(BATTLE_STATE_VICTORY);
         return true;
     }
@@ -660,7 +671,7 @@ s32 btl_check_enemies_defeated(void) {
 
 s32 btl_check_player_defeated(void) {
     if (gPlayerData.curHP > 0) {
-        return false;
+        return ttyd64_partner_combat_check_defeat();
     }
     gDefeatedBattleState = gBattleState;
     gDefeatedBattleSubstate = gBattleSubState;
@@ -1400,6 +1411,8 @@ void load_partner_actor(void) {
         partnerActor->disableEffect = fx_disable_x(0, -142.0f, 34.0f, 1.0f, 0);
         partnerActor->icePillarEffect = nullptr;
 
+        ttyd64_partner_hp_bind_actor(partnerActor);
+
         takeTurnScript = start_script(partnerActor->takeTurnSource, EVT_PRIORITY_A, 0);
         partnerActor->takeTurnScriptID = takeTurnScript->id;
         takeTurnScript->owner1.actorID = ACTOR_PARTNER;
@@ -1817,6 +1830,12 @@ s32 lookup_status_duration_mod(s32* statusTable, s32 statusKey) {
 }
 
 s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
+    if (statusTypeKey == STATUS_KEY_KO && ttyd64_partner_combat_active(target)) {
+        return false;
+    }
+    if (ttyd64_partner_combat_active(target) && (target->curHP <= 0 || duration <= 0)) {
+        return false;
+    }
     BattleStatus* battleStatus = &gBattleStatus;
     EffectInstance* effect;
 
@@ -1832,7 +1851,11 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
             if (target->actorID != ACTOR_PLAYER || (!is_ability_active(ABILITY_FEELING_FINE) &&
                 !is_ability_active(ABILITY_BERSERKER) && battleStatus->hustleTurns == 0)) {
 
-                if (target->actorID != ACTOR_PARTNER) {
+                if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
+                    if (ttyd64_partner_combat_active(target) && target->debuff == STATUS_KEY_FROZEN
+                        && statusTypeKey != STATUS_KEY_FROZEN) {
+                        ttyd64_partner_status_cure_debuff(target);
+                    }
                     if (target->debuff != statusTypeKey) {
                         target->statusAfflicted = statusTypeKey;
                     }
@@ -1845,7 +1868,7 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
 
                     switch (statusTypeKey) {
                         case STATUS_KEY_FROZEN:
-                            if (target->actorID != ACTOR_PARTNER) {
+                            if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
                                 effect = target->icePillarEffect;
                                 if (effect != nullptr) {
                                     effect->flags |= FX_INSTANCE_FLAG_DISMISS;
@@ -1885,7 +1908,7 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
             }
             break;
         case STATUS_KEY_STATIC:
-            if (target->actorID != ACTOR_PARTNER) {
+            if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
                 target->staticStatus = statusTypeKey;
                 target->staticDuration = duration;
                 if ((s8)duration > 9) {
@@ -1897,7 +1920,7 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
             }
             return true;
         case STATUS_KEY_STONE:
-            if (target->actorID != ACTOR_PARTNER) {
+            if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
                 target->stoneStatus = STATUS_KEY_STONE;
                 target->stoneDuration = duration;
                 if ((s8)duration > 9) {
@@ -1917,7 +1940,7 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
             }
             return true;
         case STATUS_KEY_TRANSPARENT:
-            if (target->actorID != ACTOR_PARTNER) {
+            if (target->actorID != ACTOR_PARTNER || ttyd64_partner_combat_active(target)) {
                 target->transparentStatus = STATUS_KEY_TRANSPARENT;
                 target->transparentDuration = duration;
                 if ((s8)duration > 9) {
@@ -1936,6 +1959,9 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
 }
 
 s32 inflict_partner_ko(Actor* target, s32 statusTypeKey, s32 duration) {
+    if (ttyd64_partner_combat_active(target)) {
+        return false;
+    }
     if (statusTypeKey == STATUS_KEY_KO) {
         if (statusTypeKey != target->koStatus) {
             inflict_status(target, STATUS_KEY_KO, duration);
@@ -1954,6 +1980,14 @@ s32 inflict_partner_ko(Actor* target, s32 statusTypeKey, s32 duration) {
 s32 get_defense(Actor* actor, s32* defenseTable, s32 elementFlags) {
     s32 elemDefense;
     s32 minDefense = 255;
+
+    // Source Kooper normal DEF1 / flipped DEF0. Keep hooks and ignore-defense
+    // processing below shared by all damage routes; flag-off tables stay native.
+    s32 kooperDefense[] = { ELEMENT_NORMAL, 1, ELEMENT_END };
+    if (ttyd64_partner_combat_active(actor) && gPlayerData.curPartner == PARTNER_KOOPER) {
+        kooperDefense[1] = ttyd64_kooper_flipped(actor) && ttyd64_kooper_flip_turns() > 0 ? 0 : 1;
+        defenseTable = kooperDefense;
+    }
 
     if (defenseTable != nullptr) {
 
@@ -2620,7 +2654,9 @@ void btl_update_ko_status(void) {
         }
     }
 
-    if (partner != nullptr) {
+    if (ttyd64_partner_combat_active(partner)) {
+        ttyd64_partner_status_sync_ko(partner);
+    } else if (partner != nullptr) {
         if (partner->koDuration < partner->debuffDuration) {
             partner->koStatus = STATUS_KEY_KO;
             partner->koDuration = partner->debuffDuration;

@@ -4,6 +4,7 @@
 #include "world/partners.h"
 #include "world/surfaces.h"
 #include "sprite/player.h"
+#include "ttyd64_partner_hp.h"
 
 extern Npc playerNpcData;
 extern u16 PlayerImgFXFlags;
@@ -485,6 +486,8 @@ API_CALLABLE(FullyRestoreHPandFP) {
 
     playerData->curHP = playerData->curMaxHP;
     playerData->curFP = playerData->curMaxFP;
+    // PartnersHP.patch hook F6880: world rest restores partner HP too.
+    ttyd64_fully_restore_partner_hp();
     return ApiStatus_DONE2;
 }
 
