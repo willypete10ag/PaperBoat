@@ -644,6 +644,7 @@ def run():
         base_hit = player_hit()
         api('Ttyd64AddAttackBoost',[val('ACTOR_PLAYER'),2,3])
         boosted_hit = player_hit()
+        print('MODIFIER_MARIO_DAMAGE=' + json.dumps({'base':base_hit,'boosted':boosted_hit,'boost':val('ttyd64_actor_attack_boost(gBattleStatus.playerActor)'),'live_hp':val('gPlayerData.curHP')}))
         check('modifier-native-mario-attack-adds-timed-power',base_hit > 0 and boosted_hit == base_hit + 2)
         api('Ttyd64AddDefenseBoost',[val('ACTOR_ENEMY0'),1,3])
         armored_hit = player_hit()

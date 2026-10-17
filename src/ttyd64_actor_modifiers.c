@@ -83,9 +83,14 @@ void ttyd64_actor_modifiers_clear_axis(Actor* actor, b32 defense) {
         ttyd64_modifiers_normalize_size(state);
     }
 }
+// Mario's Actor.curHP is scratch storage, not initialized by load_player_actor.
+// Enemy/partner actors own their live HP; Mario's authority is PlayerData.
+static b32 alive(Actor* actor) {
+    return actor->actorID == ACTOR_PLAYER ? gPlayerData.curHP > 0 : actor->curHP > 0;
+}
 b32 ttyd64_actor_add_modifier(Actor* actor, b32 defense, s32 amount, s32 turns) {
     Ttyd64ActorModifiers* state = record(actor, true);
-    if (state == nullptr || actor->curHP <= 0)
+    if (state == nullptr || !alive(actor))
         return false;
     Ttyd64TimedModifier* effect = defense ? &state->defense : &state->attack;
     // Source API takes ownership of this axis, including cancellation against
@@ -102,7 +107,7 @@ b32 ttyd64_actor_add_modifier(Actor* actor, b32 defense, s32 amount, s32 turns) 
 }
 b32 ttyd64_actor_set_size(Actor* actor, s32 size) {
     Ttyd64ActorModifiers* state = record(actor, true);
-    if (state == nullptr || actor->curHP <= 0)
+    if (state == nullptr || !alive(actor))
         return false;
     state->size = size < 0 ? -1 : (size > 0 ? 1 : 0);
     ttyd64_modifiers_normalize_size(state);
@@ -139,7 +144,7 @@ void ttyd64_actor_modifiers_advance(void) {
     for (s32 i = 0; i < ARRAY_COUNT(actors); i++) {
         Ttyd64ActorModifiers* state = record(actors[i], true);
         if (state != nullptr) {
-            if (actors[i]->curHP <= 0)
+            if (!alive(actors[i]))
                 *state = (Ttyd64ActorModifiers) { 0 };
             else
                 ttyd64_modifiers_advance(state);
