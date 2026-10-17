@@ -99,7 +99,8 @@ paths for each attempt, including failed attempts.
 
 The runner configures/builds Debug, writes a commit/binary build receipt, invokes
 `Paperboat --extract-rom ROM SOURCE_DIR OUTPUT_DIR` to produce `pm64.o2r` without
-SDL/UI, stages the supplied archives, starts Xvfb, generates the seed and runs
+SDL/UI, copies the executable beside the supplied archives (Linux resource discovery uses
+`/proc/self/exe`, so a symlink or cwd alone is insufficient), starts Xvfb, generates the seed and runs
 all committed runtime fixture scripts. The port archive comes from the native
 build. No original private directory or prior save is required. All executable,
 ROM, archive, reference, working and result paths are supplied above. The runner
@@ -154,6 +155,9 @@ separately in [GOOMBARIO_PLAYTEST.md](GOOMBARIO_PLAYTEST.md).
 Each `<fixture>.result.json` contains the exact game commit, distinct fixture
 commit, executable/script/helper/runner/archive hashes, UTC start/end, pass/fail,
 exit code, per-check input/injection methods, raw observations and **full log**.
+The runner rejects runtime logs that load an unexpected archive or omit the ROM
+archive; it hashes both the built and staged executable. SDL uses X11 explicitly
+so an inherited Wayland setting cannot bypass the owned Xvfb.
 `run-manifest.json` lists requested/skipped/failed fixtures and build/extraction
 skips. `.log`, `.payload.json` and `.methods.json` sidecars aid local debugging;
 the result JSON embeds the evidence needed for publication. Preserve failures.

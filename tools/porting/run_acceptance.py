@@ -121,6 +121,12 @@ def main():
         (source / "config.yml", "config.yml"),
     ]:
         (launch / name).symlink_to(original, target_is_directory=original.is_dir())
+    # Linux resolves resource paths from /proc/self/exe, not cwd. A real copy
+    # (not a symlink) must sit beside the supplied archives.
+    staged_binary = launch / binary.name
+    shutil.copy2(binary, staged_binary)
+    if sha(staged_binary) != sha(binary):
+        ap.error("Staged executable differs from the built executable")
     env = os.environ.copy()
     for key in list(env):
         if key.startswith(
@@ -146,6 +152,7 @@ def main():
         PAPERBOAT_SOURCE_DIR=str(source),
         PORTING_WORK_DIR=str(work),
         SDL_AUDIODRIVER="dummy",
+        SDL_VIDEODRIVER="x11",
         LIBGL_ALWAYS_SOFTWARE="1",
         DEBUGINFOD_URLS="",
         XDG_CACHE_HOME=str(work / "cache"),
@@ -225,7 +232,7 @@ def main():
                     (
                         [sys.executable, str(fixture_dir / script), str(source / "port/ttyd64")]
                         if script == "check_badge_assets.py"
-                        else ["gdb", "-q", "-batch", "-x", str(fixture_dir / script), str(binary)]
+                        else ["gdb", "-q", "-batch", "-x", str(fixture_dir / script), str(staged_binary)]
                     ),
                     cwd=launch,
                     env=local,
@@ -249,6 +256,16 @@ def main():
             and "Traceback (most recent call last)" not in logtext
             and "Error in sourced command file" not in logtext
         )
+        loaded = []
+        if script != "check_badge_assets.py":
+            import re
+
+            loaded = re.findall(r"Reading archive: (.+)", logtext)
+            expected = {(launch / "pm64.o2r").resolve(), (launch / "paperboat.o2r").resolve()}
+            actual = {Path(path.strip()).resolve() for path in loaded}
+            if archive.resolve() not in actual or not actual.issubset(expected):
+                ok = False
+                error = f"Archive provenance mismatch: loaded={loaded}"
         payload = None
         try:
             if outfile.is_file():
@@ -287,6 +304,7 @@ def main():
             "fixture_script": script,
             "fixture_script_sha256": script_hash,
             "configuration": extra or {},
+            "loaded_archives": loaded,
             "seed_save_sha256": seed_hash,
             "started_at": start,
             "ended_at": now(),
@@ -481,6 +499,9 @@ def main():
             git(source, "rev-parse", "HEAD") == commit
             and not git(source, "status", "--porcelain", "--untracked-files=normal")
             and sha(binary) == base["executable_sha256"]
+            and sha(staged_binary) == base["executable_sha256"]
+            and sha(archive) == base["rom_archive_sha256"]
+            and sha(port) == base["port_archive_sha256"]
             and sha(Path(__file__)) == base["runner_sha256"]
             and sha(fixture_dir / "fixture_support.py") == base["helper_sha256"]
         )
@@ -488,7 +509,7 @@ def main():
             failures.append("source-or-driver-changed")
             for artifact_path in results.glob("*.result.json"):
                 artifact = json.loads(artifact_path.read_text())
-                artifact.update(status="fail", error="Source, binary or driver changed during acceptance")
+                artifact.update(status="fail", error="Source, binary, archives or driver changed during acceptance")
                 artifact_path.write_text(json.dumps(artifact, indent=2) + "\n")
         manifest.update(
             ended_at=now(),

@@ -58,6 +58,8 @@ def main():
         (repo / "config.yml", "config.yml"),
     ]:
         (launch / name).symlink_to(original.resolve(), target_is_directory=original.is_dir())
+    staged_binary = launch / Path(required_env("PAPERBOAT_EXECUTABLE")).name
+    shutil.copy2(required_env("PAPERBOAT_EXECUTABLE"), staged_binary)
     env = os.environ.copy()
     env.update(
         PORTING_FIXTURE_DIR=str(Path(__file__).resolve().parent),
@@ -82,7 +84,7 @@ def main():
                 "-batch",
                 "-x",
                 str(repo / "tools/porting/partner_playable_slice_gdb.py"),
-                required_env("PAPERBOAT_EXECUTABLE"),
+                str(staged_binary),
             ],
             cwd=launch,
             env=env,
