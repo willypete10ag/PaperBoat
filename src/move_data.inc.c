@@ -1,3 +1,4 @@
+#include "ttyd64_rules.h"
 /* This file is auto-generated. Do not edit. */
 #include "common.h"
 #include "message_ids.h"
@@ -541,8 +542,8 @@ MoveData gMoveTable[] = {
         .flags = 0,
         .category = MOVE_TYPE_ITEMS,
         .actionTip = -1,
-        .costFP = 4,
-        .costBP = 3,
+        .costFP = TTYD64_FP_DOUBLE_DIP,
+        .costBP = TTYD64_BP_DOUBLE_DIP,
     },
     {   // 0x36: TripleDip
         .nameMsg = MSG_PlayerMoveName_TripleDip,
@@ -551,8 +552,8 @@ MoveData gMoveTable[] = {
         .flags = 0,
         .category = MOVE_TYPE_ITEMS,
         .actionTip = -1,
-        .costFP = 8,
-        .costBP = 3,
+        .costFP = TTYD64_FP_TRIPLE_DIP,
+        .costBP = TTYD64_BP_TRIPLE_DIP,
     },
     {   // 0x37: ChangePartner
         .nameMsg = MSG_NONE, // "つうじょう",
@@ -702,7 +703,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_DEFENSE_UP,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 5, // TTYD64 globals/Moves.xml, DefendPlus (0x045).
+        .costBP = TTYD64_BP_DEFEND_PLUS, // TTYD64 globals/Moves.xml, DefendPlus (0x045).
     },
     {   // 0x46: LastStand
         .nameMsg = MSG_MoveName_LastStand,
@@ -712,7 +713,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_DEFENSE_UP,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 1,
+        .costBP = TTYD64_BP_LAST_STAND,
     },
     {   // 0x47: CloseCall
         .nameMsg = MSG_MoveName_CloseCall,
@@ -992,7 +993,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_NONE,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 4,
+        .costBP = TTYD64_BP_FLOWER_SAVER,
     },
     {   // 0x63: PayOff
         .nameMsg = MSG_ItemName_PayOff,
@@ -1862,7 +1863,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_NONE,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 3,
+        .costBP = TTYD64_BP_PITY_FLOWER,
     },
     {   // 0xBA: Jumpman (TTYD64)
         .nameMsg = MSG_TTYD64_JumpmanName,
@@ -1872,7 +1873,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_NONE,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 2,
+        .costBP = TTYD64_BP_JUMPMAN,
     },
     {   // 0xBB: Hammerman (TTYD64)
         .nameMsg = MSG_TTYD64_HammermanName,
@@ -1882,7 +1883,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_NONE,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 2,
+        .costBP = TTYD64_BP_HAMMERMAN,
     },
     {   // 0xBC: FPDrain (TTYD64)
         .nameMsg = MSG_TTYD64_FPDrainName,
@@ -1892,7 +1893,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_NONE,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = 3,
+        .costBP = TTYD64_BP_FP_DRAIN,
     },
 };
 

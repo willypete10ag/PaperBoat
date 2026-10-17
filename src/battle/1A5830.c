@@ -1,3 +1,4 @@
+#include "ttyd64_rules.h"
 #include "ttyd64_partner_status.h"
 #include "battle/battle.h"
 #include "ttyd64_partner_hp.h"
@@ -8,23 +9,14 @@
 
 static void try_pity_flower(Actor* target) {
     s32 copies = is_ability_active(ABILITY_PITY_FLOWER);
-    s32 recovered = 0;
-    s32 i;
-
-    // TTYD64: TTYDBadges.patch, Pity Flower hook (802781B4).
-    // Preserve the original rand_int(100) < 33 predicate, once per copy.
-    for (i = 0; i < copies; i++) {
-        if (rand_int(100) < 33) {
-            recovered++;
-        }
-    }
+    s32 recovered = ttyd64_pity_flower_recovery(copies, rand_int);
     if (recovered > 0) {
         fx_recover(1, (s32) target->curPos.x, (s32) (target->curPos.y + 35.0f),
                    (s32) target->curPos.z, recovered);
         sfx_play_sound(SOUND_START_RECOVERY);
         // Native FP is signed 8-bit. Clamp before recover_fp's addition so
         // many successful copies cannot wrap a high FP total below zero.
-        recover_fp(MIN(recovered, MAX(0, gPlayerData.curMaxFP - gPlayerData.curFP)));
+        recover_fp(ttyd64_fp_recovery_cap(recovered, gPlayerData.curFP, gPlayerData.curMaxFP));
     }
 }
 
@@ -465,7 +457,7 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
 
             if (lastStandCount > 0) {
                 // TTYD64: TTYD_BadgeSystem.patch, Last Stand hook (80277950).
-                damage /= lastStandCount + 1;
+                damage = ttyd64_last_stand_damage(damage, target->curHP, lastStandCount);
             }
         }
     }

@@ -4,11 +4,7 @@
 #include "common.h"
 
 // Native save extension; the legacy PartnerData/PlayerData layouts stay intact.
-#define TTYD64_PARTNER_HP_COUNT 12
-typedef struct Ttyd64PartnerHP {
-    s16 curHP;
-    s16 maxHP;
-} Ttyd64PartnerHP;
+#include "ttyd64_rules.h"
 
 #ifdef __cplusplus
 extern "C" {

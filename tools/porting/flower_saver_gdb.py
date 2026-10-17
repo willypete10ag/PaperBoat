@@ -9,6 +9,12 @@ import os
 from pathlib import Path
 import struct
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def command(text):
@@ -38,13 +44,13 @@ class ChooseItems(gdb.Breakpoint):
 
 
 def run_checks():
-    runtime = Path(os.environ["SHIP_HOME"]).resolve()
-    assert runtime == Path("/workspace/.paperboat-setup/flower-saver/runtime")
+    runtime = Path(required_env('SHIP_HOME')).resolve()
+    assert runtime == fixture_path('flower-saver/runtime')
     baseline = os.environ.get("FLOWER_SAVER_BASELINE", "0") == "1"
     load_only = os.environ.get("FLOWER_SAVER_LOAD_ONLY", "0") == "1"
     assert not (baseline and load_only)
     if not baseline and not load_only:
-        assert not (runtime / "saves/file3.json").exists(), "Refusing existing fixture save"
+        assert not (fixture_save()).exists(), "Refusing existing fixture save"
     for setting in ("pagination off", "confirm off", "print thread-events off"):
         command("set " + setting)
     stop_at("state_step_startup")
@@ -60,7 +66,7 @@ def run_checks():
 
     def check(name, condition):
         assert condition, name
-        checks.append(name)
+        checks.append(name); record_check(name)
         print("FLOWER_SAVER_CHECK=" + name)
 
     def write_slots(field, entries):
@@ -139,7 +145,7 @@ def run_checks():
         assign("gPlayerData.partners[PARTNER_BOW].enabled", 1)
         assign("gPlayerData.curFP", 2)
         command("call fio_save_game(3)")
-        saved = json.loads((runtime / "saves/file3.json").read_text())["player"]
+        saved = json.loads((fixture_save()).read_text())["player"]
         check("native-save-copies", saved["badges"].count(a) == 3 and saved["equippedBadges"].count(a) == 2)
     if not baseline:
         assert value("fio_load_game(3)") == 1
@@ -234,7 +240,7 @@ def run_checks():
     report = {"checks_passed": len(checks), "baseline": baseline, "fresh_process": load_only,
               "checks": checks, "source_bp": expected_bp, "cost_cases": costs,
               "limits": "Controlled native menu choice/FP calls in live battle; no whole item-dip sequence or partner port."}
-    Path(os.environ["FLOWER_SAVER_RESULT"]).write_text(json.dumps(report, indent=2) + "\n")
+    Path(required_env('FLOWER_SAVER_RESULT')).write_text(json.dumps(report, indent=2) + "\n")
     print("FLOWER_SAVER_PASSED=" + str(len(checks)))
     command("kill")
 

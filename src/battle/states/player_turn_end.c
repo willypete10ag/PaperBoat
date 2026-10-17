@@ -1,3 +1,4 @@
+#include "ttyd64_rules.h"
 #include "states.h"
 #include "script_api/battle.h"
 
@@ -47,7 +48,7 @@ void btl_substate_try_hpfp_recovery(void) {
     fpDrainBadges = is_ability_active(ABILITY_FP_DRAIN);
     if (fpDrainBadges > 0) {
         if (battleStatus->fpDrainCount > 0) {
-            fpDrainRecovery = battleStatus->fpDrainCount + fpDrainBadges - 1;
+            fpDrainRecovery = ttyd64_fp_drain_recovery(battleStatus->fpDrainCount, fpDrainBadges);
         }
         battleStatus->fpDrainCount = 0;
     }

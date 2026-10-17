@@ -1,3 +1,4 @@
+#include "ttyd64_rules.h"
 #include "ttyd64_partner_status.h"
 #include "common.h"
 #include "nu/nusys.h"
@@ -707,13 +708,8 @@ void deduct_current_move_fp(void) {
     Actor* actor = battleStatus->playerActor;
     s32 fpCost = gMoveTable[battleStatus->selectedMoveID].costFP;
 
-    if (fpCost != 0) {
-        fpCost -= player_team_is_ability_active(actor, ABILITY_FLOWER_SAVER);
-        fpCost -= player_team_is_ability_active(actor, ABILITY_FLOWER_FANATIC) * 2;
-        if (fpCost < 1) {
-            fpCost = 1;
-        }
-    }
+    fpCost = ttyd64_move_fp_cost(fpCost, player_team_is_ability_active(actor, ABILITY_FLOWER_SAVER),
+                                player_team_is_ability_active(actor, ABILITY_FLOWER_FANATIC));
 
     CALL_CANCELLABLE_EVENT(OnPlayerFPChange, fpCost) {
         playerData->curFP -= fpCost;

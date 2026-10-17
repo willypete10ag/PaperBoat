@@ -9,6 +9,12 @@ import os
 from pathlib import Path
 import re
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def command(text):
@@ -28,9 +34,9 @@ def stop_at(text):
 
 
 def run_checks():
-    runtime = Path(os.environ["SHIP_HOME"]).resolve()
-    assert runtime == Path("/workspace/.paperboat-setup/partner-hp/runtime")
-    save_path = runtime / "saves/file3.json"
+    runtime = Path(required_env('SHIP_HOME')).resolve()
+    assert runtime == fixture_path('partner-hp/runtime')
+    save_path = fixture_save()
     load_only = os.environ.get("PARTNER_HP_LOAD_ONLY", "0") == "1"
     if not load_only:
         assert not save_path.exists(), "Refusing existing fixture save"
@@ -47,7 +53,7 @@ def run_checks():
 
     def check(name, condition):
         assert condition, name
-        checks.append(name)
+        checks.append(name); record_check(name)
         print("PARTNER_HP_CHECK=" + name)
 
     def current(partner):
@@ -57,7 +63,7 @@ def run_checks():
         return value(f"ttyd64_get_partner_max_hp({partner})")
 
     # Independent source-table extraction verifies every native rank value.
-    source = Path("/workspace/ttyd64/globals/patch/PartnersHP.patch").read_text()
+    source = reference_path('globals/patch/PartnersHP.patch').read_text()
     block = source.split("#new:Data $PartnersHPTable", 1)[1].split("}", 1)[0]
     rows = [list(map(int, re.findall(r"(\d+)`b", line.split("%", 1)[0])))
             for line in block.splitlines()]
@@ -234,7 +240,7 @@ def run_checks():
     report = {"checks_passed": len(checks), "fresh_process": load_only, "checks": checks,
               "source_rank_table": rows, "json_cases": json_cases, "native_swaps": swaps,
               "limits": "Default-off foundation; controlled native APIs/spawn/swap, not damage/death/revival/UI or a whole swap animation."}
-    Path(os.environ["PARTNER_HP_RESULT"]).write_text(json.dumps(report, indent=2) + "\n")
+    Path(required_env('PARTNER_HP_RESULT')).write_text(json.dumps(report, indent=2) + "\n")
     print("PARTNER_HP_PASSED=" + str(len(checks)))
     command("kill")
 

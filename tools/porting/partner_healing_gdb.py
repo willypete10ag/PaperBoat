@@ -9,6 +9,12 @@ from pathlib import Path
 import subprocess
 import time
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def cmd(text):
@@ -34,12 +40,12 @@ def until(where):
 
 
 def run():
-    root = Path('/workspace/.paperboat-setup/partner-healing')
-    runtime = Path(os.environ['SHIP_HOME']).resolve()
+    root = fixture_path('partner-healing')
+    runtime = Path(required_env('SHIP_HOME')).resolve()
     assert runtime == root / 'runtime'
-    save = runtime / 'saves/file3.json'
+    save = fixture_save()
     original = save.read_bytes()
-    assert original == Path('/workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json').read_bytes()
+    assert original == Path(required_env('PORTING_SEED_SAVE')).read_bytes()
     checks, observations, screenshots = [], [], []
     actor = 'gBattleStatus.partnerActor'
     def hp():
@@ -48,7 +54,7 @@ def run():
         assert val(f'ttyd64_set_partner_hp(PARTNER_GOOMBARIO, {amount})') == amount
     def check(name, condition):
         assert condition, name
-        checks.append(name)
+        checks.append(name); record_check(name)
         if val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val(actor):
             observations.append({'check':name, 'hp':hp(), 'actor_hp':val(f'{actor}->curHP'),
                                  'display_hp':val('ttyd64_partner_hp_display()'),
@@ -274,7 +280,7 @@ def run():
     capture('healing-prototype-off')
     report={'checks_passed':len(checks),'checks':checks,'native_states':observations,'captures':screenshots,
             'limits':'Controlled battle/save/prototype setup; first item chosen with real keyboard input. Remaining checks use native APIs. Goombario/four shrooms and battle HUD only.'}
-    Path(os.environ['PARTNER_HEALING_RESULT']).write_text(json.dumps(report,indent=2)+'\n')
+    Path(required_env('PARTNER_HEALING_RESULT')).write_text(json.dumps(report,indent=2)+'\n')
     print('PARTNER_HEALING_PASSED='+str(len(checks)))
     cmd('kill')
 

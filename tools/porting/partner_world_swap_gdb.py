@@ -10,6 +10,12 @@ from pathlib import Path
 import subprocess
 import time
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def cmd(text):
@@ -35,12 +41,12 @@ def until(where):
 
 
 def run():
-    root = Path('/workspace/.paperboat-setup/partner-world-swap')
-    runtime = Path(os.environ['SHIP_HOME']).resolve()
+    root = fixture_path('partner-world-swap')
+    runtime = Path(required_env('SHIP_HOME')).resolve()
     assert runtime == root / 'runtime'
-    save = runtime / 'saves/file3.json'
+    save = fixture_save()
     original = save.read_bytes()
-    assert original == Path('/workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json').read_bytes()
+    assert original == Path(required_env('PORTING_SEED_SAVE')).read_bytes()
     checks, states, captures, capture_states = [], [], [], []
     def hp():
         return val('ttyd64_get_partner_hp(1)')
@@ -52,7 +58,7 @@ def run():
                  'content_x':val('gWindows[WIN_POPUP_CONTENT].pos.x')}
         states.append(state)
         assert condition, name + ': ' + json.dumps(state)
-        checks.append(name)
+        checks.append(name); record_check(name)
         print('WORLD_SWAP_CHECK=' + name)
     def tick(n=1):
         for _ in range(n):
@@ -241,7 +247,7 @@ def run():
     cancel()
     check('final-menu-cleanup-keeps-normal-flag-off',val('gTtyd64PartnerHPPrototypeEnabled') == 0 and val('gPopupState') == val('POPUP_STATE_MINUS_5') and hp() == 30)
     assert save.read_bytes() == original
-    Path(os.environ['WORLD_SWAP_RESULT']).write_text(json.dumps({
+    Path(required_env('WORLD_SWAP_RESULT')).write_text(json.dumps({
         'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'capture_states':capture_states,
         'limits':'Native world C-right/arrow/A/B/C-left input, rendering, popup cleanup and NPC swaps. Recruitment, ranks and wounds are controlled. Goombario HP only; battle/pause lists and other partner combat not claimed.'},indent=2)+'\n')
     print('WORLD_SWAP_PASSED=' + str(len(checks)))

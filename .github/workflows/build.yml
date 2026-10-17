@@ -100,6 +100,9 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build/ninja-release --parallel $(nproc)
 
+      - name: ROM-free gameplay tests
+        run: ctest --test-dir build/ninja-release --output-on-failure -R ttyd64_gameplay_logic --no-tests=error
+
       - name: Read build name
         id: build-name
         run: echo "name=$(sed -n 's/^PROJECT_BUILD_NAME:STRING=//p' build/ninja-release/CMakeCache.txt)" >> "$GITHUB_OUTPUT"

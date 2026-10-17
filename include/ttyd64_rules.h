@@ -1,0 +1,37 @@
+#ifndef TTYD64_RULES_H
+#define TTYD64_RULES_H
+#include <stdint.h>
+#define TTYD64_PARTNER_HP_COUNT 12
+typedef struct Ttyd64PartnerHP {
+    int16_t curHP;
+    int16_t maxHP;
+} Ttyd64PartnerHP;
+#define TTYD64_BP_LAST_STAND   1
+#define TTYD64_BP_PITY_FLOWER  3
+#define TTYD64_BP_DEFEND_PLUS  5
+#define TTYD64_BP_FLOWER_SAVER 4
+#define TTYD64_BP_JUMPMAN      2
+#define TTYD64_BP_HAMMERMAN    2
+#define TTYD64_BP_FP_DRAIN     3
+#define TTYD64_BP_DOUBLE_DIP   3
+#define TTYD64_BP_TRIPLE_DIP   3
+#define TTYD64_FP_DOUBLE_DIP   4
+#define TTYD64_FP_TRIPLE_DIP   8
+#ifdef __cplusplus
+extern "C" {
+#endif
+int ttyd64_partner_base_max_hp(int partner, int rank);
+void ttyd64_health_init(Ttyd64PartnerHP* health, const int* ranks);
+void ttyd64_health_normalize(Ttyd64PartnerHP* health, const int* ranks);
+int ttyd64_badge_can_stack(int badge);
+int ttyd64_total_bp_cost(const int* costs, int count);
+int ttyd64_move_fp_cost(int base, int savers, int fanatics);
+int ttyd64_last_stand_damage(int damage, int hp, int copies);
+int ttyd64_fp_drain_hit_count(int count);
+int ttyd64_fp_drain_recovery(int hits, int copies);
+int ttyd64_pity_flower_recovery(int copies, int (*roll)(int));
+int ttyd64_fp_recovery_cap(int amount, int current, int maximum);
+#ifdef __cplusplus
+}
+#endif
+#endif

@@ -1,3 +1,4 @@
+#include "ttyd64_rules.h"
 #include "ld_addrs.h"
 #include "message_ids.h"
 #include "sprite.h"
@@ -819,7 +820,7 @@ void pause_cleanup(void) {
 }
 
 s32 pause_get_total_equipped_bp_cost(void) {
-    s32 totalCost = 0;
+    int costs[ARRAY_COUNT(gPlayerData.equippedBadges)] = {0};
     s32 i;
 
     for (i = 0; i < ARRAY_COUNT(gPlayerData.equippedBadges); i++) {
@@ -828,10 +829,10 @@ s32 pause_get_total_equipped_bp_cost(void) {
         if (itemID != ITEM_NONE) {
             s32 moveID = gItemTable[itemID].moveID;
 
-            totalCost += gMoveTable[moveID].costBP;
+            costs[i] = gMoveTable[moveID].costBP;
         }
     }
-    return totalCost;
+    return ttyd64_total_bp_cost(costs, ARRAY_COUNT(costs));
 }
 
 void pause_draw_rect(s32 ulx, s32 uly, s32 lrx, s32 lry, s32 tileIdx, s32 uls, s32 ult, s32 dsdx, s32 dtdy) {

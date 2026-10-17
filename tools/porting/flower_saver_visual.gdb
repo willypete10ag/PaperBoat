@@ -1,10 +1,18 @@
 # Strict fixture save; native title/file-select cleanup before keyboard menus.
 python
+import sys
+from pathlib import Path
+import os
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 import os
 from pathlib import Path
-runtime = Path(os.environ["SHIP_HOME"]).resolve()
-assert runtime == Path("/workspace/.paperboat-setup/flower-saver/visual-runtime")
-assert (runtime / "saves/file3.json").exists()
+runtime = Path(required_env('SHIP_HOME')).resolve()
+assert runtime == fixture_path('flower-saver/visual-runtime')
+assert (fixture_save()).exists()
 end
 set pagination off
 set confirm off
@@ -36,12 +44,13 @@ tbreak state_step_world
 continue
 python
 import json
-out = Path("/workspace/.paperboat-setup/flower-saver")
+out = fixture_path('flower-saver')
 pid = gdb.selected_inferior().pid
 (out / "visual.pid").write_text(str(pid))
 assert int(gdb.parse_and_eval("gPlayerData.maxBP")) == 8
 assert int(gdb.parse_and_eval("is_ability_active(ABILITY_FLOWER_SAVER)")) == 2
-(out / "visual-state.json").write_text(json.dumps({"loaded_copies":2, "max_bp":8,
+record_check('flower-saver-loaded-copies-and-bp', 'controlled_api_or_state', 'Native fixture save load and debugger map/progression setup; captures require separate visual inspection.')
+Path(required_env('FLOWER_SAVER_RESULT')).write_text(json.dumps({"loaded_copies":2, "max_bp":8,
     "bp_per_copy":int(gdb.parse_and_eval("gMoveTable[MOVE_FLOWER_SAVER].costBP"))}, indent=2) + "\n")
 end
 detach

@@ -9,6 +9,12 @@ import os
 from pathlib import Path
 
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def command(text):
@@ -24,11 +30,11 @@ def assign(expression, number):
 
 
 def run_checks():
-    runtime = Path(os.environ["SHIP_HOME"]).resolve()
-    assert runtime == Path("/workspace/.paperboat-setup/duplicate-badges/runtime")
+    runtime = Path(required_env('SHIP_HOME')).resolve()
+    assert runtime == fixture_path('duplicate-badges/runtime')
     load_only = os.environ.get("DUPLICATE_BADGES_LOAD_ONLY", "0") == "1"
     if not load_only:
-        assert not (runtime / "saves/file3.json").exists(), "Use a fresh disposable save directory"
+        assert not (fixture_save()).exists(), "Use a fresh disposable save directory"
     command("set pagination off")
     command("set confirm off")
     command("set print thread-events off")
@@ -45,7 +51,7 @@ def run_checks():
 
     def check(name, condition):
         assert condition, name
-        results.append(name)
+        results.append(name); record_check(name)
 
     def clear():
         for field, size in [("badges", 128), ("equippedBadges", 64)]:
@@ -107,14 +113,14 @@ def run_checks():
         command("set variable gBattleStatus.curAttackElement |= DAMAGE_TYPE_UNBLOCKABLE")
         command("set variable gBattleStatus.flags1 &= ~BS_FLAGS1_TUTORIAL_BATTLE")
         command("set variable gBattleStatus.playerActor->flags &= ~ACTOR_FLAG_NO_DMG_APPLY")
-        source = Path("/workspace/PaperBoat/src/battle/1A5830.c").read_text().splitlines()
+        source = source_path('src/battle/1A5830.c').read_text().splitlines()
         hp_line = next(i + 1 for i, line in enumerate(source) if "gPlayerData.curHP = target->curHP" in line)
         after_hp = next(i + 1 for i, line in enumerate(source) if i + 1 > hp_line and "if (gBattleStatus.flags1" in line)
-        gdb.Breakpoint(f"/workspace/PaperBoat/src/battle/1A5830.c:{after_hp}", temporary=True, internal=True)
+        gdb.Breakpoint(f"{source_path('src/battle/1A5830.c')}:{after_hp}", temporary=True, internal=True)
         command("continue")
         check("fresh-load-to-native-battle-hit", count("equippedBadges") == 2
               and value("gBattleStatus.lastAttackDamage") == 2 and value("gPlayerData.curHP") == 3)
-        Path(os.environ["DUPLICATE_BADGES_RESULT"]).write_text(
+        Path(required_env('DUPLICATE_BADGES_RESULT')).write_text(
             json.dumps({"checks_passed": len(results), "checks": results, "fresh_process": True,
                         "battle_hit": {"loaded_copies": 2, "attack_damage": 6,
                                        "damage_applied": 2, "hp_before": 5, "hp_after": 3}}, indent=2) + "\n")
@@ -191,7 +197,7 @@ def run_checks():
     check("all-tab-preserves-copy-selection", rows() == [True, False, True])
 
     command("call fio_save_game(3)")
-    saved = json.loads((runtime / "saves/file3.json").read_text())
+    saved = json.loads((fixture_save()).read_text())
     check("json-preserves-owned-and-equipped-multiplicity",
           saved["player"]["badges"].count(badge) == 3
           and saved["player"]["equippedBadges"].count(badge) == 2)
@@ -244,7 +250,7 @@ def run_checks():
     report = {"checks_passed": len(results), "checks": results,
               "saved_owned_copies": 3, "saved_equipped_copies": 2,
               "stackable_badge": "Last Stand", "schema_changed": False}
-    Path(os.environ["DUPLICATE_BADGES_RESULT"]).write_text(json.dumps(report, indent=2) + "\n")
+    Path(required_env('DUPLICATE_BADGES_RESULT')).write_text(json.dumps(report, indent=2) + "\n")
     print("DUPLICATE_BADGES_RESULT=" + json.dumps(report))
     command("kill")
 

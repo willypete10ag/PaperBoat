@@ -13,7 +13,8 @@ import sys
 
 from build_badge_assets import indexed_png
 
-source = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / "port/ttyd64"
+from fixture_support import required_env
+source = Path(required_env("PAPERBOAT_SOURCE_DIR")) / "port/ttyd64"
 checks = []
 for name, width, height in (
     ("pityflower", 32, 32), ("jumpman", 32, 32), ("hammerman", 32, 32),

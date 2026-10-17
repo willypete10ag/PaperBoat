@@ -1,12 +1,18 @@
 """Guarded Goombario combat acceptance; native scripts advance only by continue.
 
-Requires a copy of the existing FP Drain fixture save in this exact runtime.
+Requires the runner-generated new-game test seed in an owned runtime.
 Never enables the prototype outside this disposable battle process.
 """
 import json
 import os
 from pathlib import Path
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 import subprocess
 import time
 
@@ -34,12 +40,12 @@ def until(where):
 
 
 def run():
-    root = Path('/workspace/.paperboat-setup/partner-combat')
-    runtime = Path(os.environ['SHIP_HOME']).resolve()
+    root = fixture_path('partner-combat')
+    runtime = Path(required_env('SHIP_HOME')).resolve()
     assert runtime == root / 'runtime'
-    save = runtime / 'saves/file3.json'
+    save = fixture_save()
     original = save.read_bytes()
-    assert original == Path('/workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json').read_bytes()
+    assert original == Path(required_env('PORTING_SEED_SAVE')).read_bytes()
     visual = os.environ.get('GOOMBARIO_VISUAL', '0') == '1'
     lethal = os.environ.get('GOOMBARIO_LETHAL', '0') == '1'
     if visual:
@@ -54,13 +60,13 @@ def run():
         time.sleep(1)
         subprocess.run(['import', '-window', 'root', str(root / (name + '.png'))], check=True)
         captures.append(name)
-    # Provenance guard: a copy of the disposable FP Drain writer, never a user slot.
+    # Verify the documented generated seed setup, never a user slot.
     data = json.loads(original)
     assert data['player']['badges'].count(val('ITEM_FP_DRAIN')) == 3
     checks, observations, states = [], [], []
     def check(name, condition):
         assert condition, name
-        checks.append(name)
+        checks.append(name); record_check(name)
         if val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
             states.append({'check':name, 'partner':val('gPlayerData.curPartner'), 'model_hp':val('ttyd64_get_partner_hp(PARTNER_GOOMBARIO)'),
                            'actor_hp':val('gBattleStatus.partnerActor->curHP'), 'ko':val('gBattleStatus.partnerActor->koStatus'),
@@ -373,7 +379,7 @@ def run():
     check('prototype-off-contact-keeps-native-ko-and-model', val(f'{actor}->curHP') == 125 and hp() == 6 and val(f'{actor}->koStatus') == val('STATUS_KEY_KO') and val(f'{actor}->koDuration') == 2)
     report = {'checks_passed':len(checks), 'checks':checks, 'damage_cases':observations, 'native_states':states, 'death_frames':frames, 'revival_frames':frames_revive, 'real_enemy_lethal':lethal, 'captures':captures,
               'limitations':'Controlled native battle/API checks; guard forces block result. Visual validation recorded separately.'}
-    Path(os.environ['GOOMBARIO_RESULT']).write_text(json.dumps(report, indent=2)+'\n')
+    Path(required_env('GOOMBARIO_RESULT')).write_text(json.dumps(report, indent=2)+'\n')
     print('GOOMBARIO_PASSED=' + str(len(checks)))
     cmd('kill')
 

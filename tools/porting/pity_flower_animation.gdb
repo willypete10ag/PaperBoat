@@ -1,9 +1,17 @@
 # Requires the disposable native world-acquisition save copied into this runtime.
 python
+import sys
+from pathlib import Path
+import os
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 import os
 from pathlib import Path
-assert Path(os.environ["SHIP_HOME"]).resolve() == Path("/workspace/.paperboat-setup/pity-flower/animation-runtime")
-assert (Path(os.environ["SHIP_HOME"]) / "saves/file3.json").exists()
+assert Path(required_env('SHIP_HOME')).resolve() == fixture_path('pity-flower/animation-runtime')
+assert (Path(required_env('SHIP_HOME')) / "saves/file3.json").exists()
 end
 set pagination off
 set confirm off
@@ -57,7 +65,8 @@ assert int(gdb.parse_and_eval("gPlayerData.curFP")) == 1
 assert int(gdb.parse_and_eval("gPlayerData.curHP")) == 4
 assert int(gdb.parse_and_eval("effect->data.recover->type")) == 1
 assert int(gdb.parse_and_eval("effect->data.recover->unk_40")) == 1
-Path("/workspace/.paperboat-setup/pity-flower/animation.pid").write_text(str(gdb.selected_inferior().pid))
-Path("/workspace/.paperboat-setup/pity-flower/animation.json").write_text(json.dumps({"fp_after":int(gdb.parse_and_eval("gPlayerData.curFP")),"hp_after":int(gdb.parse_and_eval("gPlayerData.curHP")),"effect_type":int(gdb.parse_and_eval("effect->data.recover->type")),"lifetime":int(gdb.parse_and_eval("effect->data.recover->lifetime")),"popup_amount":int(gdb.parse_and_eval("effect->data.recover->unk_40"))},indent=2)+"\n")
+record_check('pity-flower-seeded-damage-recovery-and-effect', 'controlled_api_or_state', 'Injected damage/HP/FP, unblockable flag and gRandSeed=3; native RNG and recovery run. Capture requires separate visual inspection.')
+fixture_path('pity-flower/animation.pid').write_text(str(gdb.selected_inferior().pid))
+Path(required_env('PITY_FLOWER_RESULT')).write_text(json.dumps({"fp_after":int(gdb.parse_and_eval("gPlayerData.curFP")),"hp_after":int(gdb.parse_and_eval("gPlayerData.curHP")),"effect_type":int(gdb.parse_and_eval("effect->data.recover->type")),"lifetime":int(gdb.parse_and_eval("effect->data.recover->lifetime")),"popup_amount":int(gdb.parse_and_eval("effect->data.recover->unk_40"))},indent=2)+"\n")
 end
 detach

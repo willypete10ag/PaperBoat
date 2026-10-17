@@ -1,9 +1,17 @@
 # Requires this feature's disposable writer save copied into animation-runtime.
 python
+import sys
+from pathlib import Path
+import os
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 import os
 from pathlib import Path
-assert Path(os.environ["SHIP_HOME"]).resolve() == Path("/workspace/.paperboat-setup/fp-drain/animation-runtime")
-assert (Path(os.environ["SHIP_HOME"]) / "saves/file3.json").exists()
+assert Path(required_env('SHIP_HOME')).resolve() == fixture_path('fp-drain/animation-runtime')
+assert (Path(required_env('SHIP_HOME')) / "saves/file3.json").exists()
 end
 set non-stop on
 set pagination off
@@ -65,7 +73,7 @@ assert len(stopped) == 1, "Expected only the game-tick thread paused"
 stopped[0].switch()
 end
 python
-source = Path("/workspace/PaperBoat/src/battle/dmg_player.c")
+source = source_path('src/battle/dmg_player.c')
 line = next(i + 1 for i, text in enumerate(source.read_text().splitlines()) if "if (player_team_is_ability_active(player, ABILITY_FP_DRAIN))" in text)
 gdb.Breakpoint(f"{source}:{line}", temporary=True, internal=True)
 end
@@ -116,9 +124,10 @@ report = {"effect_type":int(gdb.parse_and_eval("effect->data.recover->type")),
 assert report["effect_type"] == 1 and report["popup_amount"] == 2
 assert report["fp_after"] == 4 and report["counter_after"] == 0
 assert int(gdb.parse_and_eval("get_hud_element(HID_FPDrain)->anim == &HES_FPDrain")) != 0
-root=Path("/workspace/.paperboat-setup/fp-drain")
+record_check('fp-drain-recovery-effect-fp-cap-counter-and-label', 'controlled_api_or_state', 'Injected attack damage, inventory, HP/FP and battle flags; native recovery script advances under GDB. Capture requires separate visual inspection.')
+root=fixture_path('fp-drain')
 (root/"animation.pid").write_text(str(gdb.selected_inferior().pid))
-(root/"animation.json").write_text(json.dumps(report,indent=2)+"\n")
+Path(required_env('FP_DRAIN_RESULT')).write_text(json.dumps(report,indent=2)+"\n")
 # Keep the game-tick thread stopped while rendering threads finish presenting
 # the preceding recovery frame. Capture before the native labels expire.
 import subprocess, time

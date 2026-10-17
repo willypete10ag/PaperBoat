@@ -2,19 +2,6 @@
 #include "ttyd64_partner_hp.h"
 #include "dx/versioning.h"
 
-// Translated from PartnersHP.patch: $PartnersHPTable/$updatePartnerMaxHP.
-// Default-off ground-partner prototype. HP Plus P and flying consumers remain pending.
-static const s16 PartnerBaseHP[TTYD64_PARTNER_HP_COUNT][3] = {
-    [PARTNER_GOOMBARIO]  = { 10, 20, 30 },
-    [PARTNER_KOOPER]     = { 10, 15, 25 },
-    [PARTNER_BOMBETTE]   = { 15, 25, 40 },
-    [PARTNER_PARAKARRY]  = { 15, 20, 25 },
-    [PARTNER_WATT]       = { 10, 15, 20 },
-    [PARTNER_SUSHIE]     = { 15, 25, 35 },
-    [PARTNER_LAKILESTER] = { 15, 20, 30 },
-    [PARTNER_BOW]        = { 10, 20, 30 },
-};
-
 b32 gTtyd64PartnerHPPrototypeEnabled = false;
 static Actor* BoundPartnerActor;
 static s32 BoundPartnerID = PARTNER_NONE;
@@ -27,48 +14,20 @@ static b32 DisplayPartnerInWorld;
 static s32 DisplayPartnerHP = -1;
 static s32 DisplayPartnerHPTimer;
 
-s32 ttyd64_partner_base_max_hp(s32 partnerID, s32 rank) {
-    if (partnerID < 0 || partnerID >= ARRAY_COUNT(PartnerBaseHP) || PartnerBaseHP[partnerID][0] == 0) {
-        return -1;
+static void partner_ranks(int* ranks, const PlayerData* player) {
+    for (int i = 0; i < TTYD64_PARTNER_HP_COUNT; ++i) {
+        ranks[i] = player->partners[i].level;
     }
-    if (rank < PARTNER_RANK_NORMAL) {
-        rank = PARTNER_RANK_NORMAL;
-    }
-    if (rank > PARTNER_RANK_ULTRA) {
-        rank = PARTNER_RANK_ULTRA;
-    }
-    return PartnerBaseHP[partnerID][rank];
 }
-
 void ttyd64_partner_hp_init(Ttyd64PartnerHP* health, const PlayerData* player) {
-    s32 i;
-    for (i = 0; i < TTYD64_PARTNER_HP_COUNT; i++) {
-        s32 maximum = ttyd64_partner_base_max_hp(i, player->partners[i].level);
-        health[i].maxHP = health[i].curHP = maximum < 0 ? 0 : maximum;
-    }
+    int ranks[TTYD64_PARTNER_HP_COUNT];
+    partner_ranks(ranks, player);
+    ttyd64_health_init(health, ranks);
 }
-
 void ttyd64_partner_hp_normalize(Ttyd64PartnerHP* health, const PlayerData* player) {
-    s32 i;
-    for (i = 0; i < TTYD64_PARTNER_HP_COUNT; i++) {
-        s32 maximum = ttyd64_partner_base_max_hp(i, player->partners[i].level);
-        if (maximum < 0) {
-            health[i].maxHP = health[i].curHP = 0;
-            continue;
-        }
-        // Missing legacy state starts full. Explicit zero HP with a valid
-        // record remains zero. Maxima derive from rank until HP Plus P ports.
-        if (health[i].maxHP <= 0) {
-            health[i].curHP = maximum;
-        }
-        health[i].maxHP = maximum;
-        if (health[i].curHP < 0) {
-            health[i].curHP = 0;
-        }
-        if (health[i].curHP > maximum) {
-            health[i].curHP = maximum;
-        }
-    }
+    int ranks[TTYD64_PARTNER_HP_COUNT];
+    partner_ranks(ranks, player);
+    ttyd64_health_normalize(health, ranks);
 }
 
 // Active 01 Kooper.bpat C/D contracts, represented without legacy actor bytes.
