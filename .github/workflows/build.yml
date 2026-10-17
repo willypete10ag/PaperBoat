@@ -21,8 +21,6 @@ concurrency:
 jobs:
   build-linux:
     name: Linux
-    # Same-repo branches fire both push and pull_request; only build once.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     outputs:
       build-name: ${{ steps.build-name.outputs.name }}
@@ -128,7 +126,6 @@ jobs:
 
   build-windows:
     name: Windows
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v6
@@ -193,7 +190,6 @@ jobs:
 
   build-macos:
     name: macOS
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v6

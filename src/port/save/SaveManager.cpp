@@ -33,8 +33,9 @@ static void ReadPartnerHP(SaveData* save, const ordered_json& ship) {
     ttyd64_partner_hp_init(health, &save->player);
     auto found = ship.find("ttyd64PartnerHP");
     if (found == ship.end() || !found->is_object() || !found->contains("version")
-        || !(*found)["version"].is_number_integer() || (*found)["version"] != 1
-        || !found->contains("partners") || !(*found)["partners"].is_array()) {
+        || !(*found)["version"].is_number_integer() || (*found)["version"] != 1 || !found->contains("partners")
+        || !(*found)["partners"].is_array())
+    {
         return;
     }
     const auto& partners = (*found)["partners"];
@@ -506,7 +507,9 @@ ordered_json ConvertSaveData_to_JSON(SaveData* saveData) {
 
     // Preserve the legacy JSON keys and add a versioned, optional native block.
     Ttyd64PartnerHP health[TTYD64_PARTNER_HP_COUNT];
-    std::copy(std::begin(saveData->shipSaveData.partnerHP), std::end(saveData->shipSaveData.partnerHP), std::begin(health));
+    std::copy(
+        std::begin(saveData->shipSaveData.partnerHP), std::end(saveData->shipSaveData.partnerHP), std::begin(health)
+    );
     ttyd64_partner_hp_normalize(health, &saveData->player);
     ordered_json partners = ordered_json::array();
     for (const auto& entry : health) {
