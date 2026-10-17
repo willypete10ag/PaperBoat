@@ -601,6 +601,12 @@ def run():
             assert val(player+'->targetListLength') == 0
             assert val('ttyd64_status_item_apply('+item+','+partner+',1)') == 0
         check('items-flag-off-rejects-target-lists-and-effects',val('ttyd64_actor_attack_boost('+partner+')') == 0)
+        inventory('ITEM_COURAGE_SHELL')
+        wheel('BTL_MENU_TYPE_ITEMS')
+        wait('gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+        check('items-flag-off-native-menu-disables-experimental-copies',val('gPopupMenu->enabled[0]') == 0 and val('gPopupMenu->enabled[1]') == 0 and item_count() == 2)
+        key('c')
+        wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
         put('gTtyd64PartnerHPPrototypeEnabled',1)
         put('gBattleStatus.moveArgument',val('ITEM_COURAGE_SHELL'))
         put('gBattleStatus.curTargetListFlags',val('TARGET_FLAG_PLAYER'))
@@ -656,7 +662,7 @@ def run():
         finish_item()
         check('items-power-punch-native-partner-giant',val('ttyd64_actor_attack_boost('+partner+')') == 2 and float(gdb.parse_and_eval(partner+'->scalingFactor')) > 1.9)
         spend_turn()
-        enemies = [i for i in range(val('MAX_ENEMY_ACTORS')) if val(f'gBattleStatus.enemyActors[{i}]')]
+        enemies = [i for i in range(val('sizeof(gBattleStatus.enemyActors)/sizeof(gBattleStatus.enemyActors[0])')) if val(f'gBattleStatus.enemyActors[{i}]')]
         assert len(enemies) >= 2
         before = {i:val(f'gBattleStatus.enemyActors[{i}]->curHP') for i in enemies}
         select_item('ITEM_MINI_MR_MINI')
@@ -683,6 +689,10 @@ def run():
             select_item('ITEM_MR_SOFTENER')
             finish_item()
             check('items-softener-native-all-targets-use-part-table-defense',all(val(f'ttyd64_actor_defense_boost(gBattleStatus.enemyActors[{i}])') == -2 and val(f'ModifierActors[{i+1}].state.defense.turns') == 4 for i in enemies))
+            put('$itemDefense[1]',5)
+            for i in enemies:
+                assert val(f'ttyd64_status_item_apply(ITEM_MR_SOFTENER,gBattleStatus.enemyActors[{i}],1)') == 1
+            check('items-softener-controlled-api-caps-high-part-defense-at-three',all(val(f'ttyd64_actor_defense_boost(gBattleStatus.enemyActors[{i}])') == -3 for i in enemies))
             tick(45)
             check('items-native-downward-arrow-frames-advance',val('gGameStatusPtr->context') == val('CONTEXT_BATTLE'))
         finally:

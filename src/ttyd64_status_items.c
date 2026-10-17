@@ -29,7 +29,7 @@ b32 ttyd64_status_item_apply(s32 itemID, Actor* target, s32 partID) {
         // Source Function_GetActorDefense looks up this part's normal defense
         // table, excluding existing boosts/debuffs. Nonpositive values do not
         // receive an effect. Existing signed power cancels via the shared API.
-        amount = ttyd64_softener_amount(lookup_defense(part->defenseTable, ELEMENT_NORMAL), amount);
+        amount = ttyd64_softener_amount(lookup_defense((s32*) part->defenseTable, ELEMENT_NORMAL), amount);
         if (amount == 0)
             return false;
     }
