@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "common.h"
 #include "effects.h"
 #include "battle/battle.h"
@@ -2844,6 +2845,8 @@ API_CALLABLE(GetStatusFlags) {
         }
     }
 
+    if (ttyd64_actor_is_tiny(actor)) flags |= STATUS_FLAG_SHRINK;
+
     if (actor->staticStatus == STATUS_KEY_STATIC) {
         flags |= STATUS_FLAG_STATIC;
     }
@@ -2884,11 +2887,11 @@ API_CALLABLE(GetStatusFlags) {
         flags |= STATUS_FLAG_GLOWING;
     }
 
-    if (actor->attackBoost) {
+    if (ttyd64_actor_attack_boost(actor)) {
         flags |= STATUS_FLAG_ATTACK_BOOST;
     }
 
-    if (actor->defenseBoost) {
+    if (ttyd64_actor_defense_boost(actor)) {
         flags |= STATUS_FLAG_DEFENSE_BOOST;
     }
 
@@ -3159,7 +3162,7 @@ API_CALLABLE(GetActorAttackBoost) {
     }
 
     attackBoost = *args++;
-    evt_set_variable(script, attackBoost, get_actor(enemyID)->attackBoost);
+    evt_set_variable(script, attackBoost, ttyd64_actor_attack_boost(get_actor(enemyID)));
     return ApiStatus_DONE2;
 }
 
@@ -3173,7 +3176,7 @@ API_CALLABLE(GetActorDefenseBoost) {
     }
 
     defenseBoost = *args++;
-    evt_set_variable(script, defenseBoost, get_actor(enemyID)->defenseBoost);
+    evt_set_variable(script, defenseBoost, ttyd64_actor_defense_boost(get_actor(enemyID)));
     return ApiStatus_DONE2;
 }
 
@@ -3258,6 +3261,7 @@ API_CALLABLE(BoostAttack) {
                 btl_cam_use_preset(BTL_CAM_DEFAULT);
                 btl_cam_move(15);
                 actor->isGlowing = true;
+                ttyd64_actor_modifiers_clear_axis(actor, false);
                 actor->attackBoost += attackBoost;
                 if (actor->attackBoost > 20) {
                     actor->attackBoost = 20;
@@ -3382,6 +3386,7 @@ API_CALLABLE(BoostDefense) {
                 btl_cam_use_preset(BTL_CAM_DEFAULT);
                 btl_cam_move(15);
                 actor->isGlowing = true;
+                ttyd64_actor_modifiers_clear_axis(actor, true);
                 actor->defenseBoost += defenseBoost;
                 if (actor->defenseBoost > 20) {
                     actor->defenseBoost = 20;

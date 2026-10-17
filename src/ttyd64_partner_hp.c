@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "ttyd64_partner_status.h"
 #include "ttyd64_partner_hp.h"
 #include "dx/versioning.h"
@@ -51,6 +52,7 @@ void ttyd64_partner_hp_begin_battle(void) {
     clear_binding();
     DeathHandledMask = 0;
     ttyd64_partner_status_reset();
+    ttyd64_actor_modifiers_reset();
     KooperFlip.flipped = false;
     KooperFlip.turns = 0;
 }
@@ -169,6 +171,7 @@ void ttyd64_partner_hp_bind_actor(Actor* actor) {
         BoundPartnerID = gPlayerData.curPartner;
         BoundPartnerActor = actor;
         sync_bound_actor(BoundPartnerID, health);
+        ttyd64_actor_modifiers_bind_partner(actor);
         ttyd64_partner_status_bind(actor);
     }
 }
@@ -176,6 +179,7 @@ void ttyd64_partner_hp_bind_actor(Actor* actor) {
 void ttyd64_partner_hp_unbind_actor(Actor* actor) {
     if (actor == BoundPartnerActor) {
         ttyd64_partner_status_unbind(actor);
+        ttyd64_actor_modifiers_unbind_partner(actor);
         clear_binding();
     }
 }
@@ -228,6 +232,7 @@ void ttyd64_partner_combat_begin_round(void) {
 
 void ttyd64_partner_combat_begin_player_turn(void) {
     Actor* actor = gBattleStatus.partnerActor;
+    ttyd64_actor_modifiers_advance();
     ttyd64_partner_status_update(actor);
     // Battle_PartnersExtraActorData.patch AdvancePartnersExtraData: inactive
     // Kooper also recovers over rounds. Saturate rather than wrap the source byte.

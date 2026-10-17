@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "ttyd64_partner_status.h"
 #include "common.h"
 #include "sprite.h"
@@ -938,10 +939,12 @@ void appendGfx_npc_actor(b32 isPartner, s32 actorIndex) {
              actor->size.x * actor->scalingFactor);
     }
 
-    if (actor->debuff == STATUS_KEY_SHRINK) {
-        actor->scalingFactor += ((0.4 - actor->scalingFactor) / 6.0);
+    if (ttyd64_actor_modifiers_active(actor)) {
+        actor->scalingFactor += (ttyd64_actor_size_target(actor) - actor->scalingFactor) / 6.0f;
+    } else if (actor->debuff == STATUS_KEY_SHRINK) {
+        actor->scalingFactor += (0.4 - actor->scalingFactor) / 6.0;
     } else {
-        actor->scalingFactor += ((1.0 - actor->scalingFactor) / 6.0);
+        actor->scalingFactor += (1.0 - actor->scalingFactor) / 6.0;
     }
 
     if (!(actor->flags & ACTOR_FLAG_UPSIDE_DOWN)) {
@@ -1571,7 +1574,9 @@ void appendGfx_player_actor(void* arg0) {
         battleStatus->buffEffect->data.partnerBuff->visible = false;
     }
 
-    if (player->debuff == STATUS_KEY_SHRINK) {
+    if (ttyd64_actor_modifiers_active(player)) {
+        player->scalingFactor += (ttyd64_actor_size_target(player) - player->scalingFactor) / 6.0f;
+    } else if (player->debuff == STATUS_KEY_SHRINK) {
         player->scalingFactor += (0.4 - player->scalingFactor) / 6.0;
     } else {
         player->scalingFactor += (1.0 - player->scalingFactor) / 6.0;

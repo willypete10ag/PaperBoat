@@ -128,6 +128,27 @@ the game checkout stays at the historical commit. The runner verifies its own,
 helper, input profile and each fixture's bytes against Git blobs from that commit.
 Do not silently substitute an older binary or fixture when something fails.
 
+## Guarded timed actor modifiers
+
+The default batch includes `actor-modifiers-1`, `actor-modifiers-2` and
+`actor-modifiers-3`, sharing one playable-slice phase. They cover source signed
+attack/defense replacement, cancellation, independent expiry, Tiny/Giant, public
+event API adapters, controlled enemy damage and real keyboard swaps/rounds.
+The existing status phase additionally checks poison-death/Life Shroom cleanup.
+
+`Ttyd64AddAttackBoost(actor, amount, turns)` and `Ttyd64AddDefenseBoost` are explicit
+three-argument source APIs; `Ttyd64MakeActorTiny/Giant(actor)` require a matching
+signed attack effect. Enemy applications store one extra turn. Same-sign values
+replace; opposite signs cancel. Inactive partner timers pause. State is unsaved,
+cleared at battle boundaries/death, and guarded by the existing default-off flag.
+Legacy two-argument permanent BoostAttack/BoostDefense keep their native ABI and
+release timed ownership of their axis. Ported scripts should use the explicit
+APIs. Native Shrink applications in the guarded context become -1 attack + Tiny,
+coexisting with ordinary debuffs; generic native chances/duration inputs remain,
+so this does not port every source Shrink move/chance or AI consumer. Full source
+buff counters/arrows, HP/FP regeneration and charge conversion remain separate.
+No normal activation or campaign parity is implied.
+
 ## Seed and input provenance
 
 `seed_new_game_gdb.py` runs startup/title, calls native `clear_player_data()`,

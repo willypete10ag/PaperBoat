@@ -6,6 +6,15 @@ typedef struct Ttyd64PartnerHP {
     int16_t curHP;
     int16_t maxHP;
 } Ttyd64PartnerHP;
+// Battle_NewStatuses: signed overwrite/cancel effects with independent timers.
+typedef struct Ttyd64TimedModifier {
+    int8_t amount;
+    uint8_t turns;
+} Ttyd64TimedModifier;
+typedef struct Ttyd64ActorModifiers {
+    Ttyd64TimedModifier attack, defense;
+    int8_t size; // -1 tiny, +1 giant; valid only with matching attack sign
+} Ttyd64ActorModifiers;
 #define TTYD64_BP_LAST_STAND   1
 #define TTYD64_BP_PITY_FLOWER  3
 #define TTYD64_BP_DEFEND_PLUS  5
@@ -20,6 +29,9 @@ typedef struct Ttyd64PartnerHP {
 #ifdef __cplusplus
 extern "C" {
 #endif
+void ttyd64_modifier_apply(Ttyd64TimedModifier* effect, int amount, int turns, int enemy);
+void ttyd64_modifiers_advance(Ttyd64ActorModifiers* state);
+void ttyd64_modifiers_normalize_size(Ttyd64ActorModifiers* state);
 int ttyd64_partner_base_max_hp(int partner, int rank);
 void ttyd64_health_init(Ttyd64PartnerHP* health, const int* ranks);
 void ttyd64_health_normalize(Ttyd64PartnerHP* health, const int* ranks);

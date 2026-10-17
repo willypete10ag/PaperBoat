@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "ttyd64_partner_status.h"
 #include "battle/battle.h"
 #include "effects.h"
@@ -75,6 +76,7 @@ void ttyd64_partner_status_clear(Actor* actor) {
         return;
     }
     ttyd64_partner_status_cure_debuff(actor);
+    ttyd64_actor_modifiers_clear(actor);
     PartnerStatuses[gPlayerData.curPartner] = (PartnerBattleStatus) {0};
     actor->staticStatus = actor->staticDuration = 0;
     actor->transparentStatus = actor->transparentDuration = 0;
@@ -175,4 +177,5 @@ void ttyd64_partner_status_end_battle(void) {
         dismiss_ice(StatusActor);
     }
     ttyd64_partner_status_reset();
+    ttyd64_actor_modifiers_reset();
 }

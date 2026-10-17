@@ -88,3 +88,27 @@ int ttyd64_fp_recovery_cap(int amount, int current, int maximum) {
         missing = 0;
     return amount < missing ? amount : missing;
 }
+
+// Active AddAttackBoost/AddDefenseBoost: opposite signs cancel completely;
+// same sign replaces strength and timer. Enemy applications store one extra turn.
+void ttyd64_modifier_apply(Ttyd64TimedModifier* effect, int amount, int turns, int enemy) {
+    int opposite = (effect->amount < 0 && amount > 0) || (effect->amount > 0 && amount < 0);
+    if (opposite || amount == 0 || turns <= 0) {
+        *effect = (Ttyd64TimedModifier) { 0 };
+        return;
+    }
+    effect->amount = amount < -128 ? -128 : (amount > 127 ? 127 : amount);
+    effect->turns = turns >= 255 ? 255 : turns + !!enemy;
+}
+void ttyd64_modifiers_normalize_size(Ttyd64ActorModifiers* state) {
+    if (state->attack.turns == 0 || (state->size < 0 && state->attack.amount >= 0)
+        || (state->size > 0 && state->attack.amount <= 0))
+        state->size = 0;
+}
+void ttyd64_modifiers_advance(Ttyd64ActorModifiers* state) {
+    if (state->attack.turns && --state->attack.turns == 0)
+        state->attack.amount = 0;
+    if (state->defense.turns && --state->defense.turns == 0)
+        state->defense.amount = 0;
+    ttyd64_modifiers_normalize_size(state);
+}

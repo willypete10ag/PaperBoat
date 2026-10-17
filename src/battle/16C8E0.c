@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "common.h"
 #include "ttyd64_partner_hp.h"
 #include "nu/nusys.h"
@@ -1064,6 +1065,7 @@ void btl_delete_actor(Actor* actor) {
     BattleStatus* battleStatus;
     s32 i;
 
+    ttyd64_actor_modifiers_forget(actor);
     ttyd64_partner_hp_unbind_actor(actor);
 
     // TODO hard-coded

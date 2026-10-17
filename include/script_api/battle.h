@@ -974,6 +974,10 @@ API_CALLABLE(ShowShockEffect);
 /// @evtapi
 /// @param actorID
 /// @param outValue
+API_CALLABLE(Ttyd64AddAttackBoost);
+API_CALLABLE(Ttyd64AddDefenseBoost);
+API_CALLABLE(Ttyd64MakeActorTiny);
+API_CALLABLE(Ttyd64MakeActorGiant);
 API_CALLABLE(GetActorAttackBoost);
 
 /// @evtapi

@@ -1,3 +1,4 @@
+#include "ttyd64_actor_modifiers.h"
 #include "ttyd64_rules.h"
 #include "ttyd64_partner_status.h"
 #include "battle/battle.h"
@@ -385,7 +386,7 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
     defense = get_defense(target, targetPart->defenseTable, battleStatus->curAttackElement);
 
     if (!(battleStatus->curAttackElement & DAMAGE_TYPE_IGNORE_DEFENSE)) {
-        defense += target->defenseBoost;
+        defense += ttyd64_actor_defense_boost(target);
 
         if (actorClass == ACTOR_CLASS_PLAYER) {
             if (battleStatus->waterBlockTurnsLeft > 0) {
@@ -416,7 +417,7 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
             break;
     }
 
-    damage += attacker->attackBoost;
+    damage += ttyd64_actor_attack_boost(attacker);
 
     if (attacker->chillOutTurns != 0) {
         damage -= attacker->chillOutAmount;
@@ -3496,6 +3497,7 @@ API_CALLABLE(ClearStatusEffects) {
 
     actor = get_actor(actorID);
     ttyd64_partner_status_clear(actor);
+    ttyd64_actor_modifiers_clear(actor);
 
     if (actor->debuff != 0) {
         actor->debuffDuration = 0;
