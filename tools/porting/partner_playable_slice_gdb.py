@@ -636,7 +636,7 @@ def run():
             put('gBattleStatus.curAttackElement',val('DAMAGE_TYPE_JUMP | DAMAGE_TYPE_NO_CONTACT'))
             put('gBattleStatus.curAttackStatus',0)
             put('gBattleStatus.curAttackEventSuppression',0)
-            put('gBattleStatus.curDamageSource',val('DAMAGE_SOURCE_JUMP'))
+            put('gBattleStatus.curDamageSource',val('DMG_SRC_DEFAULT'))
             cmd('set variable gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS')
             val('calc_item_damage_enemy()' if item else 'calc_player_damage_enemy()')
             wait('!does_script_exist(gBattleStatus.enemyActors[0]->handleEventScriptID)',1800)
