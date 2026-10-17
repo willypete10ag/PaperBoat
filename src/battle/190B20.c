@@ -1852,7 +1852,9 @@ s32 inflict_status(Actor* target, s32 statusTypeKey, s32 duration) {
                     // Source Shrink is a timed -1 attack effect plus tiny, not
                     // the exclusive vanilla debuff slot. Sleep/Poison coexist.
                     if (statusTypeKey == STATUS_KEY_SHRINK && ttyd64_actor_modifiers_active(target)) {
-                        ttyd64_actor_add_modifier(target, false, -1, duration);
+                        if (!ttyd64_actor_add_modifier(target, false, -1, duration)) {
+                            return false;
+                        }
                         ttyd64_actor_set_size(target, -1);
                         target->statusAfflicted = STATUS_KEY_SHRINK;
                         return true;
