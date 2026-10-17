@@ -1,6 +1,6 @@
 """Guarded Goombario world HP ownership and native NPC/map lifecycle.
 
-Only the exact disposable FP Drain save copy is writable. Native switch/map
+Only the runner-generated disposable new-game seed copy is writable. Native switch/map
 APIs control selections; event scripts advance by continue, not recursive calls.
 """
 import json
@@ -148,8 +148,16 @@ def run():
     capture('world-hud-restored')
     health(6)
     switch(2)
-    check('native-other-partner-hides-goombario-row',display() == -1 and hp() == 6 and hp(2) == 10)
-    capture('world-hud-other-partner')
+    # Ground-partner support was already extended to Kooper/Bombette. The
+    # former Goombario-only hidden-row expectation is obsolete at this head.
+    check('native-supported-kooper-owns-world-row',display() == 10 and hp() == 6 and hp(2) == 10
+          and val('ttyd64_partner_hp_display_partner()') == 2 and val('WorldPartnerID') == 2)
+    capture('world-hud-supported-kooper')
+    put('gPlayerData.partners[4].enabled',1)
+    switch(4)
+    check('native-unsupported-parakarry-hides-world-row',display() == -1 and hp() == 6 and hp(2) == 10
+          and val('ttyd64_partner_hp_display_partner()') == 0)
+    capture('world-hud-unsupported-parakarry')
     switch(1)
     check('native-swap-back-snaps-saved-health',display() == 6 and hp() == 6)
     capture('world-hud-swap-back')

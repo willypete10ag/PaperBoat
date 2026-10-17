@@ -32,6 +32,9 @@ current allowlist does not claim source Double Dip parity.
 
 ## Full Linux acceptance from a clean checkout
 
+This is a separate recipe; if you used the ROM-free recipe above, reuse that
+checkout and omit the clone/`cd` commands.
+
 Use Ubuntu 24.04 or equivalent with GCC 14, CMake >=3.28 and Python >=3.10.
 The commands below also need Internet access for source dependencies. ROM data
 never goes into Git or CI. Supply your own unmodified supported US Paper Mario
@@ -44,9 +47,11 @@ sudo apt-get install -y gcc-14 g++-14 git cmake ninja-build lsb-release file \
   curl wget build-essential pkg-config python3 gdb xvfb xdotool x11-utils imagemagick \
   libsdl2-dev libsdl2-net-dev libpng-dev libzip-dev zipcmp zipmerge ziptool \
   nlohmann-json3-dev libtinyxml2-dev libspdlog-dev libfmt-dev libboost-dev \
-  libopengl-dev libgl1-mesa-dev libogg-dev libvorbis-dev zlib1g-dev libbz2-dev \
+  libopengl-dev libgl1-mesa-dev libgl1-mesa-dri libogg-dev libvorbis-dev zlib1g-dev libbz2-dev \
   libvulkan-dev libshaderc-dev glslang-dev spirv-tools
 
+git clone --branch ttyd64/main https://github.com/willypete10ag/PaperBoat.git
+cd PaperBoat
 git submodule update --init --recursive
 export CC=gcc-14 CXX=g++-14
 # Match the dependency versions used by .github/workflows/build.yml.

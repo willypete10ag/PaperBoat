@@ -2,10 +2,11 @@ name: Build
 
 on:
   push:
-    # All branches, no tags: tag pushes go through release.yml, which calls
-    # this workflow. A lone `tags-ignore` would leave branches undefined.
+    # Feature milestones are checked through PRs. Avoid a second full platform
+    # build for the same feature push; integration and vanilla pushes still run.
     branches:
-      - "**"
+      - develop
+      - ttyd64/main
   pull_request:
   workflow_dispatch:
   workflow_call:

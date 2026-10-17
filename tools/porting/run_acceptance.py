@@ -226,6 +226,7 @@ def main():
         logpath = results / (name + ".log")
         proc = None
         error = None
+        interrupted = False
         try:
             with logpath.open("w") as log:
                 proc = subprocess.Popen(
@@ -244,6 +245,7 @@ def main():
         except (Exception, KeyboardInterrupt) as exc:
             code = -1
             error = repr(exc)
+            interrupted = isinstance(exc, KeyboardInterrupt)
         finally:
             if proc:
                 try:
@@ -265,7 +267,12 @@ def main():
             actual = {Path(path.strip()).resolve() for path in loaded}
             if archive.resolve() not in actual or not actual.issubset(expected):
                 ok = False
-                error = f"Archive provenance mismatch: loaded={loaded}"
+                error = error or f"Archive provenance mismatch: loaded={loaded}"
+        if script == "seed_new_game_gdb.py" and (
+            "PORTING_SEED_CREATED_FROM_NEW_GAME" not in logtext or not (home / "saves/file3.json").is_file()
+        ):
+            ok = False
+            error = error or "Seed did not complete its native new-game save"
         payload = None
         try:
             if outfile.is_file():
@@ -273,31 +280,40 @@ def main():
         except (ValueError, OSError) as exc:
             ok = False
             error = f"Invalid payload: {exc}"
-        if script.endswith("_gdb.py") and script != "seed_new_game_gdb.py" and payload is None:
+        if script != "seed_new_game_gdb.py" and payload is None:
             ok = False
-            error = "Fixture did not produce its required payload"
+            error = error or "Fixture did not produce its required payload"
         if sha(fixture_dir / script) != script_hash:
             ok = False
             error = "Fixture changed during execution"
-        records = (
-            [
-                {"check": entry["asset"], "driver": "independent_asset_decoder", "fixture_uses_debugger_setup": False}
-                for entry in payload["checks"]
-            ]
-            if script == "check_badge_assets.py" and payload
-            else (
-                json.loads(methods.read_text())
-                if methods.is_file()
-                else [
+        try:
+            records = (
+                [
                     {
-                        "check": "script assertions",
-                        "driver": "controlled_api_or_state",
-                        "fixture_uses_debugger_setup": True,
-                        "note": "No named-check list in this diagnostic script; consult full log",
+                        "check": entry["asset"],
+                        "driver": "independent_asset_decoder",
+                        "fixture_uses_debugger_setup": False,
                     }
+                    for entry in payload["checks"]
                 ]
+                if script == "check_badge_assets.py" and payload
+                else (
+                    json.loads(methods.read_text())
+                    if methods.is_file()
+                    else [
+                        {
+                            "check": "script assertions",
+                            "driver": "controlled_api_or_state",
+                            "fixture_uses_debugger_setup": True,
+                            "note": "No named-check list in this diagnostic script; consult full log",
+                        }
+                    ]
+                )
             )
-        )
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            records = []
+            ok = False
+            error = error or f"Invalid check-method evidence: {exc}"
         artifact = {
             **base,
             "fixture": name,
@@ -317,6 +333,9 @@ def main():
         }
         (results / (name + ".result.json")).write_text(json.dumps(artifact, indent=2) + "\n")
         print(f'{name}: {artifact["status"]}', flush=True)
+        if interrupted:
+            failures.append(name)
+            raise KeyboardInterrupt
         return ok
 
     all_cases = []
@@ -493,6 +512,10 @@ def main():
                 ),
             ):
                 failures.append(name)
+    except BaseException as exc:
+        failures.append("runner-aborted")
+        manifest["runner_error"] = repr(exc)
+        raise
     finally:
         if xvfb:
             xvfb.terminate()
