@@ -14,6 +14,12 @@ import os
 from pathlib import Path
 
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def command(text):
@@ -36,8 +42,8 @@ def run_checks():
     variant = os.environ.get("LAST_STAND_VARIANT", "stacking")
     assert variant in ("baseline", "stacking"), variant
     blocked = os.environ.get("LAST_STAND_BLOCKED", "0") == "1"
-    source = Path(os.environ["LAST_STAND_SOURCE"]).read_text().splitlines()
-    native_source = "/workspace/PaperBoat/src/battle/1A5830.c"
+    source = Path(required_env('LAST_STAND_SOURCE')).read_text().splitlines()
+    native_source = str(source_path("src/battle/1A5830.c"))
     start_line = next(i + 1 for i, line in enumerate(source) if "isPlayer = actorClass" in line)
     end_line = next(i + 1 for i, line in enumerate(source) if i + 1 > start_line and "switch (actorClass)" in line)
     hp_line = next(i + 1 for i, line in enumerate(source) if "gPlayerData.curHP = target->curHP" in line)
@@ -96,6 +102,7 @@ def run_checks():
         actual = fixture(hp, count, damage, actor_class)
         expected = old if variant == "baseline" else new
         assert actual == expected, (name, actual, expected)
+        record_check(name)
         results.append({"case": name, "hp": hp, "copies": count, "input": damage, "observed": actual})
 
     # Let one injected 6-damage attack actually apply HP after two-copy mitigation.
@@ -121,12 +128,13 @@ def run_checks():
     assert actual_damage == expected_damage, (actual_damage, expected_damage)
     assert actual_hp == 5 - expected_damage, (actual_hp, expected_damage)
     assert value("target->curHP") == actual_hp
+    record_check("applied-hit-forced-guard" if blocked else "applied-hit-unblocked")
     report = {"variant": variant, "branch_checks": results, "battle_hit": {
         "blocked": blocked, "hp_before": 5, "input": 6, "copies": 2,
         "damage_applied": actual_damage, "hp_after": actual_hp,
     }}
     print("LAST_STAND_RESULT=" + json.dumps(report, sort_keys=True))
-    output = os.environ.get("LAST_STAND_RESULT")
+    output = required_env("LAST_STAND_RESULT")
     if output:
         Path(output).write_text(json.dumps(report, indent=2) + "\n")
     command("kill")

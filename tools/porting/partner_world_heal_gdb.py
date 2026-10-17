@@ -9,6 +9,12 @@ from pathlib import Path
 import subprocess
 import time
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def cmd(text):
@@ -34,12 +40,12 @@ def until(where):
 
 
 def run():
-    root = Path('/workspace/.paperboat-setup/partner-world-heal')
-    runtime = Path(os.environ['SHIP_HOME']).resolve()
+    root = fixture_path('partner-world-heal')
+    runtime = Path(required_env('SHIP_HOME')).resolve()
     assert runtime == root / 'runtime'
-    save = runtime / 'saves/file3.json'
+    save = fixture_save()
     original = save.read_bytes()
-    assert original == Path('/workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json').read_bytes()
+    assert original == Path(required_env('PORTING_SEED_SAVE')).read_bytes()
     baseline = os.environ.get('WORLD_HEAL_BASELINE', '0') == '1'
     checks, captures = [], []
     jump_attempts = 0
@@ -52,7 +58,7 @@ def run():
                 'gCollisionStatus.curCeiling')}))
             capture('failed-' + name)
         assert condition, name
-        checks.append(name)
+        checks.append(name); record_check(name)
         print('WORLD_HEAL_CHECK=' + name)
     def hp(i):
         return val(f'ttyd64_get_partner_hp({i})')
@@ -87,7 +93,7 @@ def run():
         put(target,val(target) & ~val('TRIGGER_FORCE_ACTIVATE'))
         tick(150)
     def report():
-        Path(os.environ['WORLD_HEAL_RESULT']).write_text(json.dumps({
+        Path(required_env('WORLD_HEAL_RESULT')).write_text(json.dumps({
             'baseline':baseline,'checks_passed':len(checks),'checks':checks,'captures':captures,
             'health':{str(i):hp(i) for i in partners},'prototype_enabled':val('gTtyd64PartnerHPPrototypeEnabled'),
             'heart_block_keyboard_jump_attempts':jump_attempts,

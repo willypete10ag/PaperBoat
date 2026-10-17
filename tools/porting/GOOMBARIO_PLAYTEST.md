@@ -1,43 +1,29 @@
 # Isolated Goombario developer playtest
 
-This is a focused native menu/healing/encounter test in the **prepared Linux
-cloud environment**, not a packaged TTYD64 release. It needs the existing debug
-executable, local game archives, GDB and private fixture seed/controller profile.
-The launcher does not download or redistribute game assets. Windows/macOS,
-hardware rendering and audible output have not been accepted through this route.
+Build and run the portable acceptance setup in [README.md](README.md) first.
+This is an early partner-HP slice, not a completed TTYD64 mod. No private cloud
+snapshot is required. Supply your ROM and archives locally; never commit them.
 
-## Start
-
-Use a display you can actually view and control. `:97` is the existing headless
-validation display; the launcher does not create a desktop viewer or stream.
+Use the same source, executable, archive and working-directory environment
+variables as the acceptance runner. Select a display you can see and control
+(the launcher does not start a viewer or stream), then:
 
 ```bash
-source /workspace/.paperboat-setup/activate.sh
-cd /workspace/PaperBoat
-# Set DISPLAY to your visible desktop. Use :97 only with a viewer attached,
-# or for the automated --verify check.
-python3 tools/porting/launch_goombario_playtest.py
+export DISPLAY=:0 # your actual desktop display
+export PORTING_SEED_SAVE="$PORTING_WORK_DIR/seed/runtime/saves/file3.json"
+export PORTING_INPUT_PROFILE="$PAPERBOAT_SOURCE_DIR/tools/porting/fixtures/keyboard.json"
+python3 "$PAPERBOAT_SOURCE_DIR/tools/porting/launch_goombario_playtest.py"
+# Optional automated startup/input check on an existing display:
+python3 "$PAPERBOAT_SOURCE_DIR/tools/porting/launch_goombario_playtest.py" --verify
 ```
 
-It allocates a fresh session under
-`/workspace/.paperboat-setup/goombario-playtest/sessions/`, copies only the known
-private fixture seed/controller profile, starts the native title/file lifecycle,
-prepares the scenario, verifies keyboard input, then detaches GDB. The native
-game keeps running under your control. The printed directory contains the save,
-configuration, launch log and numeric readiness report. Each launch starts fresh;
-normal saves/configuration and earlier test sessions are not overwritten.
-Close the game window when finished. No debugger commands are needed to play.
-
-To check startup/input and close automatically:
-
-```bash
-DISPLAY=:97 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 \
-    python3 tools/porting/launch_goombario_playtest.py --verify
-```
-
-The prototype is explicitly enabled only in this isolated process. Normal game
-launches remain default-off; the flag is not saved and new game resets it.
-This does not introduce a product setting or enable other partners' HP combat.
+The launcher creates a new marked session under
+`$PORTING_WORK_DIR/goombario-playtest/sessions`, copies the generated test seed
+and committed input profile, stages supplied archives, prepares the scene with
+GDB, then detaches for real input. Close the game window to finish. Normal
+configuration and saves are never used. The prototype is enabled only in this
+process; normal launches remain off. Read the printed session log/readiness
+report; startup verification is not complete playthrough acceptance.
 
 ## Controls and scenario
 
@@ -95,20 +81,18 @@ automated route remains unvalidated until reproduced.
 natural no-item partner death followed by Mario finishing the battle. They may
 be combined in one process. Existing pause/world-items/battle/team phases remain.
 
-The acceptance runtime is strictly
-`/workspace/.paperboat-setup/partner-playable-slice/runtime`, with disposable
-slot 3 matching the private FP Drain seed before launch. Use the prepared shell,
-run GDB from `build/ninja-debug`, supply DISPLAY, SHIP_HOME, software GL/dummy
-audio and PARTNER_SLICE_RESULT, then source this Python driver with `gdb -batch
--x`. Run one fixture at a time on the display. This is developer acceptance,
-not an additional way to launch a player session.
+Run these phases through `run_acceptance.sh` as described in README.md. The
+runner allocates marked runtimes under `$PORTING_WORK_DIR`, generates the test
+seed, starts its own display and sets the required paths. Use `--only` to target
+a fixture; omitted scenarios are recorded as skipped. This is developer
+acceptance, not an additional way to launch a player session.
 
 Setup controls map/position, recruitment/progression, initial wounds/items and
 a non-level-up reward boundary. Targets, attack damage, enemy defeat, victory,
 rewards and Save Block interaction are native. Reload explicitly calls native
 FIO; this does not claim a fresh-process/title restart or level-up validation.
 Exact disposable save bytes are restored in a finally block. Screenshots and
-logs stay private; only numeric results belong in the coordination repository.
+ROM-derived captures stay local; publish result JSONs containing full logs in the coordination repository.
 
 ## Ground-partner HP prototype
 

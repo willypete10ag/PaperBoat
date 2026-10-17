@@ -9,6 +9,12 @@ from pathlib import Path
 import subprocess
 import time
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def cmd(text):
@@ -35,16 +41,16 @@ def until(where):
 
 def run():
     playtest = os.environ.get('PARTNER_SLICE_PLAYTEST') == '1'
-    runtime = Path(os.environ['SHIP_HOME']).resolve()
-    root = runtime.parent if playtest else Path('/workspace/.paperboat-setup/partner-playable-slice')
+    runtime = Path(required_env('SHIP_HOME')).resolve()
+    root = runtime.parent if playtest else fixture_path('partner-playable-slice')
     assert runtime == root / 'runtime'
     if playtest:
-        assert root.parent == Path('/workspace/.paperboat-setup/goombario-playtest/sessions')
+        assert root.parent == fixture_path('goombario-playtest/sessions')
         assert re.fullmatch(r'[0-9]{8}T[0-9]{6}-[a-f0-9]{8}', root.name)
         assert (root / '.owned-playtest').read_text() == 'PaperBoat Goombario isolated playtest v1\n'
-    save = runtime / 'saves/file3.json'
+    save = fixture_save()
     original = save.read_bytes()
-    assert original == Path('/workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json').read_bytes()
+    assert original == Path(required_env('PORTING_SEED_SAVE')).read_bytes()
     runtime_env = os.environ.copy()
     assert runtime_env.get('DISPLAY'), 'Set DISPLAY to the owned test server'
     cmd('set environment DISPLAY ' + runtime_env['DISPLAY'])
@@ -79,7 +85,7 @@ def run():
         if not condition:
             (root/'failed-state.json').write_text(json.dumps({'checks_passed':len(checks),'state':state,'team_trace':team_trace},indent=2)+'\n')
         assert condition, name + ': ' + json.dumps(state)
-        checks.append(name)
+        checks.append(name); record_check(name)
         print('PARTNER_SLICE_CHECK=' + name)
     def tick(n=1):
         for _ in range(n):
@@ -343,8 +349,8 @@ def run():
         report = {'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,
                   'native_states':states,'captures':captures,
                   'session':str(root),'pid':gdb.selected_inferior().pid,'ground_partners':os.environ.get('PARTNER_SLICE_GROUND') == '1',
-                  'limits':'Prepared cloud/Linux developer launcher, existing private fixture seed and archives required. Fresh isolated session; prototype on only in this process. Goombario-only default or explicitly requested ground HP group, shroom family and existing native maps; native moves/defense remain, incomplete TTYD64 port.'}
-        Path(os.environ['PARTNER_SLICE_RESULT']).write_text(json.dumps(report,indent=2)+'\n')
+                  'limits':'Linux developer launcher, generated new-game test seed and user-supplied archives required. Fresh isolated session; prototype on only in this process. Goombario-only default or explicitly requested ground HP group, shroom family and existing native maps; native moves/defense remain, incomplete TTYD64 port.'}
+        Path(required_env('PARTNER_SLICE_RESULT')).write_text(json.dumps(report,indent=2)+'\n')
         assert save.read_bytes() == original
         if os.environ.get('PARTNER_SLICE_VERIFY_ONLY') == '1':
             cmd('kill')
@@ -1148,7 +1154,7 @@ def run():
         team_trace.extend([{'event':victory_phase,'attacks':attacks,'saves':saves,**victory_trace[0]}])
         put('gTtyd64PartnerHPPrototypeEnabled',0)
     assert save.read_bytes() == original
-    Path(os.environ['PARTNER_SLICE_RESULT']).write_text(json.dumps({'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
+    Path(required_env('PARTNER_SLICE_RESULT')).write_text(json.dumps({'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
         'limits':'Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
     print('PARTNER_SLICE_PHASES_PASSED=' + ','.join(phases) + ':' + str(len(checks)))
     cmd('kill')

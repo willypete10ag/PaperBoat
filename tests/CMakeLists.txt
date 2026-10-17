@@ -1,0 +1,8 @@
+find_package(nlohmann_json 3.11 REQUIRED)
+add_library(ttyd64_logic STATIC ../src/ttyd64_rules.c ../src/ttyd64_health_json.cpp)
+target_include_directories(ttyd64_logic PUBLIC ../include)
+target_link_libraries(ttyd64_logic PUBLIC nlohmann_json::nlohmann_json)
+target_compile_features(ttyd64_logic PUBLIC cxx_std_17)
+add_executable(ttyd64_logic_tests ttyd64_logic_tests.cpp)
+target_link_libraries(ttyd64_logic_tests PRIVATE ttyd64_logic)
+add_test(NAME ttyd64_gameplay_logic COMMAND ttyd64_logic_tests)

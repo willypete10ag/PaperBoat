@@ -10,6 +10,12 @@ from pathlib import Path
 import subprocess
 import time
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def cmd(text):
@@ -35,12 +41,12 @@ def until(where):
 
 
 def run():
-    root = Path('/workspace/.paperboat-setup/partner-battle-return')
-    runtime = Path(os.environ['SHIP_HOME']).resolve()
+    root = fixture_path('partner-battle-return')
+    runtime = Path(required_env('SHIP_HOME')).resolve()
     assert runtime == root / 'runtime'
-    save = runtime / 'saves/file3.json'
+    save = fixture_save()
     original = save.read_bytes()
-    assert original == Path('/workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json').read_bytes()
+    assert original == Path(required_env('PORTING_SEED_SAVE')).read_bytes()
     baseline = os.environ.get('BATTLE_RETURN_BASELINE','0') == '1'
     checks, states, captures, capture_states = [], [], [], []
     def hp():
@@ -54,7 +60,7 @@ def run():
                  'encounter_state':val('gEncounterState'),'battle_state':val('gBattleState')}
         states.append(state)
         assert condition, name + ': ' + json.dumps(state)
-        checks.append(name)
+        checks.append(name); record_check(name)
         print('BATTLE_RETURN_CHECK=' + name)
     def tick(n=1):
         for _ in range(n):
@@ -199,7 +205,7 @@ def run():
         check('prototype-off-native-partner-can-act',val('btl_partner_can_act()') != 0)
         leave(0)
         check('prototype-off-full-return-preserves-model-and-hides-row',hp() == 0 and display() == -1)
-    Path(os.environ['BATTLE_RETURN_RESULT']).write_text(json.dumps({
+    Path(required_env('BATTLE_RETURN_RESULT')).write_text(json.dumps({
         'baseline':baseline,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'capture_states':capture_states,
         'limits':'Regular native encounter and world backup/restore. Existing enemy AI owner supplies StartBattle; HP wounds and OUTCOME_PLAYER_FLED/end-battle state are controlled. Does not play victory/run-away input or prove escape timing/choreography.'},indent=2)+'\n')
     print('BATTLE_RETURN_PASSED=' + str(len(checks)))

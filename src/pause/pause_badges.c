@@ -1,3 +1,4 @@
+#include "ttyd64_rules.h"
 #include "pause/pause_common.h"
 #include "message_ids.h"
 
@@ -293,22 +294,7 @@ typedef enum BadgeEquipResult {
 } BadgeEquipResult;
 
 static b32 pause_badges_can_stack(s16 badgeID) {
-    // Allow only badge effects translated and verified against TTYD64.
-    switch (badgeID) {
-        case ITEM_LAST_STAND:
-        case ITEM_PITY_FLOWER:
-        case ITEM_JUMPMAN:
-        case ITEM_HAMMERMAN:
-        case ITEM_FP_DRAIN:
-        case ITEM_FLOWER_SAVER_A:
-        case ITEM_FLOWER_SAVER_B:
-        case ITEM_DEFEND_PLUS_A:
-        case ITEM_DEFEND_PLUS_X:
-        case ITEM_DEFEND_PLUS_Y:
-            return true;
-        default:
-            return false;
-    }
+    return ttyd64_badge_can_stack(badgeID);
 }
 
 s32 pause_badges_try_equip(s16 badgeID) {

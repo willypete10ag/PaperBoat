@@ -1,3 +1,5 @@
+#include "extractor/GameExtractor.h"
+#include <iostream>
 #include <fast/Fast3dWindow.h>
 #include <fast/interpreter.h>
 #include <libultraship.h>
@@ -129,6 +131,16 @@ extern "C"
     WebCache_Load();
 #endif
 
+    // Headless, user-supplied-ROM extraction for reproducible acceptance.
+    if (argc == 5 && std::string(argv[1]) == "--extract-rom") {
+        GameExtractor extractor;
+        std::atomic<size_t> count { 0 }, total { 0 };
+        if (!extractor.RunStandalone(argv[2], argv[3]) || !extractor.GenerateOTRTo(count, total, argv[3], argv[4])) {
+            std::cerr << "ROM extraction failed: " << GameExtractor::sLastError << "\n";
+            return 1;
+        }
+        return 0;
+    }
     Graphics_EnableNusysThreads();
     GameEngine::Create(argc, argv);
 

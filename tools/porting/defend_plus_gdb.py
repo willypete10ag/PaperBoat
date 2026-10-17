@@ -10,6 +10,12 @@ import os
 from pathlib import Path
 
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def command(text):
@@ -29,14 +35,14 @@ def stop_at(spec):
 
 
 def run_checks():
-    runtime = Path(os.environ["SHIP_HOME"]).resolve()
-    assert runtime == Path("/workspace/.paperboat-setup/defend-plus/runtime")
+    runtime = Path(required_env('SHIP_HOME')).resolve()
+    assert runtime == fixture_path('defend-plus/runtime')
     load_only = os.environ.get("DEFEND_PLUS_LOAD_ONLY", "0") == "1"
     blocked = os.environ.get("DEFEND_PLUS_BLOCKED", "0") == "1"
     final_input = int(os.environ.get("DEFEND_PLUS_INPUT", "6"))
     assert final_input in (1, 6) and not (blocked and final_input == 1)
     if not load_only:
-        assert not (runtime / "saves/file3.json").exists(), "Refusing existing fixture save"
+        assert not (fixture_save()).exists(), "Refusing existing fixture save"
     for setting in ("pagination off", "confirm off", "print thread-events off"):
         command("set " + setting)
     stop_at("state_step_startup")
@@ -50,7 +56,7 @@ def run_checks():
 
     def check(name, condition):
         assert condition, name
-        checks.append(name)
+        checks.append(name); record_check(name)
 
     def clear():
         for field, size in (("badges", 128), ("equippedBadges", 64)):
@@ -129,7 +135,7 @@ def run_checks():
         check("menu-equips-third-copy", rows() == [False, True, True]
               and value("pause_get_total_equipped_bp_cost()") == 10)
         command("call fio_save_game(3)")
-        saved = json.loads((runtime / "saves/file3.json").read_text())["player"]
+        saved = json.loads((fixture_save()).read_text())["player"]
         check("native-save-copies-and-cost", saved["badges"].count(badge) == 3
               and saved["equippedBadges"].count(badge) == 2)
         clear()
@@ -142,7 +148,7 @@ def run_checks():
     command("return")
     stop_at("calc_enemy_damage_target")
     command("continue")
-    source = Path("/workspace/PaperBoat/src/battle/1A5830.c")
+    source = source_path('src/battle/1A5830.c')
     lines = source.read_text().splitlines()
     start = next(i + 1 for i, line in enumerate(lines) if "isPlayer = actorClass" in line)
     end = next(i + 1 for i, line in enumerate(lines) if i + 1 > start and "switch (actorClass)" in line)
@@ -210,7 +216,7 @@ def run_checks():
               "battle_hit": {"copies_loaded": 2, "input_after_defense": final_input,
                              "blocked": blocked, "damage_applied": 10 - expected_hp,
                              "hp_before": 10, "hp_after": expected_hp}}
-    Path(os.environ["DEFEND_PLUS_RESULT"]).write_text(json.dumps(report, indent=2) + "\n")
+    Path(required_env('DEFEND_PLUS_RESULT')).write_text(json.dumps(report, indent=2) + "\n")
     print("DEFEND_PLUS_RESULT=" + json.dumps(report))
     command("kill")
 

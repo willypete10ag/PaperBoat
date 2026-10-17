@@ -2,10 +2,11 @@ name: Build
 
 on:
   push:
-    # All branches, no tags: tag pushes go through release.yml, which calls
-    # this workflow. A lone `tags-ignore` would leave branches undefined.
+    # Feature milestones are checked through PRs. Avoid a second full platform
+    # build for the same feature push; integration and vanilla pushes still run.
     branches:
-      - "**"
+      - develop
+      - ttyd64/main
   pull_request:
   workflow_dispatch:
   workflow_call:
@@ -99,6 +100,9 @@ jobs:
             -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build/ninja-release --parallel $(nproc)
+
+      - name: ROM-free gameplay tests
+        run: ctest --test-dir build/ninja-release --output-on-failure -R ttyd64_gameplay_logic --no-tests=error
 
       - name: Read build name
         id: build-name

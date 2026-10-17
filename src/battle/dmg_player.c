@@ -1,3 +1,4 @@
+#include "ttyd64_rules.h"
 #include "common.h"
 #include "effects.h"
 #include "battle/battle.h"
@@ -508,9 +509,7 @@ HitResult calc_player_damage_enemy(void) {
         // the upstream exclusion is commented out. Zero final damage still counts.
         if (player_team_is_ability_active(player, ABILITY_FP_DRAIN)) {
             currentAttackDamage--;
-            if (battleStatus->fpDrainCount < 5) {
-                battleStatus->fpDrainCount++;
-            }
+            battleStatus->fpDrainCount = ttyd64_fp_drain_hit_count(battleStatus->fpDrainCount);
         }
 
         if (player_team_is_ability_active(player, ABILITY_HP_DRAIN)) {

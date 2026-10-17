@@ -13,7 +13,8 @@ import sys
 
 from build_badge_assets import indexed_png
 
-source = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / "port/ttyd64"
+from fixture_support import required_env
+source = Path(required_env("PAPERBOAT_SOURCE_DIR")) / "port/ttyd64"
 checks = []
 for name, width, height in (
     ("pityflower", 32, 32), ("jumpman", 32, 32), ("hammerman", 32, 32),
@@ -29,6 +30,6 @@ for name, width, height in (
                    "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                    "rgba_sha256": hashlib.sha256(pixels).hexdigest()})
 report = {"checks_passed": len(checks), "independent_decoder": "ImageMagick RGBA", "checks": checks}
-if os.environ.get("BADGE_ASSETS_RESULT"):
-    Path(os.environ["BADGE_ASSETS_RESULT"]).write_text(json.dumps(report, indent=2) + "\n")
+if required_env("BADGE_ASSETS_RESULT"):
+    Path(required_env("BADGE_ASSETS_RESULT")).write_text(json.dumps(report, indent=2) + "\n")
 print(json.dumps(report, indent=2))

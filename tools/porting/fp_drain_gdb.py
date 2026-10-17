@@ -10,6 +10,12 @@ import struct
 from pathlib import Path
 
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def command(text):
@@ -66,13 +72,13 @@ def run_checks():
     assert fp_start in (2, 98) and base_damage in (1, 3)
     assert not (coexist and (fp_start == 98 or base_damage != 3))
     assert not (fp_start == 98 and base_damage != 3)
-    runtime = Path(os.environ["SHIP_HOME"]).resolve()
+    runtime = Path(required_env('SHIP_HOME')).resolve()
     suffix = "coexist-runtime" if coexist else "cap-runtime" if fp_start == 98 else "zero-runtime" if base_damage == 1 else "runtime"
-    assert runtime == Path("/workspace/.paperboat-setup/fp-drain") / suffix
+    assert runtime == fixture_path('fp-drain') / suffix
     load_only = os.environ.get("FP_DRAIN_LOAD_ONLY", "0") == "1"
     if not load_only:
         assert not coexist and fp_start == 2 and base_damage == 3
-        assert not (runtime / "saves/file3.json").exists(), "Refusing existing fixture save"
+        assert not (fixture_save()).exists(), "Refusing existing fixture save"
     for setting in ("pagination off", "confirm off", "print thread-events off"):
         command("set " + setting)
     stop_at("state_step_startup")
@@ -85,7 +91,7 @@ def run_checks():
 
     def check(name, condition):
         assert condition, name
-        checks.append(name)
+        checks.append(name); record_check(name)
         print("FP_DRAIN_CHECK=" + name)
 
     def count(field):
@@ -154,7 +160,7 @@ def run_checks():
         assign("gPlayerData.curMaxFP", 10)
         assign("gPlayerData.curFP", 2)
         command("call fio_save_game(3)")
-        saved = json.loads((runtime / "saves/file3.json").read_text())["player"]
+        saved = json.loads((fixture_save()).read_text())["player"]
         check("native-save-copies", saved["badges"].count(badge) == 3
               and saved["equippedBadges"].count(badge) == 2)
     load_save()
@@ -171,7 +177,7 @@ def run_checks():
     stop_at("initialize_battle")
     command("continue")
     check("counter-stale-before-native-initialize", value("gBattleStatus.fpDrainCount") == 5)
-    init_source = Path("/workspace/PaperBoat/src/battle/16C8E0.c")
+    init_source = source_path('src/battle/16C8E0.c')
     reset_end = next(i + 1 for i, line in enumerate(init_source.read_text().splitlines())
                      if "gBattleStatus.flags1 = 0" in line)
     stop_at(f"{init_source}:{reset_end}")
@@ -181,7 +187,7 @@ def run_checks():
     stop_at("calc_player_damage_enemy")
     command("continue")
     check("native-demo-enters-hammer-attack", value("gBattleStatus.selectedMoveID") == value("MOVE_HAMMER1"))
-    source = Path("/workspace/PaperBoat/src/battle/dmg_player.c")
+    source = source_path('src/battle/dmg_player.c')
     lines = source.read_text().splitlines()
     penalty = next(i + 1 for i, line in enumerate(lines) if "if (player_team_is_ability_active(player, ABILITY_FP_DRAIN))" in line)
     penalized = next(i + 1 for i, line in enumerate(lines) if i + 1 > penalty and "if (player_team_is_ability_active(player, ABILITY_HP_DRAIN))" in line)
@@ -288,7 +294,7 @@ def run_checks():
     check("actual-turn-end-starts-native-happy-with-fp-drain", actual_vars == expected_vars
           and value("gBattleStatus.battlePhase") == value("PHASE_PLAYER_HAPPY"))
 
-    events = Path("/workspace/PaperBoat/src/battle/player_events.c")
+    events = source_path('src/battle/player_events.c')
     evt_lines = events.read_text().splitlines()
     spawn_start = next(i for i, line in enumerate(evt_lines) if "API_CALLABLE(SpawnTurnEndFX)" in line)
     spawn_end = next(i + 1 for i, line in enumerate(evt_lines) if i > spawn_start and "return ApiStatus_DONE2" in line)
@@ -364,7 +370,7 @@ def run_checks():
                               "enemy_hp_before": 10, "enemy_hp_after": 10 - damage,
                               "counter_from_attack": 1, "vars_a_b_c_d": actual_vars,
                               "fp_before": fp_start, "fp_after": final_fp, "labels_y": positions}}
-    Path(os.environ["FP_DRAIN_RESULT"]).write_text(json.dumps(report, indent=2) + "\n")
+    Path(required_env('FP_DRAIN_RESULT')).write_text(json.dumps(report, indent=2) + "\n")
     print("FP_DRAIN_RESULT=" + json.dumps(report))
     command("kill")
 

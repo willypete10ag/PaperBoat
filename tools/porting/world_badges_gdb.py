@@ -10,6 +10,12 @@ import os
 from pathlib import Path
 
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def command(text):
@@ -31,12 +37,12 @@ def stop_at(spec):
 def run_checks():
     visual = os.environ.get("WORLD_BADGES_VISUAL", "0") == "1"
     load_only = os.environ.get("WORLD_BADGES_LOAD_ONLY", "0") == "1"
-    runtime = Path(os.environ["SHIP_HOME"]).resolve()
-    expected = "/workspace/.paperboat-setup/pity-flower/" + (
+    runtime = Path(required_env('SHIP_HOME')).resolve()
+    expected = str(fixture_path("pity-flower")) + "/" + (
         "world-visual-runtime" if visual else "acquisition-runtime")
     assert runtime == Path(expected)
     if not load_only:
-        assert not (runtime / "saves/file3.json").exists(), "Refusing existing fixture save"
+        assert not (fixture_save()).exists(), "Refusing existing fixture save"
     for setting in ("pagination off", "confirm off", "print thread-events off"):
         command("set " + setting)
     stop_at("state_step_startup")
@@ -81,7 +87,7 @@ def run_checks():
 
     def check(name, condition):
         assert condition, name
-        results.append(name)
+        results.append(name); record_check(name)
 
     def owned():
         return sum(value(f"gPlayerData.badges[{i}]") == badge for i in range(128))
@@ -102,7 +108,7 @@ def run_checks():
 
     if visual:
         check("native-world-two-unclaimed-pickups", len(entities()) == 2 and owned() == 0 and flags() == [0, 0])
-        Path(os.environ["WORLD_BADGES_PID"]).write_text(str(gdb.selected_inferior().pid))
+        Path(required_env('WORLD_BADGES_PID')).write_text(str(gdb.selected_inferior().pid))
         command("detach")
         return
 
@@ -180,7 +186,7 @@ def run_checks():
     report = {"checks_passed": len(results), "checks": results, "fresh_process": load_only,
               "owned_world_acquired_copies": 2, "equipped_copies": 2,
               "bp_cost": 6, "pickup_flags": [2046, 2047], "schema_changed": False}
-    Path(os.environ["WORLD_BADGES_RESULT"]).write_text(json.dumps(report, indent=2) + "\n")
+    Path(required_env('WORLD_BADGES_RESULT')).write_text(json.dumps(report, indent=2) + "\n")
     print("WORLD_BADGES_RESULT=" + json.dumps(report))
     command("kill")
 

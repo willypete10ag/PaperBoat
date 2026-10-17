@@ -1,6 +1,6 @@
 """Guarded Goombario world HP ownership and native NPC/map lifecycle.
 
-Only the exact disposable FP Drain save copy is writable. Native switch/map
+Only the runner-generated disposable new-game seed copy is writable. Native switch/map
 APIs control selections; event scripts advance by continue, not recursive calls.
 """
 import json
@@ -9,6 +9,12 @@ from pathlib import Path
 import subprocess
 import time
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def cmd(text):
@@ -34,12 +40,12 @@ def until(where):
 
 
 def run():
-    root = Path('/workspace/.paperboat-setup/partner-world-hud')
-    runtime = Path(os.environ['SHIP_HOME']).resolve()
+    root = fixture_path('partner-world-hud')
+    runtime = Path(required_env('SHIP_HOME')).resolve()
     assert runtime == root / 'runtime'
-    save = runtime / 'saves/file3.json'
+    save = fixture_save()
     original = save.read_bytes()
-    assert original == Path('/workspace/.paperboat-setup/fp-drain/runtime/saves/file3.json').read_bytes()
+    assert original == Path(required_env('PORTING_SEED_SAVE')).read_bytes()
     checks, snapshots, captures = [], [], []
     def hp(i=1):
         return val(f'ttyd64_get_partner_hp({i})')
@@ -57,7 +63,7 @@ def run():
                           'hud_disabled':val('gStatusBar.disabled'),
                           'intro_part':val('gGameStatusPtr->introPart')})
         assert condition, name + ': ' + json.dumps(snapshots[-1])
-        checks.append(name)
+        checks.append(name); record_check(name)
         print('WORLD_HUD_CHECK=' + name)
     def tick(n=1):
         for _ in range(n):
@@ -142,8 +148,16 @@ def run():
     capture('world-hud-restored')
     health(6)
     switch(2)
-    check('native-other-partner-hides-goombario-row',display() == -1 and hp() == 6 and hp(2) == 10)
-    capture('world-hud-other-partner')
+    # Ground-partner support was already extended to Kooper/Bombette. The
+    # former Goombario-only hidden-row expectation is obsolete at this head.
+    check('native-supported-kooper-owns-world-row',display() == 10 and hp() == 6 and hp(2) == 10
+          and val('ttyd64_partner_hp_display_partner()') == 2 and val('WorldPartnerID') == 2)
+    capture('world-hud-supported-kooper')
+    put('gPlayerData.partners[4].enabled',1)
+    switch(4)
+    check('native-unsupported-parakarry-hides-world-row',display() == -1 and hp() == 6 and hp(2) == 10
+          and val('ttyd64_partner_hp_display_partner()') == 0)
+    capture('world-hud-unsupported-parakarry')
     switch(1)
     check('native-swap-back-snaps-saved-health',display() == 6 and hp() == 6)
     capture('world-hud-swap-back')
@@ -200,7 +214,7 @@ def run():
     put('gTtyd64PartnerHPPrototypeEnabled',0)
     check('prototype-off-immediately-hides-world-row',display() == -1 and hp() == 20)
     capture('world-hud-prototype-off')
-    Path(os.environ['WORLD_HUD_RESULT']).write_text(json.dumps({
+    Path(required_env('WORLD_HUD_RESULT')).write_text(json.dumps({
         'checks_passed':len(checks),'checks':checks,'native_states':snapshots,'captures':captures,
         'limits':'Guarded Goombario world HUD. Controlled native world switch/map selections, API wounds/rank/full-rest/FIO, synthetic Peach/demo/context guard branches. No partner-menu controller, upgrade animation or natural battle-exit claim.'},indent=2)+'\n')
     print('WORLD_HUD_PASSED=' + str(len(checks)))

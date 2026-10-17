@@ -12,6 +12,14 @@ set(CMAKE_C_EXTENSIONS ON)  # Enable GNU extensions (gnu99)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS ON)
 
+include(CTest)
+option(PAPERBOAT_LOGIC_TESTS_ONLY "Build ROM-free gameplay tests without the engine or assets" OFF)
+if(PAPERBOAT_LOGIC_TESTS_ONLY)
+    enable_testing()
+    add_subdirectory(tests)
+    return()
+endif()
+
 include(cmake/paperboat-cvars.cmake)
 include(cmake/lus-cvars.cmake)
 
@@ -767,3 +775,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
 endif()
 
 message(STATUS "Configuring ${PROJECT_NAME} v${PROJECT_VERSION}")
+
+if(BUILD_TESTING AND NOT ANDROID AND NOT IOS AND NOT EMSCRIPTEN)
+    add_subdirectory(tests)
+endif()

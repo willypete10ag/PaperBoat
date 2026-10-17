@@ -9,6 +9,12 @@ import os
 from pathlib import Path
 
 import gdb
+import sys
+if not os.environ.get('PORTING_FIXTURE_DIR'):
+    raise RuntimeError('Missing PORTING_FIXTURE_DIR; use run_acceptance.sh')
+sys.path.insert(0,os.environ['PORTING_FIXTURE_DIR'])
+from fixture_support import *
+validate_runtime()
 
 
 def command(text):
@@ -28,11 +34,11 @@ def stop_at(spec):
 
 
 def run_checks():
-    runtime = Path(os.environ["SHIP_HOME"]).resolve()
-    assert runtime == Path("/workspace/.paperboat-setup/jumpman/runtime")
+    runtime = Path(required_env('SHIP_HOME')).resolve()
+    assert runtime == fixture_path('jumpman/runtime')
     load_only = os.environ.get("JUMPMAN_LOAD_ONLY", "0") == "1"
     if not load_only:
-        assert not (runtime / "saves/file3.json").exists(), "Refusing existing fixture save"
+        assert not (fixture_save()).exists(), "Refusing existing fixture save"
     for setting in ("pagination off", "confirm off", "print thread-events off"):
         command("set " + setting)
     stop_at("state_step_startup")
@@ -45,7 +51,7 @@ def run_checks():
 
     def check(name, condition):
         assert condition, name
-        checks.append(name)
+        checks.append(name); record_check(name)
 
     def count(field):
         size = 128 if field == "badges" else 64
@@ -105,7 +111,7 @@ def run_checks():
         assign("gPlayerData.curPartner", value("PARTNER_BOW"))
         assign("gPlayerData.partners[PARTNER_BOW].enabled", 1)
         command("call fio_save_game(3)")
-        saved = json.loads((runtime / "saves/file3.json").read_text())["player"]
+        saved = json.loads((fixture_save()).read_text())["player"]
         check("native-save-copies", saved["badges"].count(badge) == 3
               and saved["equippedBadges"].count(badge) == 2)
     assert value("fio_load_game(3)") == 1
@@ -115,7 +121,7 @@ def run_checks():
     menu()
     check("loaded-row-reconstruction", rows() == [True, True, False])
 
-    start_source = Path("/workspace/PaperBoat/src/battle/states/start_battle.c")
+    start_source = source_path('src/battle/states/start_battle.c')
     start_lines = start_source.read_text().splitlines()
     init = next(i + 1 for i, line in enumerate(start_lines) if "battleStatus->enabledMenusFlags = -1" in line)
     initialized = next(i + 1 for i, line in enumerate(start_lines) if i + 1 > init and "battleStatus->itemUsesLeft = 0" in line)
@@ -141,7 +147,7 @@ def run_checks():
     command("set scheduler-locking off")
     stop_at("calc_player_damage_enemy")
     command("continue")
-    source = Path("/workspace/PaperBoat/src/battle/dmg_player.c")
+    source = source_path('src/battle/dmg_player.c')
     lines = source.read_text().splitlines()
     boost = next(i + 1 for i, line in enumerate(lines) if "selectedMoveID != MOVE_FIRST_STRIKE_HAMMER" in line)
     boosted = next(i + 1 for i, line in enumerate(lines) if i + 1 > boost and "if (player_team_is_ability_active(player, ABILITY_BERSERKER))" in line)
@@ -206,7 +212,7 @@ def run_checks():
               "command_mask": "0xFFFD", "command_wheel": options, "attack_branches": attacks,
               "native_hit": {"copies_loaded": 2, "controlled_base_damage": 3,
                              "damage_applied": 5, "enemy_hp_before": 10, "enemy_hp_after": 5}}
-    Path(os.environ["JUMPMAN_RESULT"]).write_text(json.dumps(report, indent=2) + "\n")
+    Path(required_env('JUMPMAN_RESULT')).write_text(json.dumps(report, indent=2) + "\n")
     print("JUMPMAN_RESULT=" + json.dumps(report))
     command("kill")
 
