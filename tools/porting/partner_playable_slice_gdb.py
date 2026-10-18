@@ -1487,9 +1487,12 @@ def run():
             tick()
         check('victory-ordinary-attacks-defeat-native-goombas',bool(victory_trace) and (dead_victory or any(a['actor'] == 256 for a in attacks)) and any(a['actor'] == 0 for a in attacks))
         check('victory-dead-partner-upright-without-revival' if dead_victory else 'victory-living-front-partner-keeps-position-and-upright-pose',victory_trace[0]['rotation'] == 0 and (victory_trace[0]['hp'] == 0 and not victory_trace[0]['player_in_back'] if dead_victory else victory_trace[0]['hp'] > 0 and victory_trace[0]['player_in_back'] and victory_trace[0]['partner_ahead']))
+        # The capture advances native frames and can span world return. Block
+        # subsequent contacts before it, so a new encounter cannot replace the
+        # completed victory while observing rewards/input. The battle still ends natively.
+        put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
         capture(victory_phase + '-celebration')
         wait('gGameStatusPtr->context == CONTEXT_WORLD && gEncounterState == ENCOUNTER_STATE_NEUTRAL && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)',2400)
-        put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
         reward = victory_trace[0]['reward']
         check('victory-native-star-points-and-win-count-awarded-once',reward > 0 and val('gPlayerData.starPoints') == reward and val('gPlayerData.battlesWon') == before_wins + 1 and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_WON'))
         remaining_hp = hp()
