@@ -59,4 +59,29 @@ static const ALIGN_ASSET(2) char ICON_item_MrSoftener_palette[] = "__OTR__icons/
 #define ICON_item_MrSoftener_disabled_raster ICON_item_MrSoftener_raster
 static const ALIGN_ASSET(2) char ICON_item_MrSoftener_disabled_palette[] = "__OTR__icons/item/MrSoftener.disabled.pal";
 
+#define MSG_TTYD64_SlowShroomName MESSAGE_ID(0x2F, 16)
+#define MSG_TTYD64_SlowShroomDesc MESSAGE_ID(0x2F, 17)
+static const ALIGN_ASSET(2) char ICON_item_SlowShroom_raster[] = "__OTR__icons/item/SlowShroom";
+static const ALIGN_ASSET(2) char ICON_item_SlowShroom_palette[] = "__OTR__icons/item/SlowShroom.pal";
+#define ICON_item_SlowShroom_disabled_raster ICON_item_SlowShroom_raster
+static const ALIGN_ASSET(2) char ICON_item_SlowShroom_disabled_palette[] = "__OTR__icons/item/SlowShroom.disabled.pal";
+#define MSG_TTYD64_GradualSyrupName MESSAGE_ID(0x2F, 18)
+#define MSG_TTYD64_GradualSyrupDesc MESSAGE_ID(0x2F, 19)
+static const ALIGN_ASSET(2) char ICON_item_GradualSyrup_raster[] = "__OTR__icons/item/GradualSyrup";
+static const ALIGN_ASSET(2) char ICON_item_GradualSyrup_palette[] = "__OTR__icons/item/GradualSyrup.pal";
+#define ICON_item_GradualSyrup_disabled_raster ICON_item_GradualSyrup_raster
+static const ALIGN_ASSET(2) char ICON_item_GradualSyrup_disabled_palette[] = "__OTR__icons/item/GradualSyrup.disabled.pal";
+#define MSG_TTYD64_CouplesCakeName MESSAGE_ID(0x2F, 20)
+#define MSG_TTYD64_CouplesCakeDesc MESSAGE_ID(0x2F, 21)
+static const ALIGN_ASSET(2) char ICON_item_CouplesCake_raster[] = "__OTR__icons/item/CouplesCake";
+static const ALIGN_ASSET(2) char ICON_item_CouplesCake_palette[] = "__OTR__icons/item/CouplesCake.pal";
+#define ICON_item_CouplesCake_disabled_raster ICON_item_CouplesCake_raster
+static const ALIGN_ASSET(2) char ICON_item_CouplesCake_disabled_palette[] = "__OTR__icons/item/CouplesCake.disabled.pal";
+#define MSG_TTYD64_MeteorMealName MESSAGE_ID(0x2F, 22)
+#define MSG_TTYD64_MeteorMealDesc MESSAGE_ID(0x2F, 23)
+static const ALIGN_ASSET(2) char ICON_item_MeteorMeal_raster[] = "__OTR__icons/item/MeteorMeal";
+static const ALIGN_ASSET(2) char ICON_item_MeteorMeal_palette[] = "__OTR__icons/item/MeteorMeal.pal";
+#define ICON_item_MeteorMeal_disabled_raster ICON_item_MeteorMeal_raster
+static const ALIGN_ASSET(2) char ICON_item_MeteorMeal_disabled_palette[] = "__OTR__icons/item/MeteorMeal.disabled.pal";
+
 #endif

@@ -14,5 +14,13 @@
   "MiniMrMiniName": "Mini Mr. Mini",
   "MiniMrMiniDesc": "Briefly shrinks enemies,\n\ndropping their Attack power.",
   "MrSoftenerName": "Mr. Softener",
-  "MrSoftenerDesc": "Softens up enemies for a bit,\n\ndecreasing their Defense."
+  "MrSoftenerDesc": "Softens up enemies for a bit,\n\ndecreasing their Defense.",
+  "SlowShroomName": "Slow Shroom",
+  "SlowShroomDesc": "Gradually recover HP for\n\na brief period.",
+  "GradualSyrupName": "Gradual Syrup",
+  "GradualSyrupDesc": "Gradually recover FP for\n\na brief period.",
+  "CouplesCakeName": "Couple's Cake",
+  "CouplesCakeDesc": "Food that slowly refills HP.\n\nYou can't eat it alone.",
+  "MeteorMealName": "Meteor Meal",
+  "MeteorMealDesc": "Food that refills 7 HP and\n\ngradually recovers even more."
 }

@@ -377,11 +377,15 @@ enum ItemIDs {
     ITEM_POWER_PUNCH                            = 0x172,
     ITEM_MINI_MR_MINI                           = 0x173,
     ITEM_MR_SOFTENER                            = 0x174,
+    ITEM_SLOW_SHROOM                           = 0x175,
+    ITEM_GRADUAL_SYRUP                         = 0x176,
+    ITEM_COUPLES_CAKE                          = 0x177,
+    ITEM_METEOR_MEAL                           = 0x178,
 };
 
-#define NUM_ITEMS 373
+#define NUM_ITEMS 377
 #define ITEM_NUM_VANILLA_CONSUMABLES 96
-#define ITEM_NUM_CONSUMABLES 100
+#define ITEM_NUM_CONSUMABLES 104
 #define ITEM_NUM_BADGES 122
 #define ITEM_NUM_KEYS 119
 #define ITEM_FIRST_CONSUMABLE 128

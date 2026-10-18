@@ -1,5 +1,13 @@
-
 #include "ttyd64_assets.h"
+HudScript HES_Item_SlowShroom = HES_TEMPLATE_ITEM(item_SlowShroom);
+HudScript HES_Item_SlowShroom_disabled = HES_TEMPLATE_ITEM(item_SlowShroom_disabled);
+HudScript HES_Item_GradualSyrup = HES_TEMPLATE_ITEM(item_GradualSyrup);
+HudScript HES_Item_GradualSyrup_disabled = HES_TEMPLATE_ITEM(item_GradualSyrup_disabled);
+HudScript HES_Item_CouplesCake = HES_TEMPLATE_ITEM(item_CouplesCake);
+HudScript HES_Item_CouplesCake_disabled = HES_TEMPLATE_ITEM(item_CouplesCake_disabled);
+HudScript HES_Item_MeteorMeal = HES_TEMPLATE_ITEM(item_MeteorMeal);
+HudScript HES_Item_MeteorMeal_disabled = HES_TEMPLATE_ITEM(item_MeteorMeal_disabled);
+
 HudScript HES_Item_CourageShell = HES_TEMPLATE_ITEM(item_CourageShell);
 HudScript HES_Item_CourageShell_disabled = HES_TEMPLATE_ITEM(item_CourageShell_disabled);
 HudScript HES_Item_PowerPunch = HES_TEMPLATE_ITEM(item_PowerPunch);
@@ -5467,6 +5475,58 @@ ItemData gItemTable[] = {
         .potencyA = 3,
         .potencyB = 5,
     },
+    { // 0x175: SlowShroom (TTYD64)
+        .nameMsg = MSG_TTYD64_SlowShroomName,
+        .fullDescMsg = MSG_TTYD64_SlowShroomDesc,
+        .shortDescMsg = MSG_TTYD64_SlowShroomDesc,
+        .hudElemID = 345,
+        .sellValue = 7,
+        .sortValue = 100,
+        .targetFlags = 9,
+        .typeFlags = ITEM_TYPE_FLAG_CONSUMABLE | ITEM_TYPE_FLAG_BATTLE_USABLE | ITEM_TYPE_FLAG_ENTITY_FULLSIZE,
+        .moveID = MOVE_NONE,
+        .potencyA = 2,
+        .potencyB = 10,
+    },
+    { // 0x176: GradualSyrup (TTYD64)
+        .nameMsg = MSG_TTYD64_GradualSyrupName,
+        .fullDescMsg = MSG_TTYD64_GradualSyrupDesc,
+        .shortDescMsg = MSG_TTYD64_GradualSyrupDesc,
+        .hudElemID = 346,
+        .sellValue = 7,
+        .sortValue = 101,
+        .targetFlags = 9,
+        .typeFlags = ITEM_TYPE_FLAG_CONSUMABLE | ITEM_TYPE_FLAG_BATTLE_USABLE | ITEM_TYPE_FLAG_ENTITY_FULLSIZE | ITEM_TYPE_FLAG_FOOD_OR_DRINK | ITEM_TYPE_FLAG_USE_DRINK_ANIMATION,
+        .moveID = MOVE_NONE,
+        .potencyA = 2,
+        .potencyB = 10,
+    },
+    { // 0x177: CouplesCake (TTYD64)
+        .nameMsg = MSG_TTYD64_CouplesCakeName,
+        .fullDescMsg = MSG_TTYD64_CouplesCakeDesc,
+        .shortDescMsg = MSG_TTYD64_CouplesCakeDesc,
+        .hudElemID = 347,
+        .sellValue = 10,
+        .sortValue = 102,
+        .targetFlags = 9,
+        .typeFlags = ITEM_TYPE_FLAG_CONSUMABLE | ITEM_TYPE_FLAG_BATTLE_USABLE | ITEM_TYPE_FLAG_ENTITY_FULLSIZE,
+        .moveID = MOVE_NONE,
+        .potencyA = 2,
+        .potencyB = 10,
+    },
+    { // 0x178: MeteorMeal (TTYD64)
+        .nameMsg = MSG_TTYD64_MeteorMealName,
+        .fullDescMsg = MSG_TTYD64_MeteorMealDesc,
+        .shortDescMsg = MSG_TTYD64_MeteorMealDesc,
+        .hudElemID = 348,
+        .sellValue = 40,
+        .sortValue = 103,
+        .targetFlags = 9,
+        .typeFlags = ITEM_TYPE_FLAG_CONSUMABLE | ITEM_TYPE_FLAG_BATTLE_USABLE | ITEM_TYPE_FLAG_ENTITY_FULLSIZE,
+        .moveID = MOVE_NONE,
+        .potencyA = 7,
+        .potencyB = 0,
+    },
 };
 
 extern HudScript HES_MoveDiamond;
@@ -5818,6 +5878,10 @@ IconHudScriptPair gItemHudScripts[] = {
     { .enabled = &HES_Item_PowerPunch, .disabled = &HES_Item_PowerPunch_disabled },
     { .enabled = &HES_Item_MiniMrMini, .disabled = &HES_Item_MiniMrMini_disabled },
     { .enabled = &HES_Item_MrSoftener, .disabled = &HES_Item_MrSoftener_disabled },
+    { .enabled = &HES_Item_SlowShroom, .disabled = &HES_Item_SlowShroom_disabled },
+    { .enabled = &HES_Item_GradualSyrup, .disabled = &HES_Item_GradualSyrup_disabled },
+    { .enabled = &HES_Item_CouplesCake, .disabled = &HES_Item_CouplesCake_disabled },
+    { .enabled = &HES_Item_MeteorMeal, .disabled = &HES_Item_MeteorMeal_disabled },
 };
 
 ItemScript IES_Placeholder = IES_TEMPLATE_BASIC(key_Gift);
@@ -6164,6 +6228,10 @@ ItemScript IES_CourageShell = IES_TEMPLATE_STANDARD(item_CourageShell);
 ItemScript IES_PowerPunch = IES_TEMPLATE_STANDARD(item_PowerPunch);
 ItemScript IES_MiniMrMini = IES_TEMPLATE_STANDARD(item_MiniMrMini);
 ItemScript IES_MrSoftener = IES_TEMPLATE_STANDARD(item_MrSoftener);
+ItemScript IES_SlowShroom = IES_TEMPLATE_STANDARD(item_SlowShroom);
+ItemScript IES_GradualSyrup = IES_TEMPLATE_STANDARD(item_GradualSyrup);
+ItemScript IES_CouplesCake = IES_TEMPLATE_STANDARD(item_CouplesCake);
+ItemScript IES_MeteorMeal = IES_TEMPLATE_STANDARD(item_MeteorMeal);
 ItemScript IES_PityFlower = IES_TEMPLATE_STANDARD(badge_PityFlower);
 
 // indexed by itemID
@@ -6541,10 +6609,10 @@ intptr_t* gItemEntityScripts[] = {
     IES_PowerPunch,
     IES_MiniMrMini,
     IES_MrSoftener,
-    IES_Placeholder,
-    IES_Placeholder,
-    IES_Placeholder,
-    IES_Placeholder,
+    IES_SlowShroom,
+    IES_GradualSyrup,
+    IES_CouplesCake,
+    IES_MeteorMeal,
     IES_Placeholder,
     IES_Placeholder,
     IES_Placeholder,
@@ -6931,6 +6999,10 @@ intptr_t gItemIconRasterOffsets[] = {
     ICON_item_PowerPunch_raster,
     ICON_item_MiniMrMini_raster,
     ICON_item_MrSoftener_raster,
+    ICON_item_SlowShroom_raster,
+    ICON_item_GradualSyrup_raster,
+    ICON_item_CouplesCake_raster,
+    ICON_item_MeteorMeal_raster,
 };
 
 // indexed by itemID
@@ -7309,5 +7381,9 @@ intptr_t gItemIconPaletteOffsets[] = {
     ICON_item_PowerPunch_palette,
     ICON_item_MiniMrMini_palette,
     ICON_item_MrSoftener_palette,
+    ICON_item_SlowShroom_palette,
+    ICON_item_GradualSyrup_palette,
+    ICON_item_CouplesCake_palette,
+    ICON_item_MeteorMeal_palette,
 };
 

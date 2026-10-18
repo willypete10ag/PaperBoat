@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','team','victory','victory-dead'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -585,6 +585,121 @@ def run():
         capture('battle-route-world-return')
         check('route-final-capture-remains-in-world',val('gGameStatusPtr->context') == val('CONTEXT_WORLD') and val('gEncounterState') == val('ENCOUNTER_STATE_NEUTRAL'))
         put('gTtyd64PartnerHPPrototypeEnabled',0)
+    if 'regeneration' in phases:
+        enter_road_battle()
+        player, partner = 'gBattleStatus.playerActor', 'gBattleStatus.partnerActor'
+        items = ['ITEM_SLOW_SHROOM','ITEM_GRADUAL_SYRUP','ITEM_COUPLES_CAKE','ITEM_METEOR_MEAL']
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        check('regen-default-off-rejects-effects',all(val('ttyd64_status_item_apply('+i+','+partner+',1)') == 0 for i in items) and val('ttyd64_actor_set_regeneration('+player+',0,2,10)') == 0)
+        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
+        check('regen-dead-recipient-cannot-revive',val('ttyd64_actor_set_regeneration('+partner+',0,2,10)') == 0 and val('ttyd64_actor_regeneration_heal('+partner+',7)') == 0 and hp() == 0)
+        assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
+        # Synthetic event arguments exercise ACTOR_SELF in the public adapters.
+        cmd('set $regenEvt = (Evt*)heap_malloc(sizeof(Evt))')
+        cmd('call (void*)memset($regenEvt,0,sizeof(Evt))')
+        cmd('set $regenArgs = (Bytecode*)heap_malloc(3*sizeof(Bytecode))')
+        put('$regenEvt->ptrReadPos','$regenArgs');put('$regenEvt->owner1.actorID',val('ACTOR_PARTNER'))
+        for i,n in enumerate([val('ACTOR_SELF'),2,10]):put(f'$regenArgs[{i}]',n)
+        assert val('Ttyd64SetHPRegeneration($regenEvt,1)') == val('ApiStatus_DONE2')
+        assert val('Ttyd64SetFPRegeneration($regenEvt,1)') == val('ApiStatus_DONE2')
+        check('regen-public-event-self-adapters-set-independent-axes',val('PartnerModifiers[$slicePartner].hpRegen.turns') == 10 and val('PartnerModifiers[$slicePartner].fpRegen.turns') == 10)
+        cmd('call heap_free($regenArgs)');cmd('call heap_free($regenEvt)')
+        cmd('call ttyd64_actor_modifiers_clear('+partner+')')
+        # Controlled transparency excludes Goomba damage from the recovery delta;
+        # native keyboard turns still drive the beginning-of-turn hook.
+        val('inflict_status('+player+',STATUS_KEY_TRANSPARENT,20)')
+        val('inflict_status('+partner+',STATUS_KEY_TRANSPARENT,20)')
+        def select_regen(item, recipient):
+            inventory(item)
+            wheel('BTL_MENU_TYPE_ITEMS')
+            wait('gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            key('x')
+            wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+            for _ in range(4):
+                if val(player+'->targetData['+player+'->targetIndexList['+player+'->selectedTargetIndex]].actorID') == val(recipient): break
+                key('d')
+            assert val(player+'->targetData['+player+'->targetIndexList['+player+'->selectedTargetIndex]].actorID') == val(recipient)
+        def use_regen():
+            key('x')
+            wait('gBattleState == BATTLE_STATE_PARTNER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING && gBattleSubState < 4',1800)
+            assert item_count() == 1 and val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED') and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED')
+        select_regen('ITEM_SLOW_SHROOM','ACTOR_PARTNER')
+        key('c')
+        wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+        check('regen-native-cancel-retains-inventory-and-no-effect',item_count() == 2 and val('PartnerModifiers[$slicePartner].hpRegen.turns') == 0)
+        key('x');wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+        if val(player+'->targetData['+player+'->targetIndexList['+player+'->selectedTargetIndex]].actorID') != val('ACTOR_PARTNER'):key('d')
+        use_regen()
+        check('regen-slow-native-use-consumes-once-without-immediate-heal',hp() == 3 and val('PartnerModifiers[$slicePartner].hpRegen.amount') == 2 and val('PartnerModifiers[$slicePartner].hpRegen.turns') == 10)
+        spend_turn()
+        check('regen-native-begin-turn-heals-then-decrements',hp() == 5 and val('PartnerModifiers[$slicePartner].hpRegen.turns') == 9)
+        put('gPlayerData.curFP',0)
+        select_regen('ITEM_GRADUAL_SYRUP','ACTOR_PARTNER');use_regen()
+        check('regen-syrup-native-partner-axis-has-no-immediate-fp',val('gPlayerData.curFP') == 0 and val('PartnerModifiers[$slicePartner].fpRegen.turns') == 10)
+        # API controls Mario's concurrent axis and a one-turn enemy buff. Enemy
+        # FP must not touch shared player FP; final-turn healing precedes expiry.
+        val('ttyd64_actor_set_regeneration('+player+',1,1,1)')
+        enemy='gBattleStatus.enemyActors[0]'
+        put(enemy+'->curHP',1)
+        val('ttyd64_actor_set_regeneration('+enemy+',0,1,1)')
+        val('ttyd64_actor_set_regeneration('+enemy+',1,7,1)')
+        check('regen-enemy-direct-axis-has-no-extra-turn',val('ModifierActors[1].state.hpRegen.turns') == 1)
+        spend_turn()
+        check('regen-native-team-fp-adds-and-enemy-does-not-own-fp',val('gPlayerData.curFP') == 3 and val(enemy+'->curHP') == 2 and val('ModifierActors[1].state.hpRegen.amount') == 0 and val('ModifierActors[0].state.fpRegen.turns') == 0)
+        select_regen('ITEM_COUPLES_CAKE','ACTOR_PLAYER');use_regen()
+        check('regen-couples-native-self-use-consumes-without-effect',val('ModifierActors[0].state.hpRegen.turns') == 0)
+        spend_turn()
+        select_regen('ITEM_COUPLES_CAKE','ACTOR_PARTNER');use_regen()
+        check('regen-couples-native-other-recipient-replaces-hp-axis',val('PartnerModifiers[$slicePartner].hpRegen.amount') == 2 and val('PartnerModifiers[$slicePartner].hpRegen.turns') == 10)
+        spend_turn()
+        put('gPlayerData.curHP',3)
+        put('gPlayerData.equippedBadges[0]',val('ITEM_POWER_RUSH'))
+        put('gBattleStatus.rushFlags',val('RUSH_FLAG_POWER'))
+        select_regen('ITEM_METEOR_MEAL','ACTOR_PLAYER');use_regen()
+        check('regen-meteor-native-seven-now-two-for-three-turns',val('gPlayerData.curHP') == 10 and val('ModifierActors[0].state.hpRegen.amount') == 2 and val('ModifierActors[0].state.hpRegen.turns') == 3 and val('gBattleStatus.rushFlags') == 0)
+        for remaining in (2,1,0):
+            # One player + partner action per full native round.
+            spend_turn()
+            check('regen-meteor-native-expiry-turn-'+str(remaining),val('ModifierActors[0].state.hpRegen.turns') == remaining and val('gPlayerData.curHP') == 16-2*remaining)
+            if remaining:spend_turn()
+        check('regen-native-hp-fp-caps',hp() == 10 and val('gPlayerData.curFP') == val('gPlayerData.curMaxFP'))
+        # Shared API overwrite is independent of the attack/defense sign rule.
+        val('ttyd64_actor_set_regeneration('+partner+',0,-2,4)')
+        val('ttyd64_actor_set_regeneration('+partner+',0,1,3)')
+        check('regen-opposite-sign-direct-overwrite',val('PartnerModifiers[$slicePartner].hpRegen.amount') == 1 and val('PartnerModifiers[$slicePartner].hpRegen.turns') == 3)
+        other=2 if partner_id==1 else 1
+        def regen_swap(pid):
+            battle_partners()
+            for _ in range(12):
+                if val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == pid:break
+                key('s')
+            assert val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == pid
+            key('x',6)
+            wait(f'gPlayerData.curPartner == {pid} && (gBattleState == BATTLE_STATE_PLAYER_MENU || gBattleState == BATTLE_STATE_PARTNER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+        regen_swap(other)
+        saved=val('PartnerModifiers[$slicePartner].hpRegen.turns')
+        assert saved == 3
+        spend_turn()
+        check('regen-keyboard-inactive-partner-timer-pauses',val('PartnerModifiers[$slicePartner].hpRegen.turns') == saved)
+        regen_swap(partner_id)
+        check('regen-keyboard-swap-back-retains-axis',val('PartnerModifiers[$slicePartner].hpRegen.turns') in (2,3))
+        val('ttyd64_actor_set_regeneration('+player+',0,2,3)');val('ttyd64_actor_set_regeneration('+player+',1,2,3)')
+        cmd('call remove_player_buffs(PLAYER_BUFF_HP_REGEN)')
+        check('regen-native-selective-removal-preserves-other-axis',val('ModifierActors[0].state.hpRegen.turns') == 0 and val('ModifierActors[0].state.fpRegen.turns') == 3)
+        cmd('call remove_player_buffs(PLAYER_BUFF_ALL)')
+        check('regen-native-full-buff-removal-clears-team-axes',val('ModifierActors[0].state.fpRegen.turns') == 0 and val('PartnerModifiers[$slicePartner].hpRegen.turns') == 0 and val('PartnerModifiers[$slicePartner].fpRegen.turns') == 0)
+        val('ttyd64_actor_set_regeneration('+partner+',0,2,10)')
+        flee_battle()
+        check('regen-flee-clears-unsaved-axis',val('PartnerModifiers[$slicePartner].hpRegen.turns') == 0)
+        for i in range(10):put(f'gPlayerData.invItems[{i}]',val(items[i]) if i<4 else 0)
+        try:
+            cmd('call fio_save_game(3)')
+            for i in range(10):put(f'gPlayerData.invItems[{i}]',0)
+            assert val('fio_load_game(3)') == 1
+            check('regen-native-fio-round-trip-keeps-appended-ids',all(val(f'gPlayerData.invItems[{i}]') == val(item) for i,item in enumerate(items)))
+        finally:save.write_bytes(original)
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
     if 'status-items' in phases:
         enter_road_battle()
         player = 'gBattleStatus.playerActor'
@@ -1040,6 +1155,8 @@ def run():
         check('status-second-poison-tick-expires-all-three',hp() == 8 and val(f'{actor}->debuff') == 0 and val(f'{actor}->staticStatus') == 0 and val(f'{actor}->transparentStatus') == 0)
         inventory('ITEM_LIFE_SHROOM')
         assert val('ttyd64_set_partner_hp($slicePartner,1)') == 1
+        val(f'ttyd64_actor_set_regeneration({actor},0,2,10)')
+        val(f'ttyd64_actor_set_regeneration({actor},1,2,10)')
         val(f'ttyd64_actor_add_modifier({actor},0,2,4)')
         val(f'inflict_status({actor},STATUS_KEY_POISON,2)')
         val(f'inflict_status({actor},STATUS_KEY_TRANSPARENT,2)')
@@ -1048,6 +1165,7 @@ def run():
         wait('ttyd64_get_partner_hp($slicePartner) == 10 && !does_script_exist(gBattleStatus.partnerActor->handleEventScriptID)',1800)
         check('status-lethal-poison-revives-once-and-clears-cache',hp() == 10 and item_count() == 1 and val(f'{actor}->debuff') == 0 and val(f'{actor}->transparentStatus') == 0 and val('PartnerStatuses[$slicePartner].debuff') == 0 and val(f'{actor}->koStatus') == 0)
         check('modifier-native-poison-death-and-revival-clear-power',val(f'ttyd64_actor_attack_boost({actor})') == 0)
+        check('regen-native-poison-death-life-shroom-clears-both-axes',val('PartnerModifiers[$slicePartner].hpRegen.turns') == 0 and val('PartnerModifiers[$slicePartner].fpRegen.turns') == 0)
         capture('status-poison-revived')
         val(f'inflict_status({actor},STATUS_KEY_STATIC,3)')
         flee_battle()

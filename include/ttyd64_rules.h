@@ -13,6 +13,7 @@ typedef struct Ttyd64TimedModifier {
 } Ttyd64TimedModifier;
 typedef struct Ttyd64ActorModifiers {
     Ttyd64TimedModifier attack, defense;
+    Ttyd64TimedModifier hpRegen, fpRegen;
     int8_t size; // -1 tiny, +1 giant; valid only with matching attack sign
 } Ttyd64ActorModifiers;
 #define TTYD64_BP_LAST_STAND   1
@@ -29,6 +30,8 @@ typedef struct Ttyd64ActorModifiers {
 #ifdef __cplusplus
 extern "C" {
 #endif
+void ttyd64_regeneration_apply(Ttyd64TimedModifier* effect, int amount, int turns);
+int ttyd64_resource_after_regeneration(int current, int maximum, int amount);
 void ttyd64_modifier_apply(Ttyd64TimedModifier* effect, int amount, int turns, int enemy);
 void ttyd64_modifiers_advance(Ttyd64ActorModifiers* state);
 void ttyd64_modifiers_normalize_size(Ttyd64ActorModifiers* state);
