@@ -81,6 +81,10 @@ def run():
             state['partner_status'] = {name:val('gBattleStatus.partnerActor->'+name) for name in ('debuff','debuffDuration','staticStatus','staticDuration','transparentStatus','transparentDuration','stoneStatus','stoneDuration','koStatus','koDuration')}
             state['partner_status']['pillar_owned'] = bool(val('gBattleStatus.partnerActor->icePillarEffect'))
             state['partner_status']['turn_used'] = bool(val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
+        if 'regeneration' in phases and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE'):
+            state['regeneration'] = {axis:{field:val(f'PartnerModifiers[$slicePartner].{axis}.{field}') for field in ('amount','turns')} for axis in ('hpRegen','fpRegen')}
+            state['regeneration']['player_hp'] = val('gPlayerData.curHP')
+            state['regeneration']['team_fp'] = val('gPlayerData.curFP')
         states.append(state)
         if not condition:
             (root/'failed-state.json').write_text(json.dumps({'checks_passed':len(checks),'state':state,'team_trace':team_trace},indent=2)+'\n')
@@ -663,7 +667,7 @@ def run():
             spend_turn()
             check('regen-meteor-native-expiry-turn-'+str(remaining),val('ModifierActors[0].state.hpRegen.turns') == remaining and val('gPlayerData.curHP') == 16-2*remaining)
             if remaining:spend_turn()
-        check('regen-native-hp-fp-caps',hp() == 10 and val('gPlayerData.curFP') == val('gPlayerData.curMaxFP'))
+        check('regen-native-hp-fp-caps',hp() == val('ttyd64_get_partner_max_hp($slicePartner)') and val('gPlayerData.curFP') == val('gPlayerData.curMaxFP'))
         # Shared API overwrite is independent of the attack/defense sign rule.
         val('ttyd64_actor_set_regeneration('+partner+',0,-2,4)')
         val('ttyd64_actor_set_regeneration('+partner+',0,1,3)')
@@ -680,6 +684,7 @@ def run():
         regen_swap(other)
         saved=val('PartnerModifiers[$slicePartner].hpRegen.turns')
         assert saved == 3
+        spend_turn()
         spend_turn()
         check('regen-keyboard-inactive-partner-timer-pauses',val('PartnerModifiers[$slicePartner].hpRegen.turns') == saved)
         regen_swap(partner_id)
