@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include "Engine.h"
+#include "PlaytestSession.h"
 #include "port/DevTools/ThreadWatchdog.h"
 #include "port/interpolation/FrameInterpolation.h"
 #include "port/os/OS.h"
@@ -140,6 +141,10 @@ extern "C"
             return 1;
         }
         return 0;
+    }
+    const int playtest = PreparePlaytestSession(argc, argv);
+    if (playtest < 0 || playtest == 2) {
+        return playtest < 0 ? 1 : 0;
     }
     Graphics_EnableNusysThreads();
     GameEngine::Create(argc, argv);

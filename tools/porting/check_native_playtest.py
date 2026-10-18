@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Linux native-launch/input acceptance with an observing GDB; no injected setup."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+
+def utc():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def observe():
+    import gdb
+    result = {'status': 'fail', 'checks': [], 'setup': 'native CLI new-game developer profile; no debugger setup'}
+    profile = os.environ['NATIVE_PLAYTEST_PROFILE']
+
+    def cmd(command):
+        return gdb.execute(command, to_string=True)
+
+    def val(expression):
+        return int(gdb.parse_and_eval(expression))
+
+    def until(function):
+        point = gdb.Breakpoint(function, temporary=True, internal=True)
+        point.silent = True
+        cmd('continue')
+        stopped = [t for t in gdb.selected_inferior().threads() if t.is_stopped()]
+        assert len(stopped) == 1
+        stopped[0].switch()
+        assert gdb.selected_frame().name() == function
+
+    def wait(expression, budget=480):
+        for _ in range(budget):
+            if val(expression):
+                return
+            until('step_game_mode')
+        raise AssertionError('Native frame budget: ' + expression)
+
+    def check(name, condition, method='predicate after native CLI setup'):
+        assert condition, name
+        result['checks'].append(dict(check=name, method=method))
+        print('NATIVE_PLAYTEST_CHECK=' + name)
+
+    def key(name, frames=8):
+        window = subprocess.check_output(['xdotool', 'search', '--onlyvisible', '--pid',
+                                         str(gdb.selected_inferior().pid)], text=True).splitlines()[0]
+        subprocess.run(['xdotool', 'windowfocus', window], check=True)
+        subprocess.run(['xdotool', 'keydown', name], check=True)
+        try:
+            for _ in range(frames):
+                until('render_game_mode_backUI')
+        finally:
+            subprocess.run(['xdotool', 'keyup', name], check=True)
+        for _ in range(8):
+            until('render_game_mode_backUI')
+
+    def neutral():
+        wait('gGameStatus.context == CONTEXT_WORLD && WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+
+    try:
+        for setting in ('non-stop on', 'pagination off', 'confirm off', 'print thread-events off'):
+            cmd('set ' + setting)
+        point = gdb.Breakpoint('state_step_world', temporary=True, internal=True)
+        point.silent = True
+        cmd('run')
+        [t for t in gdb.selected_inferior().threads() if t.is_stopped()][0].switch()
+        neutral()
+        for _ in range(80):
+            until('step_game_mode')
+        check('native prototype enabled in Village', val('gTtyd64PartnerHPPrototypeEnabled') == 1 and
+              val('gGameStatus.areaID') == 0 and val('gGameStatus.mapID') == 1)
+        check('native Mario stats and gear', val('gPlayerData.curHP') == 15 and val('gPlayerData.curMaxHP') == 20 and
+              val('gPlayerData.curFP') == 10 and val('gPlayerData.hammerLevel') == 0 and val('gPlayerData.hasActionCommands') == 1)
+        for partner, maximum in ((1, 10), (2, 10), (3, 15)):
+            check('native ground partner ' + str(partner), val(f'gPlayerData.partners[{partner}].enabled') == 1 and
+                  val(f'gCurrentSaveFile.shipSaveData.partnerHP[{partner}].curHP') == 3 and
+                  val(f'gCurrentSaveFile.shipSaveData.partnerHP[{partner}].maxHP') == maximum)
+        check('native world partner bound', val('wCurrentPartnerId') == 1 and val('WorldPartnerID') == 1)
+        save = Path(os.environ['NATIVE_PLAYTEST_SESSION']) / 'saves/file3.json'
+        check('native save generated without a seed', save.is_file() and 'ttyd64PartnerHP' in save.read_text())
+        key('Left')
+        wait('WorldMenuState == 3 && WorldMenuType == 1 && gPopupState == POPUP_STATE_CHOOSING')
+        check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == (6 if profile == 'healing' else 10), 'real keyboard input after native CLI setup')
+        key('c')
+        neutral()
+        key('Right')
+        wait('WorldMenuState == 3 && WorldMenuType == 2 && gPopupState == POPUP_STATE_CHOOSING')
+        check('keyboard partner menu lists three', val('WorldPopupMenu.numEntries') == 3, 'real keyboard input after native CLI setup')
+        key('s')
+        key('x')
+        neutral()
+        wait('wCurrentPartnerId == PARTNER_KOOPER')
+        check('keyboard swap binds wounded Kooper', val('WorldPartnerID') == 2 and
+              val('gCurrentSaveFile.shipSaveData.partnerHP[2].curHP') == 3, 'real keyboard input after native CLI setup')
+        key('space')
+        wait('gGameStatus.context == CONTEXT_PAUSE && StepPauseDelay < -10')
+        check('keyboard pause opens', val('gGameStatus.context') == val('CONTEXT_PAUSE'), 'real keyboard input after native CLI setup')
+        key('space')
+        neutral()
+        check('keyboard unpause restores owner', val('WorldPartnerID') == 2, 'real keyboard input after native CLI setup')
+        # Explicitly controlled reset boundary; no assertion that keyboard reset was tested.
+        cmd('call set_game_mode(GAME_MODE_STARTUP)')
+        wait('gTtyd64PartnerHPPrototypeEnabled == 0')
+        for _ in range(10):
+            until('step_game_mode')
+        check('reset consumes request and leaves normal prototype off', val('gTtyd64PartnerHPPrototypeEnabled') == 0 and
+              val('gPlayerData.curHP') == 10, 'debugger API selects STARTUP; native reset runs, predicate observation')
+        result['status'] = 'pass'
+    except Exception as error:
+        result['error'] = str(error)
+        raise
+    finally:
+        Path(os.environ['NATIVE_PLAYTEST_PAYLOAD']).write_text(json.dumps(result, indent=2) + '\n')
+        cmd('kill')
+
+
+def main():
+    import argparse
+    import signal
+    import tempfile
+    parser = argparse.ArgumentParser(description=__doc__)
+    for arg in ('executable', 'package', 'archive', 'output'):
+        parser.add_argument('--' + arg, type=Path, required=True)
+    args = parser.parse_args()
+    exe, package, archive, output = (getattr(args, k).resolve() for k in ('executable', 'package', 'archive', 'output'))
+    output.mkdir(parents=True, exist_ok=False)
+    source = Path(__file__).resolve().parents[2]
+    commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=source, text=True).strip()
+    assert not subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=normal'], cwd=source), 'Commit changes before recording acceptance'
+    digest = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+    read_fd, write_fd = os.pipe()
+    xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1280x800x24', '-nolisten', 'tcp'],
+                            pass_fds=(write_fd,), stdout=subprocess.DEVNULL, stderr=(output / 'xvfb.log').open('w'))
+    os.close(write_fd)
+    with os.fdopen(read_fd) as stream:
+        display = ':' + stream.readline().strip()
+    assert display != ':' and xvfb.poll() is None, 'Owned Xvfb failed to start'
+    try:
+        for profile in ('healing', 'status'):
+            session = output / ('session-' + profile)
+            payload = output / (profile + '-checks.json')
+            started = utc()
+            env = dict(os.environ, DISPLAY=display, SDL_AUDIODRIVER='dummy', LIBGL_ALWAYS_SOFTWARE='1',
+                       DEBUGINFOD_URLS='', XDG_CACHE_HOME=str(output / 'cache'), NATIVE_PLAYTEST_PROFILE=profile,
+                       NATIVE_PLAYTEST_SESSION=str(session), NATIVE_PLAYTEST_PAYLOAD=str(payload))
+            command = ['gdb', '-q', '-batch', '-x', str(Path(__file__).resolve()), '--args', str(exe),
+                       '--ttyd64-playtest', str(session), str(package), str(archive), profile]
+            log = output / (profile + '.log')
+            with log.open('w') as stream:
+                process = subprocess.Popen(command, cwd=package, env=env, stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
+                try:
+                    code = process.wait(timeout=240)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGTERM)
+                    code = process.wait(timeout=20)
+            data = json.loads(payload.read_text()) if payload.exists() else {'status': 'fail', 'error': 'No check payload'}
+            data.update(git_commit=commit, executable_sha256=digest(exe), fixture_sha256=digest(Path(__file__)),
+                        archive_sha256=digest(archive), started_utc=started, ended_utc=utc(), exit_code=code,
+                        command=command, full_log=log.read_text(), skipped=['build performed separately', 'ROM extraction; supplied verified archive reused',
+                        'Windows rendering/input', 'hardware graphics/audio', 'full 51-fixture regression'])
+            if code:
+                data['status'] = 'fail'
+            (output / (profile + '-result.json')).write_text(json.dumps(data, indent=2) + '\n')
+            print(profile + ': ' + data['status'], flush=True)
+            if data['status'] != 'pass':
+                raise RuntimeError('Native playtest failed; inspect ' + str(output))
+    finally:
+        xvfb.terminate()
+        xvfb.wait(timeout=10)
+
+
+try:
+    import gdb
+except ImportError:
+    if __name__ == '__main__':
+        main()
+else:
+    observe()

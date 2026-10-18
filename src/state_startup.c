@@ -5,6 +5,7 @@
 #include "game_modes.h"
 #include "dx/config.h"
 #include "dx/versioning.h"
+#include "port/PlaytestSession.h"
 
 // Set by the port's "reset" command.
 b32 gPortResetToTitleScreen = false;
@@ -91,6 +92,10 @@ void state_step_startup(void) {
         set_curtain_scale(1.0f);
         set_curtain_fade(0.0f);
         set_game_mode(GAME_MODE_TITLE_SCREEN);
+        return;
+    }
+
+    if (ttyd64_playtest_startup()) {
         return;
     }
 

@@ -104,6 +104,18 @@ jobs:
       - name: ROM-free gameplay tests
         run: ctest --test-dir build/ninja-release --output-on-failure -R ttyd64_gameplay_logic --no-tests=error
 
+      - name: ROM-free playtest process and save isolation checks
+        run: |
+          cp tools/porting/fixtures/keyboard.json build/ninja-release/playtest-keyboard.json
+          python3 tools/porting/check_playtest_preflight.py --executable build/ninja-release/Paperboat --package build/ninja-release --output playtest-preflight-linux.json
+
+      - name: Upload playtest process evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playtest-preflight-linux
+          path: playtest-preflight-linux.json
+
       - name: Read build name
         id: build-name
         run: echo "name=$(sed -n 's/^PROJECT_BUILD_NAME:STRING=//p' build/ninja-release/CMakeCache.txt)" >> "$GITHUB_OUTPUT"
@@ -181,10 +193,25 @@ jobs:
           Move-Item build/x64/Release/assets Paperboat-windows/
           Get-ChildItem build/x64/Release/*.pdb | Move-Item -Destination Paperboat-windows/debug/
           Copy-Item README.md Paperboat-windows/readme.txt
+          Copy-Item tools/porting/Play-TTYD64.ps1 Paperboat-windows/
+          Copy-Item tools/porting/Play-TTYD64.cmd Paperboat-windows/
+          Copy-Item tools/porting/WINDOWS-PLAYTEST.md Paperboat-windows/PLAYTEST.txt
+          Copy-Item tools/porting/fixtures/keyboard.json Paperboat-windows/playtest-keyboard.json
           $shaderc = Get-ChildItem "$env:VULKAN_SDK/Bin/shaderc_shared.dll" -ErrorAction SilentlyContinue
           if (-not $shaderc) { throw "shaderc_shared.dll not found in the Vulkan SDK; the Vulkan backend would not start" }
           Copy-Item $shaderc.FullName Paperboat-windows/
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/master/gamecontrollerdb.txt" -OutFile "Paperboat-windows/gamecontrollerdb.txt"
+
+      - name: ROM-free packaged Windows process and save isolation checks
+        run: |
+          python tools/porting/check_playtest_preflight.py --executable Paperboat-windows/Paperboat.exe --package Paperboat-windows --output playtest-preflight-windows.json
+
+      - name: Upload playtest process evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playtest-preflight-windows
+          path: playtest-preflight-windows.json
 
       - name: Upload build
         uses: actions/upload-artifact@v7
