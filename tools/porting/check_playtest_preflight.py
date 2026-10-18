@@ -34,7 +34,12 @@ def main():
         checks=[], runs=[], status='fail')
     result['fixture_commit'] = args.fixture_commit or result['git_commit']
     blob = subprocess.check_output(['git', 'show', result['fixture_commit'] + ':tools/porting/check_playtest_preflight.py'])
-    assert hashlib.sha256(blob).hexdigest() == result['fixture_sha256'], 'Fixture differs from its stated commit'
+    actual = Path(__file__).read_bytes()
+    result['fixture_git_blob_sha256'] = hashlib.sha256(blob).hexdigest()
+    result['fixture_checkout_conversion'] = 'none' if actual == blob else 'git_crlf_lf'
+    # Git's Windows checkout can convert LF to CRLF. Preserve the actual run
+    # hash above, expose the original blob hash, and allow only that conversion.
+    assert actual.replace(b'\r\n', b'\n') == blob.replace(b'\r\n', b'\n'), 'Fixture differs from its stated commit'
     try:
         with tempfile.TemporaryDirectory(prefix='PaperBoat playtest paths ') as tmp:
             root = Path(tmp)
