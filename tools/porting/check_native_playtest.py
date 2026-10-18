@@ -48,6 +48,8 @@ def observe():
         print('NATIVE_PLAYTEST_CHECK=' + name)
 
     def key(name, frames=8):
+        if val('gPopupState') == val('POPUP_STATE_CHOOSING') and val('PopupDelayTime') > 0:
+            wait('gPopupState != POPUP_STATE_CHOOSING || PopupDelayTime == 0')
         window = subprocess.check_output(['xdotool', 'search', '--onlyvisible', '--pid',
                                          str(gdb.selected_inferior().pid)], text=True).splitlines()[0]
         subprocess.run(['xdotool', 'windowfocus', window], check=True)
@@ -140,13 +142,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for arg in ('executable', 'package', 'archive', 'output'):
         parser.add_argument('--' + arg, type=Path, required=True)
+    parser.add_argument('--source', type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument('--fixture-commit', help='Committed exported driver revision; defaults to the game checkout HEAD')
     args = parser.parse_args()
     exe, package, archive, output = (getattr(args, k).resolve() for k in ('executable', 'package', 'archive', 'output'))
     output.mkdir(parents=True, exist_ok=False)
-    source = Path(__file__).resolve().parents[2]
+    source = args.source.resolve()
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=source, text=True).strip()
     assert not subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=normal'], cwd=source), 'Commit changes before recording acceptance'
     digest = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+    fixture_commit = args.fixture_commit or commit
+    blob = subprocess.check_output(['git', 'show', fixture_commit + ':tools/porting/check_native_playtest.py'], cwd=source)
+    assert hashlib.sha256(blob).hexdigest() == digest(Path(__file__)), 'Driver differs from stated fixture commit'
     read_fd, write_fd = os.pipe()
     xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1280x800x24', '-nolisten', 'tcp'],
                             pass_fds=(write_fd,), stdout=subprocess.DEVNULL, stderr=(output / 'xvfb.log').open('w'))
@@ -173,7 +180,7 @@ def main():
                     os.killpg(process.pid, signal.SIGTERM)
                     code = process.wait(timeout=20)
             data = json.loads(payload.read_text()) if payload.exists() else {'status': 'fail', 'error': 'No check payload'}
-            data.update(git_commit=commit, fixture_commit=commit, executable_sha256=digest(exe), fixture_sha256=digest(Path(__file__)),
+            data.update(git_commit=commit, fixture_commit=fixture_commit, executable_sha256=digest(exe), fixture_sha256=digest(Path(__file__)),
                         archive_sha256=digest(archive), started_utc=started, ended_utc=utc(), exit_code=code,
                         command=command, full_log=log.read_text(), skipped=['build performed separately', 'ROM extraction; supplied verified archive reused',
                         'Windows rendering/input', 'hardware graphics/audio', 'full 51-fixture regression'])
