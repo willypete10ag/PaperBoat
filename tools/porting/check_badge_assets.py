@@ -19,7 +19,7 @@ checks = []
 for name, width, height in (
     ("pityflower", 32, 32), ("jumpman", 32, 32), ("hammerman", 32, 32),
     ("fpdrain", 32, 32), ("fp_drain_label", 40, 16),
-    ("courageshell", 32, 32), ("powerpunch", 32, 32), ("minimrmini", 32, 32), ("mrsoftener", 32, 32)
+    ("courageshell", 32, 32), ("powerpunch", 32, 32), ("minimrmini", 32, 32), ("mrsoftener", 32, 32), ("slowshroom", 32, 32), ("gradualsyrup", 32, 32), ("couplescake", 32, 32), ("meteormeal", 32, 32)
 ):
     path = source / (name + ".png")
     raster, colors = indexed_png(path, width, height)

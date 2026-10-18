@@ -31,8 +31,9 @@ int main() {
     CHECK(ttyd64_consumable_id_at(-1) == ITEM_NONE);
     CHECK(ttyd64_consumable_id_at(0) == ITEM_FIRST_CONSUMABLE);
     CHECK(ttyd64_consumable_id_at(95) == ITEM_FIRST_CONSUMABLE + 95);
-    const int addedItems[] = { ITEM_COURAGE_SHELL, ITEM_POWER_PUNCH, ITEM_MINI_MR_MINI, ITEM_MR_SOFTENER };
-    for (int i = 0; i < 4; ++i)
+    const int addedItems[] = { ITEM_COURAGE_SHELL, ITEM_POWER_PUNCH,   ITEM_MINI_MR_MINI, ITEM_MR_SOFTENER,
+                               ITEM_SLOW_SHROOM,   ITEM_GRADUAL_SYRUP, ITEM_COUPLES_CAKE, ITEM_METEOR_MEAL };
+    for (int i = 0; i < 8; ++i)
         CHECK(ttyd64_consumable_id_at(96 + i) == addedItems[i]);
     CHECK(ttyd64_consumable_id_at(ITEM_NUM_CONSUMABLES) == ITEM_NONE);
     CHECK(ttyd64_softener_amount(-1, 3) == 0);
@@ -197,5 +198,32 @@ int main() {
         ttyd64_modifier_apply(&m.attack, 0, 3, enemy);
         CHECK(m.attack.amount == 0 && m.attack.turns == 0);
     }
+    // Direct regen overwrite differs from attack/defense cancellation. Both
+    // axes get their final recovery before independent decay clears them.
+    Ttyd64ActorModifiers regen {};
+    ttyd64_regeneration_apply(&regen.hpRegen, 2, 10);
+    ttyd64_regeneration_apply(&regen.fpRegen, 3, 2);
+    int hp = 1, fp = 0;
+    for (int turn = 0; turn < 10; ++turn) {
+        hp = ttyd64_resource_after_regeneration(hp, 50, regen.hpRegen.amount);
+        fp = ttyd64_resource_after_regeneration(fp, 5, regen.fpRegen.amount);
+        ttyd64_modifiers_advance(&regen);
+        CHECK(regen.hpRegen.turns == 9 - turn);
+    }
+    CHECK(hp == 21 && fp == 5);
+    CHECK(!regen.hpRegen.amount && !regen.fpRegen.amount);
+    ttyd64_regeneration_apply(&regen.hpRegen, -3, 4);
+    ttyd64_regeneration_apply(&regen.hpRegen, 1, 2);
+    CHECK(regen.hpRegen.amount == 1 && regen.hpRegen.turns == 2);
+    ttyd64_regeneration_apply(&regen.hpRegen, INT_MIN, INT_MAX);
+    CHECK(regen.hpRegen.amount == -128 && regen.hpRegen.turns == 255);
+    ttyd64_regeneration_apply(&regen.fpRegen, INT_MAX, 1);
+    CHECK(regen.fpRegen.amount == 127 && regen.fpRegen.turns == 1);
+    ttyd64_regeneration_apply(&regen.hpRegen, 2, 0);
+    CHECK(!regen.hpRegen.amount && !regen.hpRegen.turns);
+    CHECK(ttyd64_resource_after_regeneration(1, 10, -3) == 0);
+    CHECK(ttyd64_resource_after_regeneration(9, 10, 3) == 10);
+    CHECK(ttyd64_resource_after_regeneration(INT_MAX, INT_MAX, INT_MAX) == INT_MAX);
+    CHECK(ttyd64_resource_after_regeneration(1, -1, 3) == 0);
     std::cout << checks << " ROM-free gameplay assertions passed\n";
 }

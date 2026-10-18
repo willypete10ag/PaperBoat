@@ -974,6 +974,8 @@ API_CALLABLE(ShowShockEffect);
 /// @evtapi
 /// @param actorID
 /// @param outValue
+API_CALLABLE(Ttyd64SetHPRegeneration);
+API_CALLABLE(Ttyd64SetFPRegeneration);
 API_CALLABLE(Ttyd64AddAttackBoost);
 API_CALLABLE(Ttyd64AddDefenseBoost);
 API_CALLABLE(Ttyd64MakeActorTiny);

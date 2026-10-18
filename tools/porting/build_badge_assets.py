@@ -118,7 +118,7 @@ def main():
         for disabled in (False, True):
             suffix = ".disabled.pal" if disabled else ".pal"
             texture(staging, "icons/badge/" + name + suffix, 2, 16, 1, rgba16_palette(colors, disabled))
-    for stem, name in (('courageshell', 'CourageShell'), ('powerpunch', 'PowerPunch'), ('minimrmini', 'MiniMrMini'), ('mrsoftener', 'MrSoftener')):
+    for stem, name in (('courageshell', 'CourageShell'), ('powerpunch', 'PowerPunch'), ('minimrmini', 'MiniMrMini'), ('mrsoftener', 'MrSoftener'), ('slowshroom', 'SlowShroom'), ('gradualsyrup', 'GradualSyrup'), ('couplescake', 'CouplesCake'), ('meteormeal', 'MeteorMeal')):
         raster, colors = indexed_png(source / (stem + ".png"))
         texture(staging, "icons/item/" + name, 3, 32, 32, raster)
         for disabled in (False, True):

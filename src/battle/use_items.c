@@ -72,6 +72,10 @@ s32 ItemKeys[] = {
     ITEM_POWER_PUNCH,
     ITEM_MINI_MR_MINI,
     ITEM_MR_SOFTENER,
+    ITEM_SLOW_SHROOM,
+    ITEM_GRADUAL_SYRUP,
+    ITEM_COUPLES_CAKE,
+    ITEM_METEOR_MEAL,
     ITEM_NONE
 };
 
@@ -108,6 +112,10 @@ BattleMoveEntry gBattleItemTable[] = {
     BTL_ITEM(electro_pop),
     BTL_ITEM(strange_cake),
     BTL_ITEM(strange_cake),
+    { .mainScript = battle_item_ttyd64_status_EVS_UseItem },
+    { .mainScript = battle_item_ttyd64_status_EVS_UseItem },
+    { .mainScript = battle_item_ttyd64_status_EVS_UseItem },
+    { .mainScript = battle_item_ttyd64_status_EVS_UseItem },
     { .mainScript = battle_item_ttyd64_status_EVS_UseItem },
     { .mainScript = battle_item_ttyd64_status_EVS_UseItem },
     { .mainScript = battle_item_ttyd64_status_EVS_UseItem },

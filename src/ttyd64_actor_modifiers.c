@@ -1,5 +1,6 @@
 #include "ttyd64_actor_modifiers.h"
 #include "battle/battle.h"
+#include "effects.h"
 
 // Source Battle_ExtraActorData_Everyone and Battle_PartnersExtraActorData.
 // Partners retain their own records across swaps; inactive timers pause.
@@ -88,6 +89,81 @@ void ttyd64_actor_modifiers_clear_axis(Actor* actor, b32 defense) {
 static b32 alive(Actor* actor) {
     return actor->actorID == ACTOR_PLAYER ? gPlayerData.curHP > 0 : actor->curHP > 0;
 }
+b32 ttyd64_actor_set_regeneration(Actor* actor, b32 fp, s32 amount, s32 turns) {
+    Ttyd64ActorModifiers* state = record(actor, true);
+    if (state == nullptr || !alive(actor))
+        return false;
+    ttyd64_regeneration_apply(fp ? &state->fpRegen : &state->hpRegen, amount, turns);
+    return true;
+}
+void ttyd64_actor_clear_regeneration(Actor* actor, b32 fp) {
+    Ttyd64ActorModifiers* state = record(actor, true);
+    if (state != nullptr)
+        *(fp ? &state->fpRegen : &state->hpRegen) = (Ttyd64TimedModifier) { 0 };
+}
+static void update_rush(void) {
+    gBattleStatus.rushFlags = RUSH_FLAG_NONE;
+    gBattleStatus.flags2 &= ~BS_FLAGS2_HAS_RUSH;
+    if (gPlayerData.curHP <= PERIL_THRESHOLD && is_ability_active(ABILITY_MEGA_RUSH))
+        gBattleStatus.rushFlags = RUSH_FLAG_MEGA;
+    else if (gPlayerData.curHP <= DANGER_THRESHOLD && is_ability_active(ABILITY_POWER_RUSH))
+        gBattleStatus.rushFlags = RUSH_FLAG_POWER;
+    if (gBattleStatus.rushFlags != RUSH_FLAG_NONE)
+        gBattleStatus.flags2 |= BS_FLAGS2_HAS_RUSH;
+}
+s32 ttyd64_actor_regeneration_heal(Actor* actor, s32 amount) {
+    if (!ttyd64_actor_modifiers_active(actor) || !alive(actor))
+        return 0;
+    s32 current = actor->actorID == ACTOR_PLAYER ? gPlayerData.curHP : actor->curHP;
+    s32 maximum = actor->actorID == ACTOR_PLAYER ? gPlayerData.curMaxHP : actor->maxHP;
+    s32 next = ttyd64_resource_after_regeneration(current, maximum, amount);
+    if (actor->actorID == ACTOR_PLAYER) {
+        gPlayerData.curHP = next;
+        update_rush();
+    } else if (actor->actorID == ACTOR_PARTNER) {
+        ttyd64_set_partner_hp(gPlayerData.curPartner, next);
+    } else {
+        actor->curHP = next;
+    }
+    return next - current;
+}
+// Battle_StatusEffects begin-player-turn hook: all present actors recover
+// before any timers decay. Inactive partner sidecars are deliberately untouched.
+// Partner death clears buffs before Life Shroom; regeneration cannot revive.
+void ttyd64_actor_regeneration_recover(void) {
+    Actor* actors[2 + MAX_ENEMY_ACTORS];
+    actors[0] = gBattleStatus.playerActor;
+    actors[1] = gBattleStatus.partnerActor;
+    for (s32 i = 0; i < MAX_ENEMY_ACTORS; i++)
+        actors[i + 2] = gBattleStatus.enemyActors[i];
+    b32 shown = false;
+    for (s32 i = 0; i < ARRAY_COUNT(actors); i++) {
+        Actor* actor = actors[i];
+        Ttyd64ActorModifiers* state = record(actor, true);
+        if (state == nullptr)
+            continue;
+        if (!alive(actor)) {
+            *state = (Ttyd64ActorModifiers) { 0 };
+            continue;
+        }
+        s32 hp = state->hpRegen.turns ? state->hpRegen.amount : 0;
+        s32 fp = state->fpRegen.turns ? state->fpRegen.amount : 0;
+        if (hp) {
+            ttyd64_actor_regeneration_heal(actor, hp);
+            fx_recover(0, actor->curPos.x, actor->curPos.y + 20, actor->curPos.z, hp);
+            shown = true;
+        }
+        if (fp) {
+            // Source displays enemy FP effects but only the player team owns FP.
+            if (actor->actorID < ACTOR_ENEMY0)
+                gPlayerData.curFP = ttyd64_resource_after_regeneration(gPlayerData.curFP, gPlayerData.curMaxFP, fp);
+            fx_recover(1, actor->curPos.x, actor->curPos.y + (hp ? 43 : 20), actor->curPos.z, fp);
+            shown = true;
+        }
+    }
+    if (shown)
+        sfx_play_sound(SOUND_HEART_PICKUP);
+}
 b32 ttyd64_actor_add_modifier(Actor* actor, b32 defense, s32 amount, s32 turns) {
     Ttyd64ActorModifiers* state = record(actor, true);
     if (state == nullptr || !alive(actor))
@@ -162,6 +238,20 @@ static ApiStatus add_api(Evt* script, b32 defense) {
     s32 turns = evt_get_variable(script, *args++);
     ttyd64_actor_add_modifier(actor, defense, amount, turns);
     return ApiStatus_DONE2;
+}
+static ApiStatus regeneration_api(Evt* script, b32 fp) {
+    Bytecode* args = script->ptrReadPos;
+    Actor* actor = api_actor(script, &args);
+    s32 amount = evt_get_variable(script, *args++);
+    s32 turns = evt_get_variable(script, *args++);
+    ttyd64_actor_set_regeneration(actor, fp, amount, turns);
+    return ApiStatus_DONE2;
+}
+API_CALLABLE(Ttyd64SetHPRegeneration) {
+    return regeneration_api(script, false);
+}
+API_CALLABLE(Ttyd64SetFPRegeneration) {
+    return regeneration_api(script, true);
 }
 API_CALLABLE(Ttyd64AddAttackBoost) {
     return add_api(script, false);

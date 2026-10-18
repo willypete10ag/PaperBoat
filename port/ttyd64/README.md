@@ -20,3 +20,8 @@ Courage Shell, Power Punch, Mini Mr. Mini and Mr. Softener artwork comes from
 at the same reference revision; names/descriptions from string sections23/26.
 These are published source assets. The same converter generates native item
 textures/palettes and messages; no ROM-derived resource is committed.
+
+Slow Shroom, Gradual Syrup, Couple's Cake and Meteor Meal use the same source
+revision's published item PNGs `{slowshroom,gradualsyrup,couplescake,meteormeal}`
+and patched 23/26 strings. Only their guarded battle consumers are ported here;
+world use, recipes and acquisition remain unfinished. No ROM-derived data.

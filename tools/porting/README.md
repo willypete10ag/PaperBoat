@@ -217,3 +217,25 @@ scale and frame progression are not independent visual inspection. Published
 source PNGs use the same independent decoder check as badge assets. No normal
 activation, new shops/campaign acquisition, enemy/partner-owned item choreography,
 source status counters, regen/charge or hardware/audio acceptance is implied.
+
+## Guarded regeneration consumer group
+
+`regeneration-1`, `regeneration-2`, and `regeneration-3` share native keyboard
+item/recipient/cancel/consumption/turn checks for the three supported ground
+partners. Slow Shroom and Couple's Cake set HP +2 for 10 turns; the latter
+consumes without effect on its Mario owner. Gradual Syrup sets recipient-owned
+FP +2 for 10 turns, recovering shared player-team FP. Meteor Meal heals its
+recipient 7 immediately, then HP +2 for 3 turns. IDs 0x175–0x178 append;
+all original IDs/save fields remain unchanged. Normal activation stays off.
+Only guarded battle consumers are implemented; source world use, shops and
+recipes are pending. Source message-box/wave choreography and persistent
+regeneration counters are not complete.
+
+Recovery runs at native begin-player-turn before all modifier decay. Inactive
+partners pause; enemy FP effects do not restore player FP. Setters overwrite
+HP/FP axes directly, independently of attack/defense sign cancellation. Native
+full clear/death/battle cleanup removes them, and they are never serialized.
+The phase discloses debugger inventory/map/HP/transparency setup and controlled
+API cases separately from real input. Numeric HP/timer/FX observations do not
+establish independent visual, hardware or audible acceptance. The existing
+status phase also exercises poison death/Life Shroom with both regen axes set.

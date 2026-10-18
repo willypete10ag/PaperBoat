@@ -16225,6 +16225,14 @@ static const char* const gMsgPaths_sec2F[] = {
     "__OTR__messages/ttyd64/MiniMrMiniDesc",
     "__OTR__messages/ttyd64/MrSoftenerName",
     "__OTR__messages/ttyd64/MrSoftenerDesc",
+    "__OTR__messages/ttyd64/SlowShroomName",
+    "__OTR__messages/ttyd64/SlowShroomDesc",
+    "__OTR__messages/ttyd64/GradualSyrupName",
+    "__OTR__messages/ttyd64/GradualSyrupDesc",
+    "__OTR__messages/ttyd64/CouplesCakeName",
+    "__OTR__messages/ttyd64/CouplesCakeDesc",
+    "__OTR__messages/ttyd64/MeteorMealName",
+    "__OTR__messages/ttyd64/MeteorMealDesc",
 };
 
 static const char* const* const gMsgSectionPaths[] = {

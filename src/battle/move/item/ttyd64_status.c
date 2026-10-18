@@ -10,8 +10,10 @@
 API_CALLABLE(N(Prepare)) {
     script->varTable[10] = gBattleStatus.moveArgument;
     script->varTable[9] = gBattleStatus.moveArgument;
-    script->varTable[8] =
-        gBattleStatus.moveArgument == ITEM_COURAGE_SHELL || gBattleStatus.moveArgument == ITEM_POWER_PUNCH;
+    script->varTable[8] = gBattleStatus.moveArgument == ITEM_COURAGE_SHELL
+        || gBattleStatus.moveArgument == ITEM_POWER_PUNCH
+        || (gBattleStatus.moveArgument >= ITEM_SLOW_SHROOM && gBattleStatus.moveArgument <= ITEM_METEOR_MEAL);
+    script->varTable[7] = (gItemTable[gBattleStatus.moveArgument].typeFlags & ITEM_TYPE_FLAG_USE_DRINK_ANIMATION) != 0;
     script->varTable[1] = false;
     return ApiStatus_DONE2;
 }
@@ -21,7 +23,7 @@ API_CALLABLE(N(Apply)) {
     return ApiStatus_DONE2;
 }
 EvtScript N(EVS_UseItem) = {
-    Call(N(Prepare)) ExecWait(N(UseItemWithEffect)) IfEq(LVar9, ITEM_POWER_PUNCH) ExecWait(N(DrinkItem))
+    Call(N(Prepare)) ExecWait(N(UseItemWithEffect)) IfEq(LVar7, true) ExecWait(N(DrinkItem))
         EndIf Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_Idle) Call(UseBattleCamPreset, BTL_CAM_DEFAULT)
             IfEq(LVar8, true) Call(N(Apply)) Else Call(InitTargetIterator) Label(0) Call(SetGoalToTarget, ACTOR_SELF)
                 Set(LVar0, 0) Call(ItemCheckHit, LVar0, DAMAGE_TYPE_NO_CONTACT, 0, LVar0, 0)

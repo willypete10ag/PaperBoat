@@ -232,6 +232,7 @@ void ttyd64_partner_combat_begin_round(void) {
 
 void ttyd64_partner_combat_begin_player_turn(void) {
     Actor* actor = gBattleStatus.partnerActor;
+    ttyd64_actor_regeneration_recover();
     ttyd64_actor_modifiers_advance();
     ttyd64_partner_status_update(actor);
     // Battle_PartnersExtraActorData.patch AdvancePartnersExtraData: inactive

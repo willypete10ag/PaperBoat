@@ -2597,6 +2597,10 @@ void remove_player_buffs(s32 buffs) {
     Actor* partner = battleStatus->partnerActor;
     ActorPart* playerActorParts = player->partsTable;
 
+    if (buffs & PLAYER_BUFF_HP_REGEN)
+        ttyd64_actor_clear_regeneration(player, false);
+    if (buffs & PLAYER_BUFF_FP_REGEN)
+        ttyd64_actor_clear_regeneration(player, true);
     if (buffs & PLAYER_BUFF_JUMP_CHARGE) {
         ttyd64_actor_modifiers_clear_axis(player, false);
         battleStatus->jumpCharge = 0;
@@ -2651,6 +2655,8 @@ void remove_player_buffs(s32 buffs) {
     }
 
     if (partner != nullptr && (buffs & PLAYER_BUFF_PARTNER_GLOWING)) {
+        ttyd64_actor_clear_regeneration(partner, false);
+        ttyd64_actor_clear_regeneration(partner, true);
         partner->isGlowing = false;
         gBattleStatus.flags1 &= ~BS_FLAGS1_GOOMBARIO_CHARGED;
     }

@@ -119,7 +119,27 @@ void ttyd64_modifiers_normalize_size(Ttyd64ActorModifiers* state) {
         || (state->size > 0 && state->attack.amount <= 0))
         state->size = 0;
 }
+// HP/FP source setters overwrite directly, without sign cancellation or an
+// enemy extra turn. Expiry is after recovery; keep arithmetic bounded in C.
+void ttyd64_regeneration_apply(Ttyd64TimedModifier* effect, int amount, int turns) {
+    if (!amount || turns <= 0) {
+        *effect = (Ttyd64TimedModifier) { 0 };
+        return;
+    }
+    effect->amount = amount < -128 ? -128 : (amount > 127 ? 127 : amount);
+    effect->turns = turns > 255 ? 255 : turns;
+}
+int ttyd64_resource_after_regeneration(int current, int maximum, int amount) {
+    int64_t next = (int64_t) current + amount;
+    if (maximum < 0 || next < 0)
+        return 0;
+    return next > maximum ? maximum : (int) next;
+}
 void ttyd64_modifiers_advance(Ttyd64ActorModifiers* state) {
+    if (state->hpRegen.turns && --state->hpRegen.turns == 0)
+        state->hpRegen.amount = 0;
+    if (state->fpRegen.turns && --state->fpRegen.turns == 0)
+        state->fpRegen.amount = 0;
     if (state->attack.turns && --state->attack.turns == 0)
         state->attack.amount = 0;
     if (state->defense.turns && --state->defense.turns == 0)
