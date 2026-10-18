@@ -25,12 +25,16 @@ def main():
     parser.add_argument('--executable', type=Path, required=True)
     parser.add_argument('--package', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--fixture-commit', help='Revision of an exported committed fixture; defaults to checkout HEAD')
     args = parser.parse_args()
     exe, package, output = args.executable.resolve(), args.package.resolve(), args.output.resolve()
     result = dict(started_utc=utc(), git_commit=subprocess.check_output(
         ['git', 'rev-parse', 'HEAD'], text=True).strip(), executable_sha256=sha(exe),
         fixture_sha256=sha(__file__), method='real native process CLI; synthetic non-ROM archive; no engine/gameplay',
         checks=[], runs=[], status='fail')
+    result['fixture_commit'] = args.fixture_commit or result['git_commit']
+    blob = subprocess.check_output(['git', 'show', result['fixture_commit'] + ':tools/porting/check_playtest_preflight.py'])
+    assert hashlib.sha256(blob).hexdigest() == result['fixture_sha256'], 'Fixture differs from its stated commit'
     try:
         with tempfile.TemporaryDirectory(prefix='PaperBoat playtest paths ') as tmp:
             root = Path(tmp)
@@ -58,8 +62,11 @@ def main():
                 session = root / ('new session ' + profile)
                 run(session, profile)
                 info = json.loads((session / 'playtest-session.json').read_text())
-                check(profile + ' isolated roots', info['session'] == str(session) and
-                      info['save_directory'] == str(session / 'saves') and info['config'] == str(session / 'paperboat.cfg.json'))
+                # Windows may expand an 8.3 user directory (RUNNER~1) to its long
+                # name. Prove actual identity, not equality of display strings.
+                check(profile + ' isolated roots', Path(info['session']).samefile(session) and
+                      Path(info['save_directory']).resolve() == (session / 'saves').resolve() and
+                      Path(info['config']).samefile(session / 'paperboat.cfg.json'))
                 check(profile + ' preflight does not create saves', not (session / 'saves').exists() and info['preflight_only'])
                 check(profile + ' copies only supplied archive', sha(session / 'pm64.o2r') == sha(fake))
                 check(profile + ' copies own archive', sha(session / 'paperboat.o2r') == sha(package / 'paperboat.o2r'))

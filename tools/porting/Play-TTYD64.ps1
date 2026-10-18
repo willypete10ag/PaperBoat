@@ -3,7 +3,7 @@
 param(
     [string]$Rom,
     [string]$Archive,
-    [ValidateSet('healing', 'status')][string]$Profile = 'healing',
+    [Alias('Profile')][ValidateSet('healing', 'status')][string]$PlaytestProfile = 'healing',
     [string]$SessionRoot = (Join-Path $env:LOCALAPPDATA 'PaperBoat-TTYD64-playtest'),
     [switch]$PreflightOnly
 )
@@ -75,16 +75,16 @@ try {
     $mode = '--ttyd64-playtest'
     if ($PreflightOnly) { $mode = '--ttyd64-playtest-preflight' }
     @{
-        started_utc = [DateTime]::UtcNow.ToString('o'); profile = $Profile; session = $session
+        started_utc = [DateTime]::UtcNow.ToString('o'); profile = $PlaytestProfile; session = $session
         preflight_only = [bool]$PreflightOnly
         executable_sha256 = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
         launcher_sha256 = (Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash
         archive_sha256 = (Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash
     } | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath (Join-Path $logs 'launch.json')
-    Write-Host "Fresh isolated $Profile session: $session"
+    Write-Host "Fresh isolated $PlaytestProfile session: $session"
     Write-Host 'WASD move; X confirm/jump; C cancel/hammer; Space pause; Left items; Right partners; Z battle order.'
     Write-Host 'Starts in Goomba Village. The right exit leads toward Goomba Road battles. Close the game to finish.'
-    Run-Paperboat -Arguments @($mode, $session, $package, $Archive, $Profile) -LogBase (Join-Path $logs 'game')
+    Run-Paperboat -Arguments @($mode, $session, $package, $Archive, $PlaytestProfile) -LogBase (Join-Path $logs 'game')
     [DateTime]::UtcNow.ToString('o') | Set-Content -LiteralPath (Join-Path $logs 'finished-utc.txt')
     Write-Host "Finished. Session saves/config: $session. Launcher logs: $logs"
 } catch {

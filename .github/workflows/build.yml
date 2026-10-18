@@ -21,8 +21,9 @@ concurrency:
 
 jobs:
   preflight-diagnostics:
-    name: Publish previous Windows preflight diagnostic
-    if: github.event_name == 'pull_request'
+    name: Publish Windows preflight evidence
+    needs: build-windows
+    if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -34,7 +35,7 @@ jobs:
             const { createHash } = require('crypto');
             const { writeFileSync } = require('fs');
             const { execFileSync } = require('child_process');
-            const runId = 39103695406; // Recover the already-preserved failed report.
+            const runId = context.runId;
             const { data } = await github.rest.actions.listWorkflowRunArtifacts({
               ...context.repo, run_id: runId
             });
@@ -48,7 +49,7 @@ jobs:
             const report = execFileSync('unzip', ['-p', 'preflight.zip', 'playtest-preflight-windows.json'],
               { encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 });
             const hash = createHash('sha256').update(report).digest('hex');
-            const marker = '<!-- ttyd64-windows-preflight-report -->';
+            const marker = '<!-- ttyd64-windows-preflight-report:' + runId + ' -->';
             const body = marker + '\nWindows preflight evidence from run ' + runId +
               ', artifact ' + artifact.id + '. Report SHA-256: `' + hash + '`.\n\n' +
               '```json\n' + report.slice(0, 55000) + '\n```\n' +
