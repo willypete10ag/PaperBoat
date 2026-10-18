@@ -5,7 +5,8 @@ param(
     [string]$Archive,
     [Alias('Profile')][ValidateSet('healing', 'status')][string]$PlaytestProfile = 'healing',
     [string]$SessionRoot = (Join-Path $env:LOCALAPPDATA 'PaperBoat-TTYD64-playtest'),
-    [switch]$PreflightOnly
+    [switch]$PreflightOnly,
+    [switch]$CheckRuntimeOnly
 )
 $ErrorActionPreference = 'Stop'
 $package = $PSScriptRoot
@@ -26,6 +27,16 @@ function Run-Paperboat([string[]]$Arguments, [string]$LogBase) {
 }
 
 try {
+    # A child Windows PowerShell can inherit pwsh's PSModulePath. Import the
+    # utility module belonging to THIS interpreter, including Get-FileHash.
+    Import-Module (Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1') -ErrorAction Stop
+    if ($CheckRuntimeOnly) {
+        @{
+            powershell_version = $PSVersionTable.PSVersion.ToString()
+            launcher_sha256 = (Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash
+        } | ConvertTo-Json
+        return
+    }
     foreach ($name in @('Paperboat.exe', 'paperboat.o2r', 'config.yml', 'playtest-keyboard.json', 'assets')) {
         if (-not (Test-Path -LiteralPath (Join-Path $package $name))) {
             throw "Missing $name. Extract the complete Paperboat-windows ZIP before running the launcher."

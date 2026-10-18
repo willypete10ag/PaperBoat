@@ -39,14 +39,17 @@ jobs:
             const { data } = await github.rest.actions.listWorkflowRunArtifacts({
               ...context.repo, run_id: runId
             });
-            const artifact = data.artifacts.find(a => a.name === 'playtest-preflight-windows');
-            if (!artifact) { core.info('No Windows preflight artifact'); return; }
+            const artifact = data.artifacts.find(a => a.name === 'playtest-preflight-windows') ||
+              data.artifacts.find(a => a.name === 'playtest-runtime-windows');
+            if (!artifact) { core.info('No Windows playtest evidence artifact'); return; }
             const download = await github.rest.actions.downloadArtifact({
               ...context.repo, artifact_id: artifact.id, archive_format: 'zip'
             });
             const zip = Buffer.from(download.data);
             writeFileSync('preflight.zip', zip);
-            const report = execFileSync('unzip', ['-p', 'preflight.zip', 'playtest-preflight-windows.json'],
+            const filename = artifact.name === 'playtest-preflight-windows' ?
+              'playtest-preflight-windows.json' : 'playtest-runtime-windows.json';
+            const report = execFileSync('unzip', ['-p', 'preflight.zip', filename],
               { encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 });
             const hash = createHash('sha256').update(report).digest('hex');
             const marker = '<!-- ttyd64-windows-preflight-report:' + runId + ' -->';
@@ -193,6 +196,29 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Check Windows PowerShell launcher runtime before building
+        shell: pwsh
+        run: |
+          $started = [DateTime]::UtcNow.ToString('o')
+          $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/porting/Play-TTYD64.ps1 -CheckRuntimeOnly 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          @{
+            git_commit = (git rev-parse HEAD); started_utc = $started
+            ended_utc = [DateTime]::UtcNow.ToString('o'); exit_code = $code
+            launcher_sha256 = (Get-FileHash tools/porting/Play-TTYD64.ps1 -Algorithm SHA256).Hash
+            method = 'real Windows PowerShell child runtime; no game/archive/ROM'
+            status = $(if ($code -eq 0) { 'pass' } else { 'fail' }); full_log = $output
+          } | ConvertTo-Json | Set-Content -Encoding utf8 playtest-runtime-windows.json
+          Write-Host $output
+          exit $code
+
+      - name: Upload launcher runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playtest-runtime-windows
+          path: playtest-runtime-windows.json
+
       - name: Cache vcpkg binaries
         uses: actions/cache@v6
         with:
@@ -246,6 +272,14 @@ jobs:
           Copy-Item $shaderc.FullName Paperboat-windows/
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/master/gamecontrollerdb.txt" -OutFile "Paperboat-windows/gamecontrollerdb.txt"
 
+      # Preserve the built package even when a subsequent fixture fails. Only
+      # a green run is a playtest candidate; failed-run binaries aid reproduction.
+      - name: Upload build
+        uses: actions/upload-artifact@v7
+        with:
+          name: Paperboat-windows
+          path: Paperboat-windows
+
       - name: ROM-free packaged Windows process and save isolation checks
         run: |
           python tools/porting/check_playtest_preflight.py --executable Paperboat-windows/Paperboat.exe --package Paperboat-windows --output playtest-preflight-windows.json
@@ -256,12 +290,6 @@ jobs:
         with:
           name: playtest-preflight-windows
           path: playtest-preflight-windows.json
-
-      - name: Upload build
-        uses: actions/upload-artifact@v7
-        with:
-          name: Paperboat-windows
-          path: Paperboat-windows
 
   build-macos:
     name: macOS
