@@ -38,6 +38,8 @@ def observe():
             if val(expression):
                 return
             until('step_game_mode')
+        result['timeout_state'] = {k: val(k) for k in ('WorldMenuState', 'WorldMenuType', 'gPopupState',
+                                   'gGameStatus.context', 'gGameStatus.mapID', 'gGameStatus.startupState')}
         raise AssertionError('Native frame budget: ' + expression)
 
     def check(name, condition, method='predicate after native CLI setup'):
@@ -82,13 +84,17 @@ def observe():
         check('native world partner bound', val('wCurrentPartnerId') == 1 and val('WorldPartnerID') == 1)
         save = Path(os.environ['NATIVE_PLAYTEST_SESSION']) / 'saves/file3.json'
         check('native save generated without a seed', save.is_file() and 'ttyd64PartnerHP' in save.read_text())
+        old_x = float(gdb.parse_and_eval('gPlayerStatus.pos.x'))
+        key('d', 12)
+        check('keyboard moves Mario', float(gdb.parse_and_eval('gPlayerStatus.pos.x')) > old_x,
+              'real keyboard input after native CLI setup')
         key('Left')
         wait('WorldMenuState == 3 && WorldMenuType == 1 && gPopupState == POPUP_STATE_CHOOSING')
         check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == (6 if profile == 'healing' else 10), 'real keyboard input after native CLI setup')
         key('c')
         neutral()
         key('Right')
-        wait('WorldMenuState == 3 && WorldMenuType == 2 && gPopupState == POPUP_STATE_CHOOSING')
+        wait('WorldMenuState == 3 && WorldMenuType == 0 && gPopupState == POPUP_STATE_CHOOSING')
         check('keyboard partner menu lists three', val('WorldPopupMenu.numEntries') == 3, 'real keyboard input after native CLI setup')
         key('s')
         key('x')
@@ -96,6 +102,16 @@ def observe():
         wait('wCurrentPartnerId == PARTNER_KOOPER')
         check('keyboard swap binds wounded Kooper', val('WorldPartnerID') == 2 and
               val('gCurrentSaveFile.shipSaveData.partnerHP[2].curHP') == 3, 'real keyboard input after native CLI setup')
+        if profile == 'healing':
+            key('Left')
+            wait('WorldMenuState == 3 && WorldMenuType == 1 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            key('x')
+            wait('WorldMenuState == 3 && WorldMenuType == 3 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            key('s')
+            key('x')
+            neutral()
+            check('keyboard Mushroom heals chosen partner', val('gCurrentSaveFile.shipSaveData.partnerHP[2].curHP') == 8,
+                  'real keyboard input after native CLI setup')
         key('space')
         wait('gGameStatus.context == CONTEXT_PAUSE && StepPauseDelay < -10')
         check('keyboard pause opens', val('gGameStatus.context') == val('CONTEXT_PAUSE'), 'real keyboard input after native CLI setup')
@@ -121,7 +137,6 @@ def observe():
 def main():
     import argparse
     import signal
-    import tempfile
     parser = argparse.ArgumentParser(description=__doc__)
     for arg in ('executable', 'package', 'archive', 'output'):
         parser.add_argument('--' + arg, type=Path, required=True)
@@ -158,7 +173,7 @@ def main():
                     os.killpg(process.pid, signal.SIGTERM)
                     code = process.wait(timeout=20)
             data = json.loads(payload.read_text()) if payload.exists() else {'status': 'fail', 'error': 'No check payload'}
-            data.update(git_commit=commit, executable_sha256=digest(exe), fixture_sha256=digest(Path(__file__)),
+            data.update(git_commit=commit, fixture_commit=commit, executable_sha256=digest(exe), fixture_sha256=digest(Path(__file__)),
                         archive_sha256=digest(archive), started_utc=started, ended_utc=utc(), exit_code=code,
                         command=command, full_log=log.read_text(), skipped=['build performed separately', 'ROM extraction; supplied verified archive reused',
                         'Windows rendering/input', 'hardware graphics/audio', 'full 51-fixture regression'])
@@ -176,7 +191,8 @@ def main():
 try:
     import gdb
 except ImportError:
-    if __name__ == '__main__':
-        main()
-else:
+    gdb = None
+if gdb is not None:
     observe()
+elif __name__ == '__main__':
+    main()
