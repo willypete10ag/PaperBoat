@@ -2,10 +2,42 @@
 
 Partner HP combat remains **off in normal play**. These are developer checks,
 not a completed mod or campaign acceptance. All runtime fixtures use debugger
-setup; several use injected damage/forced guard/RNG returns. Per-check method
+setup, except the native-launch checks described below; several use injected damage/forced guard/RNG returns. Per-check method
 records and complete logs identify those cases. Capturing a frame does not
 prove anyone inspected it. Software rendering and dummy audio do not validate
 hardware rendering or audible output.
+
+## Windows playtest and native startup checks
+
+The Windows CI ZIP now includes an explicit isolated developer-session launcher.
+See [WINDOWS-PLAYTEST.md](WINDOWS-PLAYTEST.md) for local-ROM setup, controls,
+profiles, saves and logs. Normal launches keep the development feature off.
+The launcher creates new-game state natively; no GDB or private seed is needed.
+
+Linux and packaged Windows CI run `check_playtest_preflight.py` with a synthetic
+text archive. This exercises actual process/path setup and failure diagnostics,
+including the Windows PowerShell launcher, without loading any ROM data or
+initializing graphics. CI artifacts preserve full logs/hashes/times. It does not
+validate real Windows rendering, input or gameplay.
+
+For a committed Linux build with the extraction assets in its output directory:
+
+```bash
+cp tools/porting/fixtures/keyboard.json "$PAPERBOAT_BUILD_DIR/playtest-keyboard.json"
+python3 tools/porting/check_native_playtest.py \
+  --executable "$PAPERBOAT_EXECUTABLE" --package "$PAPERBOAT_BUILD_DIR" \
+  --archive "$PAPERBOAT_ROM_ARCHIVE" --output "$PORTING_WORK_DIR/native-playtest-new-run"
+```
+
+Install Xvfb, GDB and xdotool as in the full Linux recipe. The output path must
+not exist. This check owns its Xvfb server, launches each profile through the
+native CLI, observes state with GDB, and uses real keyboard movement/menus/swap/
+pause/healing. Recruitment, wounds/items/progression are native developer setup,
+not debugger writes. A final reset-boundary check explicitly calls the native
+startup API from GDB; methods disclose it. Result JSONs contain commit, executable/
+fixture/archive hashes, UTC times, per-check methods, full logs and skips. Copy
+only result JSONs into the coordination repository, never the session/save/
+archive files. This targeted group does not rerun all older gameplay fixtures.
 
 ## ROM-free gameplay tests (Linux, no game installation)
 

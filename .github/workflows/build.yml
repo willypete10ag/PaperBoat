@@ -20,6 +20,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  preflight-diagnostics:
+    name: Publish Windows preflight evidence
+    needs: build-windows
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { createHash } = require('crypto');
+            const { writeFileSync } = require('fs');
+            const { execFileSync } = require('child_process');
+            const runId = context.runId;
+            const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+              ...context.repo, run_id: runId
+            });
+            const artifact = data.artifacts.find(a => a.name === 'playtest-preflight-windows') ||
+              data.artifacts.find(a => a.name === 'playtest-runtime-windows');
+            if (!artifact) { core.info('No Windows playtest evidence artifact'); return; }
+            const download = await github.rest.actions.downloadArtifact({
+              ...context.repo, artifact_id: artifact.id, archive_format: 'zip'
+            });
+            const zip = Buffer.from(download.data);
+            writeFileSync('preflight.zip', zip);
+            const filename = artifact.name === 'playtest-preflight-windows' ?
+              'playtest-preflight-windows.json' : 'playtest-runtime-windows.json';
+            const report = execFileSync('unzip', ['-p', 'preflight.zip', filename],
+              { encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 });
+            const hash = createHash('sha256').update(report).digest('hex');
+            const marker = '<!-- ttyd64-windows-preflight-report:' + runId + ' -->';
+            const body = marker + '\nWindows preflight evidence from run ' + runId +
+              ', artifact ' + artifact.id + '. Report SHA-256: `' + hash + '`.\n\n' +
+              '```json\n' + report.slice(0, 55000) + '\n```\n' +
+              (report.length > 55000 ? 'Truncated here; full report remains in the artifact.\n' : '');
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo, issue_number: context.issue.number
+            });
+            const previous = comments.find(c => c.user.type === 'Bot' && c.body.includes(marker));
+            if (previous) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: previous.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }
+
   build-linux:
     name: Linux
     runs-on: ubuntu-latest
@@ -104,6 +151,18 @@ jobs:
       - name: ROM-free gameplay tests
         run: ctest --test-dir build/ninja-release --output-on-failure -R ttyd64_gameplay_logic --no-tests=error
 
+      - name: ROM-free playtest process and save isolation checks
+        run: |
+          cp tools/porting/fixtures/keyboard.json build/ninja-release/playtest-keyboard.json
+          python3 tools/porting/check_playtest_preflight.py --executable build/ninja-release/Paperboat --package build/ninja-release --output playtest-preflight-linux.json
+
+      - name: Upload playtest process evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playtest-preflight-linux
+          path: playtest-preflight-linux.json
+
       - name: Read build name
         id: build-name
         run: echo "name=$(sed -n 's/^PROJECT_BUILD_NAME:STRING=//p' build/ninja-release/CMakeCache.txt)" >> "$GITHUB_OUTPUT"
@@ -136,6 +195,29 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+
+      - name: Check Windows PowerShell launcher runtime before building
+        shell: pwsh
+        run: |
+          $started = [DateTime]::UtcNow.ToString('o')
+          $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/porting/Play-TTYD64.ps1 -CheckRuntimeOnly 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          @{
+            git_commit = (git rev-parse HEAD); started_utc = $started
+            ended_utc = [DateTime]::UtcNow.ToString('o'); exit_code = $code
+            launcher_sha256 = (Get-FileHash tools/porting/Play-TTYD64.ps1 -Algorithm SHA256).Hash
+            method = 'real Windows PowerShell child runtime; no game/archive/ROM'
+            status = $(if ($code -eq 0) { 'pass' } else { 'fail' }); full_log = $output
+          } | ConvertTo-Json | Set-Content -Encoding utf8 playtest-runtime-windows.json
+          Write-Host $output
+          exit $code
+
+      - name: Upload launcher runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playtest-runtime-windows
+          path: playtest-runtime-windows.json
 
       - name: Cache vcpkg binaries
         uses: actions/cache@v6
@@ -181,16 +263,33 @@ jobs:
           Move-Item build/x64/Release/assets Paperboat-windows/
           Get-ChildItem build/x64/Release/*.pdb | Move-Item -Destination Paperboat-windows/debug/
           Copy-Item README.md Paperboat-windows/readme.txt
+          Copy-Item tools/porting/Play-TTYD64.ps1 Paperboat-windows/
+          Copy-Item tools/porting/Play-TTYD64.cmd Paperboat-windows/
+          Copy-Item tools/porting/WINDOWS-PLAYTEST.md Paperboat-windows/PLAYTEST.txt
+          Copy-Item tools/porting/fixtures/keyboard.json Paperboat-windows/playtest-keyboard.json
           $shaderc = Get-ChildItem "$env:VULKAN_SDK/Bin/shaderc_shared.dll" -ErrorAction SilentlyContinue
           if (-not $shaderc) { throw "shaderc_shared.dll not found in the Vulkan SDK; the Vulkan backend would not start" }
           Copy-Item $shaderc.FullName Paperboat-windows/
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/master/gamecontrollerdb.txt" -OutFile "Paperboat-windows/gamecontrollerdb.txt"
 
+      # Preserve the built package even when a subsequent fixture fails. Only
+      # a green run is a playtest candidate; failed-run binaries aid reproduction.
       - name: Upload build
         uses: actions/upload-artifact@v7
         with:
           name: Paperboat-windows
           path: Paperboat-windows
+
+      - name: ROM-free packaged Windows process and save isolation checks
+        run: |
+          python tools/porting/check_playtest_preflight.py --executable Paperboat-windows/Paperboat.exe --package Paperboat-windows --output playtest-preflight-windows.json
+
+      - name: Upload playtest process evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playtest-preflight-windows
+          path: playtest-preflight-windows.json
 
   build-macos:
     name: macOS
