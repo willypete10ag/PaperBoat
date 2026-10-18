@@ -25,7 +25,7 @@ void RequireFile(const fs::path& path) {
 }
 } // namespace
 
-int PreparePlaytestSession(int argc, char** argv) {
+int PreparePlaytestSession(int& argc, char** argv) {
     if (argc < 2 || std::string(argv[1]).rfind("--ttyd64-playtest", 0) != 0) {
         return 0;
     }
@@ -80,8 +80,15 @@ int PreparePlaytestSession(int argc, char** argv) {
                 throw std::runtime_error("This build does not support isolated playtests (app path escapes session)");
             }
         }
+        // Windows treats every remaining argument as a ROM to import, even when
+        // pm64.o2r already exists. Consume this one-shot setup before handing
+        // control to the engine; ordinary startup/ROM arguments remain untouched.
+        argc = 1;
+        argv[1] = nullptr;
         nlohmann::json info = { { "profile", profile },
                                 { "preflight_only", preflight },
+                                { "engine_argument_count", argc },
+                                { "engine_argument_terminator", argv[argc] == nullptr },
                                 { "session", Utf8(session) },
                                 { "package", Utf8(package) },
                                 { "save_directory", Utf8(session / "saves") },

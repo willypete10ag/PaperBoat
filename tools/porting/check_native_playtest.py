@@ -68,10 +68,15 @@ def observe():
     try:
         for setting in ('non-stop on', 'pagination off', 'confirm off', 'print thread-events off'):
             cmd('set ' + setting)
-        point = gdb.Breakpoint('state_step_world', temporary=True, internal=True)
+        point = gdb.Breakpoint('GameEngine::RunExtract', temporary=True, internal=True)
         point.silent = True
         cmd('run')
         [t for t in gdb.selected_inferior().threads() if t.is_stopped()][0].switch()
+        # GCC can stop before the prologue has stored the argument variables.
+        cmd('next')
+        check('engine ROM importer receives no playtest setup arguments', val('argc') == 1 and
+              val('argv[1] == 0') == 1, 'debugger observes actual engine entry arguments; no injected state')
+        until('state_step_world')
         neutral()
         for _ in range(80):
             until('step_game_mode')
