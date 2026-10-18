@@ -107,6 +107,12 @@ def observe():
         if profile == 'healing':
             key('Left')
             wait('WorldMenuState == 3 && WorldMenuType == 1 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            # Native add_item compacts toward the end and inserts at the front;
+            # choose by typed identity rather than assuming the first row is food.
+            mushroom = next(i for i in range(val('WorldPopupMenu.numEntries'))
+                            if val(f'gPlayerData.invItems[WorldPopupMenu.userIndex[{i}]]') == val('ITEM_MUSHROOM'))
+            for _ in range(mushroom):
+                key('s')
             key('x')
             wait('WorldMenuState == 3 && WorldMenuType == 3 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
             key('s')
