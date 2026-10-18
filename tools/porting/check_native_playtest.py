@@ -115,9 +115,14 @@ def observe():
                 key('s')
             key('x')
             wait('WorldMenuState == 3 && WorldMenuType == 3 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
-            key('s')
+            recipient = next(i for i in range(val('WorldPopupMenu.numEntries'))
+                             if val(f'WorldPopupMenu.userIndex[{i}]') == val('PARTNER_KOOPER'))
+            for _ in range(recipient):
+                key('s')
             key('x')
             neutral()
+            for _ in range(30):
+                until('step_game_mode')
             check('keyboard Mushroom heals chosen partner', val('gCurrentSaveFile.shipSaveData.partnerHP[2].curHP') == 8,
                   'real keyboard input after native CLI setup')
         key('space')
@@ -136,6 +141,7 @@ def observe():
         result['status'] = 'pass'
     except Exception as error:
         result['error'] = str(error)
+        result['failure_health'] = {str(i): val(f'gCurrentSaveFile.shipSaveData.partnerHP[{i}].curHP') for i in (1, 2, 3)}
         raise
     finally:
         Path(os.environ['NATIVE_PLAYTEST_PAYLOAD']).write_text(json.dumps(result, indent=2) + '\n')
