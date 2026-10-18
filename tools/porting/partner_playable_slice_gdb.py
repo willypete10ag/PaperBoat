@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','team','victory','victory-dead'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -584,6 +584,138 @@ def run():
         tick(30)
         capture('battle-route-world-return')
         check('route-final-capture-remains-in-world',val('gGameStatusPtr->context') == val('CONTEXT_WORLD') and val('gEncounterState') == val('ENCOUNTER_STATE_NEUTRAL'))
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
+    if 'status-items' in phases:
+        enter_road_battle()
+        player = 'gBattleStatus.playerActor'
+        partner = 'gBattleStatus.partnerActor'
+        assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+        items = ['ITEM_COURAGE_SHELL','ITEM_POWER_PUNCH','ITEM_MINI_MR_MINI','ITEM_MR_SOFTENER']
+        check('items-native-definitions-have-consumable-battle-only-flags',all(val('gItemTable['+item+'].typeFlags & ITEM_TYPE_FLAG_CONSUMABLE') and val('gItemTable['+item+'].typeFlags & ITEM_TYPE_FLAG_BATTLE_USABLE') and not val('gItemTable['+item+'].typeFlags & ITEM_TYPE_FLAG_WORLD_USABLE') for item in items))
+        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        put('gBattleStatus.moveCategory',val('BTL_MENU_TYPE_ITEMS'))
+        for item in items:
+            put('gBattleStatus.moveArgument',val(item))
+            put('gBattleStatus.curTargetListFlags',val('gItemTable['+item+'].targetFlags'))
+            cmd(f'call create_target_list({player},0)')
+            assert val(player+'->targetListLength') == 0
+            assert val('ttyd64_status_item_apply('+item+','+partner+',1)') == 0
+        check('items-flag-off-rejects-target-lists-and-effects',val('ttyd64_actor_attack_boost('+partner+')') == 0)
+        inventory('ITEM_COURAGE_SHELL')
+        wheel('BTL_MENU_TYPE_ITEMS')
+        wait('gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+        check('items-flag-off-native-menu-disables-experimental-copies',val('gPopupMenu->enabled[0]') == 0 and val('gPopupMenu->enabled[1]') == 0 and item_count() == 2)
+        key('c')
+        wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
+        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        put('gBattleStatus.moveArgument',val('ITEM_COURAGE_SHELL'))
+        put('gBattleStatus.curTargetListFlags',val('TARGET_FLAG_PLAYER'))
+        assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
+        cmd(f'call create_target_list({player},0)')
+        check('items-dead-partner-not-offered-or-affected',val(player+'->targetListLength') == 1 and val('ttyd64_status_item_apply(ITEM_COURAGE_SHELL,'+partner+',1)') == 0)
+        assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+        def select_item(item, recipient=None):
+            # Keep this long item route out of Game Over; health/inventory are
+            # controlled setup, effect expiry and input remain native.
+            put('gPlayerData.curHP',20)
+            assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+            inventory(item)
+            wheel('BTL_MENU_TYPE_ITEMS')
+            wait('gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            tick(5)
+            key('x')
+            wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+            if recipient:
+                for _ in range(4):
+                    if val(player+'->targetData['+player+'->targetIndexList['+player+'->selectedTargetIndex]].actorID') == val(recipient):
+                        break
+                    key('d')
+                assert val(player+'->targetData['+player+'->targetIndexList['+player+'->selectedTargetIndex]].actorID') == val(recipient)
+        def finish_item():
+            key('x')
+            wait('gBattleState == BATTLE_STATE_PARTNER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING && gBattleSubState < 4',1800)
+            assert item_count() == 1
+            assert val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')
+            assert not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED')
+        select_item('ITEM_COURAGE_SHELL','ACTOR_PARTNER')
+        check('items-courage-native-menu-offers-living-partner',val(player+'->targetListLength') == 2)
+        key('c')
+        wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+        check('items-cancel-keeps-both-copies-and-power',item_count() == 2 and val('ttyd64_actor_defense_boost('+partner+')') == 0)
+        key('x')
+        wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+        if val(player+'->targetData['+player+'->targetIndexList['+player+'->selectedTargetIndex]].actorID') != val('ACTOR_PARTNER'):
+            key('d')
+        finish_item()
+        check('items-courage-keyboard-consumes-once-and-adds-three-defense',val('ttyd64_actor_defense_boost('+partner+')') == 3 and val('PartnerModifiers[$slicePartner].defense.turns') == 3)
+        spend_turn()
+        select_item('ITEM_POWER_PUNCH','ACTOR_PLAYER')
+        finish_item()
+        check('items-power-punch-native-mario-giant-and-turn-payment',val('ttyd64_actor_attack_boost('+player+')') == 2 and float(gdb.parse_and_eval(player+'->scalingFactor')) > 1.9)
+        spend_turn()
+        cmd('call ttyd64_actor_add_modifier('+partner+',0,-1,3)')
+        select_item('ITEM_POWER_PUNCH','ACTOR_PARTNER')
+        finish_item()
+        check('items-power-punch-partner-opposite-sign-cancels-and-no-giant',val('ttyd64_actor_attack_boost('+partner+')') == 0 and float(gdb.parse_and_eval(partner+'->scalingFactor')) < 1.1)
+        spend_turn()
+        select_item('ITEM_POWER_PUNCH','ACTOR_PARTNER')
+        finish_item()
+        check('items-power-punch-native-partner-giant',val('ttyd64_actor_attack_boost('+partner+')') == 2 and float(gdb.parse_and_eval(partner+'->scalingFactor')) > 1.9)
+        spend_turn()
+        enemies = [i for i in range(val('sizeof(gBattleStatus.enemyActors)/sizeof(gBattleStatus.enemyActors[0])')) if val(f'gBattleStatus.enemyActors[{i}]')]
+        assert len(enemies) >= 2
+        before = {i:val(f'gBattleStatus.enemyActors[{i}]->curHP') for i in enemies}
+        select_item('ITEM_MINI_MR_MINI')
+        finish_item()
+        check('items-mini-native-multiple-target-hit-route-and-tiny',all(val(f'ttyd64_actor_attack_boost(gBattleStatus.enemyActors[{i}])') == -2 and val(f'ttyd64_actor_is_tiny(gBattleStatus.enemyActors[{i}])') for i in enemies))
+        check('items-mini-no-hp-damage-and-source-enemy-extra-turn',all(val(f'gBattleStatus.enemyActors[{i}]->curHP') == before[i] and val(f'ModifierActors[{i+1}].state.attack.turns') == 4 for i in enemies))
+        spend_turn()
+        select_item('ITEM_MR_SOFTENER')
+        finish_item()
+        check('items-softener-native-zero-defense-keeps-defense',all(val(f'ttyd64_actor_defense_boost(gBattleStatus.enemyActors[{i}])') == 0 for i in enemies))
+        spend_turn()
+        # Controlled part table isolates source min(normal table defense,3).
+        # Actual item selection/iteration, hit test, consumption and turns stay native.
+        cmd('set $itemDefense = (s32*)heap_malloc(3*sizeof(s32))')
+        put('$itemDefense[0]',val('ELEMENT_NORMAL'))
+        put('$itemDefense[1]',2)
+        put('$itemDefense[2]',val('ELEMENT_END'))
+        originals=[]
+        for i in enemies:
+            cmd(f'set $itemPart = get_actor_part(gBattleStatus.enemyActors[{i}],1)')
+            originals.append((i,int(gdb.parse_and_eval('$itemPart->defenseTable'))))
+            put('$itemPart->defenseTable','$itemDefense')
+        try:
+            select_item('ITEM_MR_SOFTENER')
+            finish_item()
+            check('items-softener-native-all-targets-use-part-table-defense',all(val(f'ttyd64_actor_defense_boost(gBattleStatus.enemyActors[{i}])') == -2 and val(f'ModifierActors[{i+1}].state.defense.turns') == 4 for i in enemies))
+            put('$itemDefense[1]',5)
+            for i in enemies:
+                assert val(f'ttyd64_status_item_apply(ITEM_MR_SOFTENER,gBattleStatus.enemyActors[{i}],1)') == 1
+            check('items-softener-controlled-api-caps-high-part-defense-at-three',all(val(f'ttyd64_actor_defense_boost(gBattleStatus.enemyActors[{i}])') == -3 for i in enemies))
+            tick(45)
+            check('items-native-downward-arrow-frames-advance',val('gGameStatusPtr->context') == val('CONTEXT_BATTLE'))
+        finally:
+            for i,original_defense in originals:
+                cmd(f'set $itemPart = get_actor_part(gBattleStatus.enemyActors[{i}],1)')
+                put('$itemPart->defenseTable',original_defense)
+            cmd('call heap_free($itemDefense)')
+        spend_turn()
+        flee_battle()
+        wait('WorldPartnerID == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)',600)
+        check('items-flee-clears-timed-power-and-world-owner',val('ModifierActors[0].state.attack.turns') == 0 and val('PartnerModifiers[$slicePartner].attack.turns') == 0 and val('WorldPartnerID') == partner_id)
+        for i,item in enumerate(items):
+            put(f'gPlayerData.invItems[{i}]',val(item))
+        for i in range(4,10):
+            put(f'gPlayerData.invItems[{i}]',0)
+        put('gGameStatusPtr->saveSlot',3)
+        try:
+            cmd('call fio_save_game(3)')
+            for i in range(10):put(f'gPlayerData.invItems[{i}]',0)
+            assert val('fio_load_game(3)') == 1
+            check('items-native-save-round-trip-keeps-four-appended-ids',all(val(f'gPlayerData.invItems[{i}]') == val(item) for i,item in enumerate(items)))
+        finally:
+            save.write_bytes(original)
         put('gTtyd64PartnerHPPrototypeEnabled',0)
     if 'modifiers' in phases:
         enter_road_battle()

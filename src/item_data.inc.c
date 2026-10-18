@@ -1,5 +1,14 @@
 
 #include "ttyd64_assets.h"
+HudScript HES_Item_CourageShell = HES_TEMPLATE_ITEM(item_CourageShell);
+HudScript HES_Item_CourageShell_disabled = HES_TEMPLATE_ITEM(item_CourageShell_disabled);
+HudScript HES_Item_PowerPunch = HES_TEMPLATE_ITEM(item_PowerPunch);
+HudScript HES_Item_PowerPunch_disabled = HES_TEMPLATE_ITEM(item_PowerPunch_disabled);
+HudScript HES_Item_MiniMrMini = HES_TEMPLATE_ITEM(item_MiniMrMini);
+HudScript HES_Item_MiniMrMini_disabled = HES_TEMPLATE_ITEM(item_MiniMrMini_disabled);
+HudScript HES_Item_MrSoftener = HES_TEMPLATE_ITEM(item_MrSoftener);
+HudScript HES_Item_MrSoftener_disabled = HES_TEMPLATE_ITEM(item_MrSoftener_disabled);
+
 
 HudScript HES_Item_Jumpman = HES_TEMPLATE_ITEM(badge_Jumpman);
 HudScript HES_Item_Jumpman_disabled = HES_TEMPLATE_ITEM(badge_Jumpman_disabled);
@@ -5406,6 +5415,58 @@ ItemData gItemTable[] = {
         .potencyA = 0,
         .potencyB = 0,
     },
+    { // 0x171: CourageShell (TTYD64)
+        .nameMsg = MSG_TTYD64_CourageShellName,
+        .fullDescMsg = MSG_TTYD64_CourageShellDesc,
+        .shortDescMsg = MSG_TTYD64_CourageShellDesc,
+        .hudElemID = 341,
+        .sellValue = 2,
+        .sortValue = 96,
+        .targetFlags = 9,
+        .typeFlags = ITEM_TYPE_FLAG_CONSUMABLE | ITEM_TYPE_FLAG_BATTLE_USABLE | ITEM_TYPE_FLAG_ENTITY_FULLSIZE,
+        .moveID = MOVE_NONE,
+        .potencyA = 3,
+        .potencyB = 0,
+    },
+    { // 0x172: PowerPunch (TTYD64)
+        .nameMsg = MSG_TTYD64_PowerPunchName,
+        .fullDescMsg = MSG_TTYD64_PowerPunchDesc,
+        .shortDescMsg = MSG_TTYD64_PowerPunchDesc,
+        .hudElemID = 342,
+        .sellValue = 7,
+        .sortValue = 97,
+        .targetFlags = 9,
+        .typeFlags = ITEM_TYPE_FLAG_CONSUMABLE | ITEM_TYPE_FLAG_BATTLE_USABLE | ITEM_TYPE_FLAG_ENTITY_FULLSIZE | ITEM_TYPE_FLAG_FOOD_OR_DRINK | ITEM_TYPE_FLAG_USE_DRINK_ANIMATION,
+        .moveID = MOVE_NONE,
+        .potencyA = 2,
+        .potencyB = 3,
+    },
+    { // 0x173: MiniMrMini (TTYD64)
+        .nameMsg = MSG_TTYD64_MiniMrMiniName,
+        .fullDescMsg = MSG_TTYD64_MiniMrMiniDesc,
+        .shortDescMsg = MSG_TTYD64_MiniMrMiniDesc,
+        .hudElemID = 343,
+        .sellValue = 5,
+        .sortValue = 98,
+        .targetFlags = 32770,
+        .typeFlags = ITEM_TYPE_FLAG_CONSUMABLE | ITEM_TYPE_FLAG_BATTLE_USABLE | ITEM_TYPE_FLAG_ENTITY_FULLSIZE,
+        .moveID = MOVE_NONE,
+        .potencyA = 2,
+        .potencyB = 5,
+    },
+    { // 0x174: MrSoftener (TTYD64)
+        .nameMsg = MSG_TTYD64_MrSoftenerName,
+        .fullDescMsg = MSG_TTYD64_MrSoftenerDesc,
+        .shortDescMsg = MSG_TTYD64_MrSoftenerDesc,
+        .hudElemID = 344,
+        .sellValue = 5,
+        .sortValue = 99,
+        .targetFlags = 32770,
+        .typeFlags = ITEM_TYPE_FLAG_CONSUMABLE | ITEM_TYPE_FLAG_BATTLE_USABLE | ITEM_TYPE_FLAG_ENTITY_FULLSIZE,
+        .moveID = MOVE_NONE,
+        .potencyA = 3,
+        .potencyB = 5,
+    },
 };
 
 extern HudScript HES_MoveDiamond;
@@ -5753,6 +5814,10 @@ IconHudScriptPair gItemHudScripts[] = {
     { .enabled = &HES_Item_Jumpman, .disabled = &HES_Item_Jumpman_disabled },
     { .enabled = &HES_Item_Hammerman, .disabled = &HES_Item_Hammerman_disabled },
     { .enabled = &HES_Item_FPDrain, .disabled = &HES_Item_FPDrain_disabled },
+    { .enabled = &HES_Item_CourageShell, .disabled = &HES_Item_CourageShell_disabled },
+    { .enabled = &HES_Item_PowerPunch, .disabled = &HES_Item_PowerPunch_disabled },
+    { .enabled = &HES_Item_MiniMrMini, .disabled = &HES_Item_MiniMrMini_disabled },
+    { .enabled = &HES_Item_MrSoftener, .disabled = &HES_Item_MrSoftener_disabled },
 };
 
 ItemScript IES_Placeholder = IES_TEMPLATE_BASIC(key_Gift);
@@ -6095,6 +6160,10 @@ ItemScript IES_ITEM_137 = IES_TEMPLATE_STANDARD(battle_item_137);
 ItemScript IES_Jumpman = IES_TEMPLATE_STANDARD(badge_Jumpman);
 ItemScript IES_Hammerman = IES_TEMPLATE_STANDARD(badge_Hammerman);
 ItemScript IES_FPDrain = IES_TEMPLATE_STANDARD(badge_FPDrain);
+ItemScript IES_CourageShell = IES_TEMPLATE_STANDARD(item_CourageShell);
+ItemScript IES_PowerPunch = IES_TEMPLATE_STANDARD(item_PowerPunch);
+ItemScript IES_MiniMrMini = IES_TEMPLATE_STANDARD(item_MiniMrMini);
+ItemScript IES_MrSoftener = IES_TEMPLATE_STANDARD(item_MrSoftener);
 ItemScript IES_PityFlower = IES_TEMPLATE_STANDARD(badge_PityFlower);
 
 // indexed by itemID
@@ -6468,10 +6537,10 @@ intptr_t* gItemEntityScripts[] = {
     IES_Jumpman,
     IES_Hammerman,
     IES_FPDrain,
-    IES_Placeholder,
-    IES_Placeholder,
-    IES_Placeholder,
-    IES_Placeholder,
+    IES_CourageShell,
+    IES_PowerPunch,
+    IES_MiniMrMini,
+    IES_MrSoftener,
     IES_Placeholder,
     IES_Placeholder,
     IES_Placeholder,
@@ -6858,6 +6927,10 @@ intptr_t gItemIconRasterOffsets[] = {
     ICON_badge_Jumpman_raster,
     ICON_badge_Hammerman_raster,
     ICON_badge_FPDrain_raster,
+    ICON_item_CourageShell_raster,
+    ICON_item_PowerPunch_raster,
+    ICON_item_MiniMrMini_raster,
+    ICON_item_MrSoftener_raster,
 };
 
 // indexed by itemID
@@ -7232,5 +7305,9 @@ intptr_t gItemIconPaletteOffsets[] = {
     ICON_badge_Jumpman_palette,
     ICON_badge_Hammerman_palette,
     ICON_badge_FPDrain_palette,
+    ICON_item_CourageShell_palette,
+    ICON_item_PowerPunch_palette,
+    ICON_item_MiniMrMini_palette,
+    ICON_item_MrSoftener_palette,
 };
 

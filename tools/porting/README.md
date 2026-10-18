@@ -197,3 +197,23 @@ Historical reports made before this runner lacked executable/script/log
 provenance and are provisional, even if their assertions were previously run.
 Only exact-commit reruns supersede them. New milestones require a PR into
 `ttyd64/main` with Linux, Windows, macOS and clang-format green.
+
+## Guarded source status-item group
+
+`status-items-1`, `status-items-2` and `status-items-3` run the shared Mario-owned
+item route for Goombario, Kooper and Bombette. Courage Shell (+3 defense), Power
+Punch (+2 attack/Giant), Mini Mr. Mini (-2 attack/Tiny, enemies) and Mr. Softener
+(-min(normal part-table defense,3), enemies) use three-turn modifiers. Source
+PartnersHP's forced SELECT_ONE for friendly buffs is represented in their native
+target flags. Native IDs append at 0x171–0x174; existing IDs/save layouts stay fixed.
+The two legacy contiguous item lists use a shared explicit ID mapping; all other
+consumable-list capacities account for the four appended IDs.
+
+The phase uses real keyboard item/recipient selection, cancellation, consumption,
+turns, enemy iteration and flee. Health/inventory/battle setup and a temporary
+normal-defense table are debugger controlled; modifier application rejection
+checks are API driven. Save/load calls native FIO on the disposable slot. Numerical
+scale and frame progression are not independent visual inspection. Published
+source PNGs use the same independent decoder check as badge assets. No normal
+activation, new shops/campaign acquisition, enemy/partner-owned item choreography,
+source status counters, regen/charge or hardware/audio acceptance is implied.

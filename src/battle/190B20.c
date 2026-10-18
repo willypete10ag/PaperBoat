@@ -9,6 +9,7 @@
 #include "model.h"
 #include "sprite.h"
 #include "ttyd64_partner_hp.h"
+#include "ttyd64_status_items.h"
 
 f32 D_802938A4 = 0.0f;
 
@@ -79,6 +80,14 @@ void create_target_list(Actor* actor, b32 targetHomePos) {
     s32 sampleRow;
     s32 removeTarget;
 
+    // Keep experimental items disabled when loading a developer save normally.
+    if (battleStatus->moveCategory == BTL_MENU_TYPE_ITEMS
+        && ttyd64_status_item_supported(battleStatus->moveArgument)
+        && !ttyd64_actor_modifiers_active(playerActor)) {
+        actor->targetListLength = 0;
+        return;
+    }
+
     // a target has been manually selected
     if (battleStatus->curTargetListFlags & TARGET_FLAG_OVERRIDE) {
         actor->targetListLength = -1;
@@ -114,7 +123,8 @@ void create_target_list(Actor* actor, b32 targetHomePos) {
         && battleStatus->moveCategory == BTL_MENU_TYPE_ITEMS
         && (battleStatus->curTargetListFlags & TARGET_FLAG_PLAYER)
         && (ttyd64_partner_combat_can_heal_with_item(battleStatus->moveArgument)
-            || ttyd64_partner_status_can_target_item(battleStatus->moveArgument));
+            || ttyd64_partner_status_can_target_item(battleStatus->moveArgument)
+            || ttyd64_status_item_can_target_partner(battleStatus->moveArgument));
     if ((battleStatus->curTargetListFlags & TARGET_FLAG_PARTNER) || healingPartner) {
         if (partnerActor != nullptr) {
             targetDataList->actorID = ACTOR_PARTNER;

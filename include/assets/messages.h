@@ -16217,6 +16217,14 @@ static const char* const gMsgPaths_sec2F[] = {
     "__OTR__messages/ttyd64/HammermanDesc",
     "__OTR__messages/ttyd64/FPDrainName",
     "__OTR__messages/ttyd64/FPDrainDesc",
+    "__OTR__messages/ttyd64/CourageShellName",
+    "__OTR__messages/ttyd64/CourageShellDesc",
+    "__OTR__messages/ttyd64/PowerPunchName",
+    "__OTR__messages/ttyd64/PowerPunchDesc",
+    "__OTR__messages/ttyd64/MiniMrMiniName",
+    "__OTR__messages/ttyd64/MiniMrMiniDesc",
+    "__OTR__messages/ttyd64/MrSoftenerName",
+    "__OTR__messages/ttyd64/MrSoftenerDesc",
 };
 
 static const char* const* const gMsgSectionPaths[] = {

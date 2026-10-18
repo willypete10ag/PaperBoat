@@ -425,6 +425,13 @@ def main():
             "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": "modifiers"},
         )
+    for pid in (1, 2, 3):
+        add(
+            "status-items-" + str(pid),
+            "partner_playable_slice_gdb.py",
+            "partner-playable-slice",
+            {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": "status-items"},
+        )
     add(
         "partner-ground-ui",
         "partner_playable_slice_gdb.py",

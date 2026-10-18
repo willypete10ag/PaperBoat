@@ -18,7 +18,8 @@ source = Path(required_env("PAPERBOAT_SOURCE_DIR")) / "port/ttyd64"
 checks = []
 for name, width, height in (
     ("pityflower", 32, 32), ("jumpman", 32, 32), ("hammerman", 32, 32),
-    ("fpdrain", 32, 32), ("fp_drain_label", 40, 16)
+    ("fpdrain", 32, 32), ("fp_drain_label", 40, 16),
+    ("courageshell", 32, 32), ("powerpunch", 32, 32), ("minimrmini", 32, 32), ("mrsoftener", 32, 32)
 ):
     path = source / (name + ".png")
     raster, colors = indexed_png(path, width, height)

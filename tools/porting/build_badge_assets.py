@@ -118,6 +118,12 @@ def main():
         for disabled in (False, True):
             suffix = ".disabled.pal" if disabled else ".pal"
             texture(staging, "icons/badge/" + name + suffix, 2, 16, 1, rgba16_palette(colors, disabled))
+    for stem, name in (('courageshell', 'CourageShell'), ('powerpunch', 'PowerPunch'), ('minimrmini', 'MiniMrMini'), ('mrsoftener', 'MrSoftener')):
+        raster, colors = indexed_png(source / (stem + ".png"))
+        texture(staging, "icons/item/" + name, 3, 32, 32, raster)
+        for disabled in (False, True):
+            suffix = ".disabled.pal" if disabled else ".pal"
+            texture(staging, "icons/item/" + name + suffix, 2, 16, 1, rgba16_palette(colors, disabled))
     raster, colors = indexed_png(source / "fp_drain_label.png", 40, 16)
     texture(staging, "ui/battle/status/fp_drain", 3, 40, 16, raster)
     texture(staging, "ui/battle/status/fp_drain.pal", 2, 16, 1, rgba16_palette(colors))
