@@ -20,6 +20,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  preflight-diagnostics:
+    name: Publish previous Windows preflight diagnostic
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { createHash } = require('crypto');
+            const { writeFileSync } = require('fs');
+            const { execFileSync } = require('child_process');
+            const runId = 39103695406; // Recover the already-preserved failed report.
+            const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+              ...context.repo, run_id: runId
+            });
+            const artifact = data.artifacts.find(a => a.name === 'playtest-preflight-windows');
+            if (!artifact) { core.info('No Windows preflight artifact'); return; }
+            const download = await github.rest.actions.downloadArtifact({
+              ...context.repo, artifact_id: artifact.id, archive_format: 'zip'
+            });
+            const zip = Buffer.from(download.data);
+            writeFileSync('preflight.zip', zip);
+            const report = execFileSync('unzip', ['-p', 'preflight.zip', 'playtest-preflight-windows.json'],
+              { encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 });
+            const hash = createHash('sha256').update(report).digest('hex');
+            const marker = '<!-- ttyd64-windows-preflight-report -->';
+            const body = marker + '\nWindows preflight evidence from run ' + runId +
+              ', artifact ' + artifact.id + '. Report SHA-256: `' + hash + '`.\n\n' +
+              '```json\n' + report.slice(0, 55000) + '\n```\n' +
+              (report.length > 55000 ? 'Truncated here; full report remains in the artifact.\n' : '');
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo, issue_number: context.issue.number
+            });
+            const previous = comments.find(c => c.user.type === 'Bot' && c.body.includes(marker));
+            if (previous) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: previous.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }
+
   build-linux:
     name: Linux
     runs-on: ubuntu-latest
