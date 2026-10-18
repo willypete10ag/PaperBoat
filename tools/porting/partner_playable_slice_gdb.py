@@ -605,8 +605,8 @@ def run():
         cmd('set $regenArgs = (Bytecode*)heap_malloc(3*sizeof(Bytecode))')
         put('$regenEvt->ptrReadPos','$regenArgs');put('$regenEvt->owner1.actorID',val('ACTOR_PARTNER'))
         for i,n in enumerate([val('ACTOR_SELF'),2,10]):put(f'$regenArgs[{i}]',n)
-        assert val('Ttyd64SetHPRegeneration($regenEvt,1)') == val('ApiStatus_DONE2')
-        assert val('Ttyd64SetFPRegeneration($regenEvt,1)') == val('ApiStatus_DONE2')
+        assert val('Ttyd64SetHPRegeneration($regenEvt,1)') == 2  # ApiStatus_DONE2 is a macro, not a GDB symbol
+        assert val('Ttyd64SetFPRegeneration($regenEvt,1)') == 2  # ApiStatus_DONE2 is a macro, not a GDB symbol
         check('regen-public-event-self-adapters-set-independent-axes',val('PartnerModifiers[$slicePartner].hpRegen.turns') == 10 and val('PartnerModifiers[$slicePartner].fpRegen.turns') == 10)
         cmd('call heap_free($regenArgs)');cmd('call heap_free($regenEvt)')
         cmd('call ttyd64_actor_modifiers_clear('+partner+')')
