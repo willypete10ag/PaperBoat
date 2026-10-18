@@ -67,6 +67,8 @@ def main():
                 session = root / ('new session ' + profile)
                 run(session, profile)
                 info = json.loads((session / 'playtest-session.json').read_text())
+                check(profile + ' consumes setup arguments before engine ROM importer',
+                      info['engine_argument_count'] == 1 and info['engine_argument_terminator'])
                 # Windows may expand an 8.3 user directory (RUNNER~1) to its long
                 # name. Prove actual identity, not equality of display strings.
                 check(profile + ' isolated roots', Path(info['session']).samefile(session) and
@@ -103,6 +105,9 @@ def main():
                 manifests = list(launcher_root.glob('sessions/*/playtest-session.json'))
                 check('Windows launcher stages one isolated status session', len(manifests) == 1 and
                       json.loads(manifests[0].read_text())['profile'] == 'status')
+                info = json.loads(manifests[0].read_text())
+                check('Windows launcher consumes setup arguments before engine ROM importer',
+                      info['engine_argument_count'] == 1 and info['engine_argument_terminator'])
         result['status'] = 'pass'
     except Exception as error:
         result['error'] = str(error)
