@@ -467,7 +467,7 @@ def main():
         ("flower-saver-visual", "flower_saver_visual.gdb", "flower-saver", "visual-runtime"),
     ]:
         add(name, script, group, kind="group-seed", suffix=suffix)
-    selected = set(args.only.split(",")) if args.only else {c[0] for c in all_cases}
+    selected = set(args.only.split(",")) if args.only else {c[0] for c in all_cases} | {"save-modes"}
     if "foundation" in selected:
         selected.add("foundation-writer")
     for name, script, group, extra, kind, suffix in list(all_cases):
@@ -475,14 +475,14 @@ def main():
             selected.add(group + "-writer")
         if name in selected and kind == "existing":
             selected.add(next(c[0] for c in all_cases if c[2] == group and c[5] == suffix and c[4] == "empty"))
-    unknown = selected - {c[0] for c in all_cases}
+    unknown = selected - ({c[0] for c in all_cases} | {"save-modes"})
     if unknown:
         ap.error("Unknown fixture IDs: " + ",".join(sorted(unknown)))
     manifest = {
         **base,
         "started_at": now(),
         "requested_fixtures": sorted(selected),
-        "skipped_fixtures": [c[0] for c in all_cases if c[0] not in selected],
+        "skipped_fixtures": [name for name in [c[0] for c in all_cases] + ["save-modes"] if name not in selected],
     }
     failures = []
     xvfb = None
@@ -538,6 +538,35 @@ def main():
                 ),
             ):
                 failures.append(name)
+        if "save-modes" in selected:
+            # One shared lifecycle group, with separate per-scenario receipts.
+            name, driver = "save-modes", fixture_dir / "check_save_modes.py"
+            verify_fixture(driver)
+            attempted.append(name)
+            started = now()
+            output = results / name
+            command = [sys.executable, str(driver), "--source", str(source), "--executable", str(binary),
+                       "--package", str(build), "--archive", str(archive), "--output", str(output),
+                       "--fixture-commit", fixture_commit]
+            with (results / (name + ".log")).open("w") as log:
+                process = subprocess.run(command, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=1800)
+            child_paths = sorted(output.glob("*-result.json"))
+            children = [json.loads(path.read_text()) for path in child_paths]
+            ok = process.returncode == 0 and len(children) == 4 and all(
+                child["status"] == "pass" and child["git_commit"] == commit
+                and child["executable_sha256"] == base["executable_sha256"]
+                and child["fixture_commit"] == fixture_commit and child["fixture_sha256"] == sha(driver)
+                and child["rom_archive_sha256"] == base["rom_archive_sha256"]
+                and child["port_archive_sha256"] == base["port_archive_sha256"] for child in children)
+            report = {**base, "fixture": name, "fixture_sha256": sha(driver), "started_at": started,
+                      "ended_at": now(), "status": "pass" if ok else "fail", "command": command,
+                      "scenario_results": [{"path": str(path.relative_to(results)), "sha256": sha(path)} for path in child_paths],
+                      "check_methods": [dict(check=child.get("scenario", "") + ": " + check["check"], driver=check["method"])
+                                        for child in children for check in child.get("checks", [])],
+                      "full_log": (results / (name + ".log")).read_text() + "\n" + "\n".join(child["full_log"] for child in children)}
+            (results / (name + ".result.json")).write_text(json.dumps(report, indent=2) + "\n")
+            if not ok: failures.append(name)
+            print(name + ": " + report["status"], flush=True)
     except BaseException as exc:
         failures.append("runner-aborted")
         manifest["runner_error"] = repr(exc)

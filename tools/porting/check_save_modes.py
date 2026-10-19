@@ -261,6 +261,7 @@ def main():
     import argparse
     import shutil
     import signal
+    import re
     p = argparse.ArgumentParser(description=__doc__)
     for s in ('source', 'executable', 'package', 'archive', 'output'): p.add_argument('--' + s, type=Path, required=True)
     p.add_argument('--fixture-commit')
@@ -308,7 +309,13 @@ def main():
                         code = process.wait(timeout=20)
                 payload = out / (case + '-checks.json')
                 data = json.loads(payload.read_text()) if payload.exists() else dict(status='fail', error='Missing payload')
+                log_text = (out / (case + '.log')).read_text()
+                loaded = {Path(path.strip()).resolve() for path in re.findall(r'Reading archive: (.+)', log_text)}
+                expected_archives = {(session / 'pm64.o2r').resolve(), (session / 'paperboat.o2r').resolve()}
+                if loaded != expected_archives or digest(session / 'pm64.o2r') != digest(archive) or digest(session / 'paperboat.o2r') != digest(package / 'paperboat.o2r'):
+                    data.update(status='fail', error='Actual engine archive provenance mismatch')
                 data.update(git_commit=commit, fixture_commit=fixture_commit, executable_sha256=digest(exe), fixture_sha256=digest(Path(__file__)),
+                            rom_archive_sha256=digest(archive), port_archive_sha256=digest(package / 'paperboat.o2r'), loaded_archives=sorted(str(path) for path in loaded),
                             started_utc=started, ended_utc=utc(), command=command, exit_code=code, full_log=(out / (case + '.log')).read_text(),
                             skipped=['build performed separately', 'ROM extraction; supplied verified archive reused', 'Windows/macOS gameplay', 'unselected fixtures', 'hardware graphics/audio', 'full campaign'])
                 if code: data['status'] = 'fail'
