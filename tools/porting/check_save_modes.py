@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Shared save-mode acceptance. Create/restart/legacy use real keyboard only.
+"""Shared save-mode acceptance. Creation/continuation use real keyboard only.
+Restart/legacy then compare Heart Blocks with explicitly injected setup.
 
 Lifecycle uses native CLI setup, explicit harmless JSON probes/native I/O APIs,
 then injected route/1 HP/empty items with real encounter/Do Nothing/native death,

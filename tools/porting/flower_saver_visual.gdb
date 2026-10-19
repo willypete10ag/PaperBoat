@@ -49,8 +49,9 @@ pid = gdb.selected_inferior().pid
 (out / "visual.pid").write_text(str(pid))
 assert int(gdb.parse_and_eval("gPlayerData.maxBP")) == 8
 assert int(gdb.parse_and_eval("is_ability_active(ABILITY_FLOWER_SAVER)")) == 2
+assert int(gdb.parse_and_eval("get_move_bp_cost(MOVE_FLOWER_SAVER)")) == 4
 record_check('flower-saver-loaded-copies-and-bp', 'controlled_api_or_state', 'Native fixture save load and debugger map/progression setup; captures require separate visual inspection.')
 Path(required_env('FLOWER_SAVER_RESULT')).write_text(json.dumps({"loaded_copies":2, "max_bp":8,
-    "bp_per_copy":int(gdb.parse_and_eval("gMoveTable[MOVE_FLOWER_SAVER].costBP"))}, indent=2) + "\n")
+    "bp_per_copy":int(gdb.parse_and_eval("get_move_bp_cost(MOVE_FLOWER_SAVER)"))}, indent=2) + "\n")
 end
 detach

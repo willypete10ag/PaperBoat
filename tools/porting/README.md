@@ -35,8 +35,8 @@ file. The lifecycle group uses native CLI setup, harmless injected JSON probes,
 native copy/preview/erase APIs and controlled route/1HP/empty items, followed by
 real encounter/Do Nothing/native fatal damage/game-over/title/keyboard continue.
 Every group writes its own full log, timestamps, source/fixture commits and
-binary/fixture hashes. GDB observes creation/restart without injecting their
-input/state. There is no forced guard/RNG or injected reset/game-over API.
+binary/fixture hashes. GDB observes creation/continuation without injecting their input/state;
+subsequent Heart Block comparisons inject wounds, position and the test block. There is no forced guard/RNG or injected reset/game-over API.
 This supplements the shared healing/status/badge fixtures; passing one group
 is not a full-suite result. Old proof-acquisition fixtures now first check native
 absence, then explicitly inject disposable test entities for pickup/capacity.
