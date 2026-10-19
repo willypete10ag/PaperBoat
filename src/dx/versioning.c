@@ -54,6 +54,8 @@ void fio_deserialize_state() {
         ver_deserialize_standard(saveData);
     }
 
+    ttyd64_normalize_badge_budget();
+
     gGameStatus.debugEnemyContact = DEBUG_CONTACT_NONE;
     gGameStatus.debugUnused1 = false;
     gGameStatus.debugUnused2 = false;

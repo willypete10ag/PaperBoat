@@ -131,7 +131,9 @@ def run_checks():
         observations = []
         for mode in (0, 1):
             command(f"call ttyd64_mode_select_file({mode})")
-            for entries in ([], [dd], [dd, dd], [dd, dd, dd], [dd, td], [td, dd, dd]):
+            cases = [[], [dd], [dd, dd], [dd, dd, dd], [dd, td], [td, dd, dd]]
+            if mode and not dip_baseline: cases.append([dd] * 64)
+            for entries in cases:
                 write_slots("equippedBadges", entries)
                 assign("gPlayerData.curFP", 20)
                 assign("gBattleSubState", 1)
@@ -150,6 +152,10 @@ def run_checks():
                             effective.append(item)
                 expected = [value("MOVE_ITEMS")] + [value(f"gItemTable[{item}].moveID") for item in effective] if entries else []
                 check(f"dip-native-submenu-mode-{mode}-badges-{entries}", moves == expected)
+                if mode and not dip_baseline and entries:
+                    icons = [value(f"gBattleStatus.submenuIcons[{i}]") for i in range(1,len(moves))]
+                    check(f"dip-icons-and-costs-{len(entries)}-{entries[0]}",icons == effective
+                          and all(value(f"MovesOptionDisplayCosts[{i}]") == (4 if badge == dd else 8) for i,badge in enumerate(effective,1)))
                 observations.append({"mode":mode,"equipped":entries,"submenu_moves":moves})
         choose.delete()
         report = {"checks_passed":len(checks),"checks":checks,"pre_fix_reproduction":dip_baseline,

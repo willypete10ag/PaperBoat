@@ -41,6 +41,8 @@ int ttyd64_partner_base_max_hp(int partner, int rank);
 void ttyd64_health_init(Ttyd64PartnerHP* health, const int* ranks);
 void ttyd64_health_normalize(Ttyd64PartnerHP* health, const int* ranks);
 int ttyd64_badge_can_stack(int badge);
+int ttyd64_dip_menu_badge(int badge, int hasDoubleDip, int hasTripleDip);
+int ttyd64_trim_bp_loadout(int16_t* badges, const int* costs, int count, int budget);
 int ttyd64_total_bp_cost(const int* costs, int count);
 int ttyd64_move_fp_cost(int base, int savers, int fanatics);
 int ttyd64_last_stand_damage(int damage, int hp, int copies);
