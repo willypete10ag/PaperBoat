@@ -111,6 +111,7 @@ def run_checks():
                    0xbb:'source/native appended move differs',0xbc:'source/native appended move differs'}
         before = os.environ.get('FLOWER_SAVER_SOURCE_COSTS_BASELINE') == '1'
         rows, differences = [], []
+        expected_ids = [10,13,32,46,51,56,66,67,68,92,93,94,108,109,116,117,118,135,136,182]
         for move in xml:
             index = int(move.attrib['index'],16)
             if index in skipped or index >= value('sizeof(gMoveTable) / sizeof(gMoveTable[0])'): continue
@@ -120,11 +121,10 @@ def run_checks():
             for mode in (0,1):
                 command(f'call ttyd64_mode_select_file({mode})')
                 effective[mode] = [value(f'get_move_fp_cost({index})'),value(f'get_move_bp_cost({index})')]
-                check(f'source-cost-{index}-mode-{mode}',effective[mode] == native if mode == 0 else (True if before else effective[mode] == expected))
+                check(f'source-cost-{index}-mode-{mode}',effective[mode] == (native if mode == 0 or (before and index in expected_ids) else expected))
             row = {'index':index,'source_name':move.attrib.get('name'),'native_fp_bp':native,'ttyd64_fp_bp':effective[1],'source_fp_bp':expected}
             rows.append(row)
             if effective[1] != expected: differences.append(row)
-        expected_ids = [10,13,32,46,51,56,66,67,68,92,93,94,108,109,116,117,118,135,136,182]
         check('source-cost-difference-set',sorted(row['index'] for row in differences) == (expected_ids if before else []))
         report = {'checks_passed':len(checks),'checks':checks,'pre_fix_reproduction':before,
                   'source_XML_sha256':hashlib.sha256(xml_path.read_bytes()).hexdigest(),'rows':rows,'differences':differences,'excluded_indices':skipped,
