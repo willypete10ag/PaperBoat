@@ -169,6 +169,7 @@ def run_checks():
     command(f"call ver_deserialize_vanilla_save((SaveData*){raw})")
     check("native-vanilla-conversion-health", value(f"((SaveData*){raw})->shipSaveData.partnerHP[3].curHP") == 40
           and value(f"((SaveData*){raw})->shipSaveData.partnerHP[3].maxHP") == 40)
+    check("native-vanilla-conversion-mode-defaults-vanilla", value(f"((SaveData*){raw})->shipSaveData.ttyd64Mode") == 0)
     check("native-vanilla-conversion-original-data", value(f"((SaveData*){raw})->player.coins") == 123
           and value(f"((SaveData*){raw})->player.partners[3].level") == 2
           and value(f"((SaveData*){raw})->player.partners[3].unk_02[1]") == 12345)

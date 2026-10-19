@@ -57,6 +57,7 @@ u8 filemenu_yesno_gridData[] = {
     0, 1,
     0, 1,
     0, 1,
+    0, 1, // FM_CHOOSE_MODE: the generic grid accessor indexes by state.
 };
 
 MenuWindowBP filemenu_yesno_windowBPs[] = {

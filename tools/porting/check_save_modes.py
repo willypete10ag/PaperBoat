@@ -92,6 +92,8 @@ def observe():
                     check(f'new file {slot} offers Vanilla by default', val('filemenu_menus[1]->selected') == 0,
                           'real keyboard filename/Start; no injected state')
                     if rules == 'ttyd64': key('s')
+                    check(f'new file {slot} selects requested rules', val('filemenu_menus[1]->selected') == (1 if rules == 'ttyd64' else 0),
+                          'real keyboard selection; native grid state observed')
                     key('x')
                     wait('filemenu_menus[1]->state == FM_CONFIRM_CREATE')
                     key('x')
@@ -184,6 +186,11 @@ def observe():
               'controlled native summary API; no runtime mode/state setter')
         check('explicit file load restores TTYD64', val('fio_load_game(3)') == 1 and val('ttyd64_mode_enabled()') == 1,
               'controlled native load API')
+        cmd('call fio_save_game(3)')
+        updated = json.loads(save.read_text())
+        check('native save preserves mode and unrelated JSON', updated['ship']['ttyd64Mode']['rules'] == 'ttyd64'
+              and updated['ship']['unrelatedProbe'] == {'keep': 17} and updated['unrelatedRootProbe'] == 19,
+              'controlled native save API after harmless injected JSON probes/native load')
         check('static costs remain Vanilla', val('gMoveTable[MOVE_DOUBLE_DIP].costFP') == 3
               and val('gMoveTable[MOVE_DEFEND_PLUS].costBP') == 6, 'read-only static table observation')
         check('shared runtime costs select source rules', val('get_move_fp_cost(MOVE_DOUBLE_DIP)') == 4
@@ -298,7 +305,7 @@ def main():
                     (session / 'pm64.o2r').symlink_to(archive)
                     shutil.copyfile(package / 'playtest-keyboard.json', session / 'paperboat.cfg.json')
                 env = dict(os.environ, DISPLAY=display, SHIP_HOME=str(session), SDL_AUDIODRIVER='dummy', LIBGL_ALWAYS_SOFTWARE='1', DEBUGINFOD_URLS='',
-                           SAVE_MODE_SESSION=str(session), SAVE_MODE_PAYLOAD=str(out / (case + '-checks.json')), SAVE_MODE_SCENARIO=case)
+                           XDG_CACHE_HOME=str(out / 'cache'), SAVE_MODE_SESSION=str(session), SAVE_MODE_PAYLOAD=str(out / (case + '-checks.json')), SAVE_MODE_SCENARIO=case)
                 command = ['gdb', '-q', '-batch', '-x', str(Path(__file__).resolve()), '--args', str(exe)]
                 if case == 'lifecycle': command += ['--ttyd64-playtest', str(session), str(package), str(archive), 'healing']
                 with (out / (case + '.log')).open('w') as log:
