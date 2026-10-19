@@ -111,10 +111,11 @@ def run_checks():
                    0xbb:'source/native appended move differs',0xbc:'source/native appended move differs'}
         before = os.environ.get('FLOWER_SAVER_SOURCE_COSTS_BASELINE') == '1'
         rows, differences = [], []
+        native_limit = int(next(line for line in source_path('include/move_enum.h').read_text().splitlines() if line.startswith('#define NUM_MOVES ')).split()[-1])
         expected_ids = [10,13,32,46,51,56,66,67,68,92,93,94,108,109,116,117,118,135,136,182]
         for move in xml:
             index = int(move.attrib['index'],16)
-            if index in skipped or index >= value('sizeof(gMoveTable) / sizeof(gMoveTable[0])'): continue
+            if index in skipped or index >= native_limit: continue
             native = [value(f'gMoveTable[{index}].costFP'),value(f'gMoveTable[{index}].costBP')]
             expected = [int(move.attrib['fp'],16),int(move.attrib['bp'],16)]
             effective = {}
