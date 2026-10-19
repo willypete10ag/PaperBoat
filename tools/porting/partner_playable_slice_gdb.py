@@ -59,7 +59,7 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp'}
     assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
@@ -323,6 +323,47 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'bp' in phases:
+        cmd('call ttyd64_mode_select_file(1)')
+        for field,size in (('badges',128),('equippedBadges',64)):
+            for i in range(size):
+                put(f'gPlayerData.{field}[{i}]',val('ITEM_DOUBLE_DIP') if i < 2 else (val('ITEM_LAST_STAND') if field == 'badges' and i == 2 else 0))
+        put('gPlayerData.maxBP',3)
+        key('space')
+        wait('gGameStatusPtr->context == CONTEXT_PAUSE && StepPauseDelay < -10')
+        for _ in range(8):
+            if val('gPauseTabsCurrentTab') == 1: break
+            key('d')
+        tick(50)
+        key('x')
+        wait('gPauseMenuCurrentTab == 2')
+        tick(20)
+        numbers, orbs = [], []
+        class DrawTrace(gdb.Breakpoint):
+            def __init__(self, name):
+                super().__init__(name,internal=True)
+                self.silent = True
+                self.function = name
+            def stop(self):
+                frame = gdb.newest_frame()
+                caller = frame.older()
+                if caller.name() == 'pause_badges_draw_contents':
+                    if self.function == 'draw_number':
+                        numbers.append(int(frame.read_var('value')))
+                    else:
+                        orbs.append(int(caller.read_var('orbIndex')))
+                return False
+        points = [DrawTrace('draw_number'),DrawTrace('pause_badges_draw_bp_orbs')]
+        try: tick(6)
+        finally:
+            for point in points: point.delete()
+        before = os.environ.get('PARTNER_BP_BASELINE') == '1'
+        check('bp-native-render-available-number',(-3 in numbers) if before else (numbers and min(numbers) >= 0 and 0 in numbers))
+        check('bp-native-render-orbs-nonnegative',bool(orbs) and min(orbs) >= 0 and max(orbs) < 3)
+        team_trace.append({'event':'bp-render','draw_number_values':numbers,'orb_indices':orbs,
+                           'setup':'Injected two equipped Double Dips, maxBP3; real keyboard pause/badges input, native renderer observed, no forced draw returns.'})
+        key('space')
+        wait('gGameStatusPtr->context == CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
     if playtest:
         # Seed only this newly-created isolated session, after native load.
         # A new session is allocated by the launcher; real saves are not used.
