@@ -6,7 +6,7 @@ on Linux, Windows and macOS and clang-format.yml is green for the exact PR head.
 Do not merge into develop or push upstream. The previous default-off/unsaved/
 reset activation policy is **superseded by the owner's decision0007** in the
 coordination repository. Target: one build, per-save mode selected at new-file
-time, existing/imported saves Vanilla. The mode fix is under review in PR9; implementation is not acceptance. Use
+time, existing/imported saves Vanilla. The mode fix merged in PR9 at77eab0939 after exact-head CI and pinned acceptance. Use
 the shared saved-file mode contract, never a process-global prototype. Preserve
 vanilla/save ABI guards.
 See https://github.com/willypete10ag/ttyd64-port/blob/main/docs/decisions/0007-per-save-ttyd64-mode.md
