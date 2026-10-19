@@ -19,6 +19,9 @@ s32 ttyd64_get_partner_hp(s32 partnerID);
 s32 ttyd64_get_partner_max_hp(s32 partnerID);
 s32 ttyd64_set_partner_hp(s32 partnerID, s32 amount);
 void ttyd64_reset_partner_hp(s32 partnerID);
+// Source level-up/world-heart consumers: current compatible partner only,
+// including zero-HP recovery. Returns new HP, or -1 outside a normal TTYD64 file.
+s32 ttyd64_heal_current_partner(s32 amount);
 // World full-rest/Heart Block consumer; does not enable actor HP combat.
 void ttyd64_fully_restore_partner_hp(void);
 

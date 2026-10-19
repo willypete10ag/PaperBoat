@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_partner_hp.h"
 #include "effects.h"
 #include "hud_element.h"
 #include "message_ids.h"
@@ -510,6 +511,7 @@ void btl_state_update_celebration(void) {
     PlayerData* playerData = &gPlayerData;
     Actor* player = battleStatus->playerActor;
     Actor* partner = battleStatus->partnerActor;
+    s32 partnerHP;
     s8 currentSubmenu;
     s32 newSubmenu;
     HudElemID hid;
@@ -662,6 +664,15 @@ void btl_state_update_celebration(void) {
             break;
         case BTL_SUBSTATE_LEVEL_UP_CREATE_HUD:
             if (CelebrateSubstateTime == 18) {
+                if (ttyd64_mode_enabled() && partner != nullptr) {
+                    partnerHP = ttyd64_heal_current_partner(ttyd64_get_partner_max_hp(playerData->curPartner));
+                    if (partnerHP >= 0) {
+                        x = partner->curPos.x;
+                        y = partner->curPos.y + 35.0f;
+                        z = partner->curPos.z;
+                        fx_recover(0, x, y, z, partnerHP);
+                    }
+                }
                 playerData->curHP = playerData->curMaxHP;
                 playerData->curFP = playerData->curMaxFP;
                 x = player->curPos.x + 0.0f;

@@ -41,6 +41,26 @@ This supplements the shared healing/status/badge fixtures; passing one group
 is not a full-suite result. Old proof-acquisition fixtures now first check native
 absence, then explicitly inject disposable test entities for pickup/capacity.
 
+## Current-partner recovery hooks
+
+`--only partner-recovery-hooks-1,partner-recovery-hooks-2,partner-recovery-hooks-3`
+extends the existing shared partner route. The world-heart matrix injects current
+partner/rank/wounds and an entity's touch state, then runs the native collectable
+callback. It covers all eight compatible HP records, zero/wounded/full HP,
+Vanilla/TTYD64, Mario already full and unchanged inactive partners. Only the three
+ground partners have native actor acceptance: real keyboard Road contact creates
+their actors; injected reward substate/timer and wounds run the native celebration
+callback, checking HP/actor synchronization and inactive records across all ranks.
+This callback matrix does not prove earning a level-up or its stat-choice UI. The
+separate `partner-level-up-1/2/3` scenarios grant a disposable heart and99 star
+points, then use real walking/pickup, Road encounter, attacks, native victory,
+earned level-up/stat choice, world return and Save Block/save reload. Recruitment,
+wounds, progression and maps are controlled as in the shared route; rewards and
+level-up state are not forced in these three scenarios.
+`PORTING_RECOVERY_BASELINE=1` records expected missing hooks on a pinned pre-fix
+executable; use it only for bug reproduction, never fixed-game acceptance. Both
+modes and the baseline flag appear in each result's configuration/full log.
+
 ## Windows playtest and native startup checks
 
 The Windows CI ZIP now includes an explicit isolated developer-session launcher.

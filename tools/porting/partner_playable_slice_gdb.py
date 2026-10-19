@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','team','victory','victory-dead'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -1430,11 +1430,81 @@ def run():
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
         for point in trace_points:
             point.delete()
-    for victory_phase in [phase for phase in phases if phase in ('victory', 'victory-dead')]:
+    if 'recovery-hooks' in phases:
+        baseline = os.environ.get('PARTNER_RECOVERY_BASELINE') == '1'
+        compatible = (1,2,3,4,6,7,8,9)
+        # Controlled current-partner/model and touch-state setup; execute the
+        # real collectable callback, not a direct partner-heal API.
+        for mode in (0,1):
+            cmd(f'call ttyd64_mode_select_file({mode})')
+            for pid in compatible:
+                put('gPlayerData.curPartner',pid)
+                put(f'gPlayerData.partners[{pid}].level',0)
+                for before in (0,1,val(f'ttyd64_get_partner_max_hp({pid})')):
+                    for other in compatible:
+                        cmd(f'call ttyd64_set_partner_hp({other},2)')
+                    cmd(f'call ttyd64_set_partner_hp({pid},{before})')
+                    put('gPlayerData.curHP',val('gPlayerData.curMaxHP'))
+                    item = val('make_item_entity_nodelay(ITEM_HEART, 5000.0, 15.0, 150.0, ITEM_SPAWN_MODE_FIXED_SPAWN_ALWAYS, 0)')
+                    assert item >= 0
+                    put(f'WorldItemEntities[{item}]->pickupDelay',0)
+                    put(f'WorldItemEntities[{item}]->state',val('ITEM_PHYSICS_STATE_TOUCH'))
+                    cmd(f'call update_item_entity_collectable(WorldItemEntities[{item}])')
+                    expected = min(before + int(mode == 1 and not baseline),val(f'ttyd64_get_partner_max_hp({pid})'))
+                    check(f'heart-mode-{mode}-partner-{pid}-from-{before}',val(f'ttyd64_get_partner_hp({pid})') == expected and all(val(f'ttyd64_get_partner_hp({other})') == 2 for other in compatible if other != pid) and val('gPlayerData.curHP') == val('gPlayerData.curMaxHP'))
+        put('gPlayerData.curPartner',partner_id)
+        enter_road_battle()
+        # Actor creation/contact uses native keyboard route; only the reward
+        # callback boundary/timer and wounds are injected. This is NOT proof of
+        # earning a level-up or navigating its stat-choice UI.
+        old_substate = val('gBattleSubState')
+        old_timer = val('CelebrateSubstateTime')
+        for mode in (0,1):
+            cmd(f'call ttyd64_mode_select_file({mode})')
+            for rank in (0,1,2):
+                put('gPlayerData.partners[$slicePartner].level',rank)
+                maximum = val('ttyd64_get_partner_max_hp($slicePartner)')
+                for before in (0,1,maximum):
+                    for other in compatible:
+                        cmd(f'call ttyd64_set_partner_hp({other},2)')
+                    cmd(f'call ttyd64_set_partner_hp($slicePartner,{before})')
+                    put('gPlayerData.curHP',1)
+                    put('gPlayerData.curFP',0)
+                    put('gBattleSubState',val('BTL_SUBSTATE_LEVEL_UP_CREATE_HUD'))
+                    put('CelebrateSubstateTime',18)
+                    cmd('call btl_state_update_celebration()')
+                    expected = maximum if mode == 1 and not baseline else before
+                    check(f'level-up-mode-{mode}-rank-{rank}-from-{before}',hp() == expected and all(val(f'ttyd64_get_partner_hp({other})') == 2 for other in compatible if other != partner_id) and val('gPlayerData.curHP') == val('gPlayerData.curMaxHP') and val('gPlayerData.curFP') == val('gPlayerData.curMaxFP'))
+                    if mode == 1:
+                        check(f'level-up-bound-actor-rank-{rank}-from-{before}',val('gBattleStatus.partnerActor->curHP') == expected and val('gBattleStatus.partnerActor->maxHP') == maximum)
+        put('gBattleSubState',old_substate)
+        put('CelebrateSubstateTime',old_timer)
+        cmd('call ttyd64_mode_select_file(1)')
+        team_trace.append({'event':'recovery-hook-matrix','baseline_expected_missing_hooks':baseline,'world_heart_partners':list(compatible),'native_actor_partner':partner_id,'method':'Injected current partner/rank/wounds and item touch; native collectable callback. Real keyboard battle entry; injected reward substate/timer and native celebration callback, not a naturally earned level-up. No forced guard/RNG.'})
+    for victory_phase in [phase for phase in phases if phase in ('victory', 'victory-dead', 'level-up')]:
+        level_up = victory_phase == 'level-up'
+        inactive = (1,2,3,4,6,7,8,9)
+        if level_up:
+            cmd('call ttyd64_mode_select_file(1)')
+            for pid in inactive:
+                cmd(f'call ttyd64_set_partner_hp({pid},2)')
+            cmd('call ttyd64_set_partner_hp($slicePartner,0)')
+            put('gPlayerData.curHP',val('gPlayerData.curMaxHP'))
+            # Explicit disposable entity grant; native physics/contact and
+            # keyboard walking, with no forced touch or direct collection call.
+            item = val('make_item_entity_nodelay(ITEM_HEART, gPlayerStatus.pos.x + 45.0f, gPlayerStatus.pos.y + 15.0f, gPlayerStatus.pos.z, ITEM_SPAWN_MODE_FIXED_SPAWN_ALWAYS, 0)')
+            assert item >= 0
+            for _ in range(10):
+                if val(f'WorldItemEntities[{item}]') == 0:
+                    break
+                key('d',16)
+            check('keyboard-world-heart-revives-only-current-partner',hp() == 1 and val(f'WorldItemEntities[{item}]') == 0 and all(val(f'ttyd64_get_partner_hp({pid})') == 2 for pid in inactive if pid != partner_id) and val('gPlayerData.curHP') == val('gPlayerData.curMaxHP'))
         enter_road_battle()
         # Seed a non-level-up reward boundary; attack/HP/outcome/rewards are
         # observed, never forced. Basic attacks intentionally omit timed A.
-        put('gPlayerData.starPoints',0)
+        put('gPlayerData.starPoints',99 if level_up else 0)
+        before_level = val('gPlayerData.level')
+        inactive_hp = {pid:val(f'ttyd64_get_partner_hp({pid})') for pid in inactive if pid != partner_id}
         before_wins = val('gPlayerData.battlesWon')
         before_items = item_count()
         key('z')
@@ -1492,9 +1562,14 @@ def run():
         # completed victory while observing rewards/input. The battle still ends natively.
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
         capture(victory_phase + '-celebration')
+        if level_up:
+            wait('gBattleState == BATTLE_STATE_CELEBRATION && gBattleSubState == BTL_SUBSTATE_LEVEL_UP_CHOOSE',2400)
+            check('earned-level-up-restores-current-partner-and-bound-actor',hp() == val('ttyd64_get_partner_max_hp($slicePartner)') and val('gBattleStatus.partnerActor->curHP') == hp() and val('gPlayerData.level') == before_level + 1 and all(val(f'ttyd64_get_partner_hp({pid})') == amount for pid,amount in inactive_hp.items()))
+            key('x',8)
         wait('gGameStatusPtr->context == CONTEXT_WORLD && gEncounterState == ENCOUNTER_STATE_NEUTRAL && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)',2400)
         reward = victory_trace[0]['reward']
-        check('victory-native-star-points-and-win-count-awarded-once',reward > 0 and val('gPlayerData.starPoints') == reward and val('gPlayerData.battlesWon') == before_wins + 1 and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_WON'))
+        expected_points = reward - 1 if level_up else reward
+        check('victory-native-star-points-and-win-count-awarded-once',reward > 0 and val('gPlayerData.starPoints') == expected_points and val('gPlayerData.battlesWon') == before_wins + 1 and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_WON'))
         remaining_hp = hp()
         check('victory-world-owns-wounded-health-and-unused-items',(remaining_hp == 0 if dead_victory else remaining_hp > 0) and val('WorldPartnerID') == partner_id and val('ttyd64_partner_hp_display()') == remaining_hp and item_count() == before_items)
         # Controlled map/position setup; the block hit, prompt and save itself
@@ -1543,7 +1618,7 @@ def run():
             assert val(f'ttyd64_set_partner_hp($slicePartner,{disturbed_hp})') == disturbed_hp
             put('gPlayerData.starPoints',0)
             assert val('fio_load_game(3)') == 1
-            check('victory-native-save-load-preserves-reward-and-health',hp() == remaining_hp and val('gPlayerData.starPoints') == reward and val('gPlayerData.battlesWon') == before_wins + 1)
+            check('victory-native-save-load-preserves-reward-and-health',hp() == remaining_hp and val('gPlayerData.starPoints') == expected_points and val('gPlayerData.battlesWon') == before_wins + 1)
         finally:
             save_point.delete()
             save.write_bytes(original)
@@ -1556,7 +1631,7 @@ def run():
         cmd('call ttyd64_mode_select_file(0)')
     assert save.read_bytes() == original
     Path(required_env('PARTNER_SLICE_RESULT')).write_text(json.dumps({'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
-        'limits':'Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
+        'limits':'Recovery-hook matrix injects identity/rank/wounds, item touch and reward substate/timer and calls native callbacks, not a naturally earned level-up. Level-up phase grants a disposable heart and initial99 star points; pickup, encounter, attacks, native rewards/level-up/stat-choice/world return/save use real keyboard. Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
     print('PARTNER_SLICE_PHASES_PASSED=' + ','.join(phases) + ':' + str(len(checks)))
     cmd('kill')
 

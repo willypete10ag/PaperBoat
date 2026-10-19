@@ -137,6 +137,36 @@ void ttyd64_reset_partner_hp(s32 partnerID) {
     }
 }
 
+s32 ttyd64_heal_current_partner(s32 amount) {
+    s32 partnerID = gPlayerData.curPartner;
+    s32 context = gGameStatusPtr->context;
+    s32 current;
+    s32 maximum;
+
+    // PartnersHP.patch hooks 18CF98/801352E0 use Get/SetPartnerHP for the
+    // current identity, unlike the separate full-rest all-partner hook.
+    if (!ttyd64_mode_enabled() || (context != CONTEXT_WORLD && context != CONTEXT_BATTLE)
+        || (gPlayerStatusPtr->animFlags & PA_FLAG_USING_PEACH_PHYSICS)
+        || (context == CONTEXT_WORLD && gGameStatusPtr->demoState != DEMO_STATE_NONE)
+        || (context == CONTEXT_BATTLE && ((gGameStatusPtr->demoBattleFlags & DEMO_BTL_FLAG_ENABLED)
+            || (gBattleStatus.flags2 & BS_FLAGS2_PEACH_BATTLE)))) {
+        return -1;
+    }
+    maximum = ttyd64_get_partner_max_hp(partnerID);
+    if (maximum < 0) {
+        return -1;
+    }
+    current = ttyd64_get_partner_hp(partnerID);
+    if (amount <= 0) {
+        return current;
+    }
+    // Bound before addition, including externally supplied large amounts.
+    if (amount > maximum - current) {
+        amount = maximum - current;
+    }
+    return ttyd64_set_partner_hp(partnerID, current + amount);
+}
+
 void ttyd64_fully_restore_partner_hp(void) {
     if (!ttyd64_mode_enabled()) return;
     s32 i;

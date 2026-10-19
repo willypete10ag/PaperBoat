@@ -1,5 +1,6 @@
 #include "common.h"
 #include "inventory.h"
+#include "ttyd64_partner_hp.h"
 #include "vars_access.h"
 #include "effects.h"
 #include "hud_element.h"
@@ -1957,6 +1958,7 @@ void update_item_entity_collectable(ItemEntity* item) {
 
             switch (item->itemID) {
                 case ITEM_HEART:
+                    ttyd64_heal_current_partner(1);
                     if (playerData->curHP < playerData->curMaxHP) {
                         fx_recover(0, playerStatus->pos.x, playerStatus->pos.y + playerStatus->colliderHeight, playerStatus->pos.z, 1);
                         sfx_play_sound_at_position(SOUND_RECOVER, SOUND_SPACE_DEFAULT, item->pos.x, item->pos.y, item->pos.z);
