@@ -14,6 +14,7 @@ int ttyd64_mode_enabled(void);
 void ttyd64_mode_select_file(int mode);
 int ttyd64_mode_fp_cost(int mode, int moveID, int vanillaCost);
 int ttyd64_mode_bp_cost(int mode, int moveID, int vanillaCost);
+int ttyd64_mode_dip_menu_cost(int mode, int base, int savers, int fanatics);
 int ttyd64_consumable_count(void);
 int ttyd64_mode_consumable_id_at(int index);
 #ifdef __cplusplus

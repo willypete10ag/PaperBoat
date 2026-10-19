@@ -596,7 +596,7 @@ void btl_state_update_player_menu(void) {
                                 // TTYD64 Fix_DoubleDip_FlowerSavers.patch: match
                                 // the minimum paid by deduct_current_move_fp.
                                 // Free moves still cost zero, as in other menus.
-                                cost = ttyd64_move_fp_cost(cost,
+                                cost = ttyd64_mode_dip_menu_cost(ttyd64_mode_enabled(), cost,
                                     player_team_is_ability_active(playerActor, ABILITY_FLOWER_SAVER),
                                     player_team_is_ability_active(playerActor, ABILITY_FLOWER_FANATIC));
 

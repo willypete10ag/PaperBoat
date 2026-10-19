@@ -35,6 +35,13 @@ int ttyd64_mode_bp_cost(int mode, int moveID, int vanillaCost) {
     return vanillaCost;
 }
 
+int ttyd64_mode_dip_menu_cost(int mode, int base, int savers, int fanatics) {
+    // Preserve Vanilla's original eligibility calculation, even its mismatch
+    // with minimum-1 payment. Only the TTYD64 fix changes that menu behavior.
+    return mode == TTYD64_MODE_TTYD64 ? ttyd64_move_fp_cost(base, savers, fanatics)
+        : base - savers - 2 * fanatics;
+}
+
 int ttyd64_consumable_count(void) {
     return ttyd64_mode_enabled() ? ITEM_NUM_CONSUMABLES : ITEM_NUM_VANILLA_CONSUMABLES;
 }

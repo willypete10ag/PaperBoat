@@ -86,7 +86,7 @@ API_CALLABLE(N(SuperBlock_GetPartnerRank)) {
     s32 evt_var = *args++;
 
     playerData->partners[partnerIdx].level++;
-    ttyd64_reset_partner_hp(partnerIdx);
+    if (ttyd64_mode_enabled()) ttyd64_reset_partner_hp(partnerIdx);
     evt_set_variable(script, evt_var, playerData->partners[partnerIdx].level);
 
     return ApiStatus_DONE2;

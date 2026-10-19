@@ -61,6 +61,8 @@ int main() {
         CHECK(ttyd64_mode_consumable_id_at(95) == ITEM_FIRST_CONSUMABLE + 95);
         CHECK(ttyd64_mode_consumable_id_at(96) == (mode ? ITEM_COURAGE_SHELL : ITEM_NONE));
         CHECK(ttyd64_mode_consumable_id_at(ttyd64_consumable_count()) == ITEM_NONE);
+        CHECK(ttyd64_mode_dip_menu_cost(mode, 3, 3, 0) == (mode ? 1 : 0));
+        CHECK(ttyd64_mode_dip_menu_cost(mode, 3, 1, 2) == (mode ? 1 : -2));
         CHECK(ttyd64_mode_fp_cost(mode, MOVE_DOUBLE_DIP, 3) == (mode ? 4 : 3));
         CHECK(ttyd64_mode_fp_cost(mode, MOVE_TRIPLE_DIP, 6) == (mode ? 8 : 6));
         CHECK(ttyd64_mode_bp_cost(mode, MOVE_DOUBLE_DIP, 1) == (mode ? 3 : 1));
