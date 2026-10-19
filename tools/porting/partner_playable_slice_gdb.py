@@ -106,7 +106,7 @@ def run():
         subprocess.run(['xdotool','windowraise',window],check=True,env=runtime_env)
         subprocess.run(['xdotool','windowfocus',window],check=True,env=runtime_env)
         assert int(subprocess.check_output(['xdotool','getwindowfocus'],text=True,env=runtime_env)) == int(window)
-    def key(name, frames=3):
+    def key(name, frames=8):
         # A visible popup can still be in its native input debounce interval.
         # Wait for actual readiness; keep all selection/cancel actions keyboard driven.
         if val('gPopupState') == val('POPUP_STATE_CHOOSING') and val('PopupDelayTime') > 0:
@@ -187,7 +187,12 @@ def run():
         wait(f'WorldMenuState == 3 && WorldMenuType == {kind} && gPopupState == POPUP_STATE_CHOOSING')
         tick(15)
     def open_items():
-        key('Left')
+        # A world-menu open is edge-triggered. Retry real input only if the
+        # prior short/queued tap left ordinary world control unchanged.
+        wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+        for _ in range(3):
+            key('Left')
+            if val('WorldMenuState') != 0: break
         menu_ready(1)
     def open_recipient():
         open_items()
@@ -340,10 +345,10 @@ def run():
             check('dip-keyboard-submenu-' + move,moves == [val('MOVE_ITEMS'),val('MOVE_DOUBLE_DIP'),val('MOVE_TRIPLE_DIP')])
             index = moves.index(val(move))
             for _ in range(8):
-                current = val('SelectedMovesIndex')
+                current = val('MovesCursorPos')
                 if current == index: break
                 key('w' if index < current else 's')
-            assert val('SelectedMovesIndex') == index
+            assert val('MovesCursorPos') == index
             key('x')
             wait('gBattleSubState == 21 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
         for label, move, uses, stock, cancel in [('double','MOVE_DOUBLE_DIP',2,2,False),('triple','MOVE_TRIPLE_DIP',3,3,True),('triple-short-stock','MOVE_TRIPLE_DIP',3,1,False)]:
