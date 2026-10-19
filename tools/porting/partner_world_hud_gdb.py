@@ -91,7 +91,7 @@ def run():
     [t for t in gdb.selected_inferior().threads() if t.is_stopped()][0].switch()
     put('gPortResetToTitleScreen',1)
     until('state_step_title_screen')
-    check('prototype-default-off',val('gTtyd64PartnerHPPrototypeEnabled') == 0)
+    check('prototype-default-off',val('ttyd64_mode_enabled()') == 0)
     put('TitleScreenNextState',val('NEXT_STATE_FILE_SELECT'))
     put('gGameStatusPtr->startupState',val('TITLE_STATE_EXIT'))
     put('gGameStatusPtr->titleScreenTimer',0)
@@ -120,7 +120,7 @@ def run():
         put(f'gPlayerData.partners[{i}].enabled',1)
     switch(1)
     check('native-world-switch-keeps-prototype-off',display() == -1 and hp() == 3)
-    put('gTtyd64PartnerHPPrototypeEnabled',1)
+    cmd('call ttyd64_mode_select_file(1)')
     cmd('call sync_status_bar()')
     tick()
     check('guarded-world-display-initializes-current-hp',display() == 3)
@@ -211,7 +211,7 @@ def run():
         check('native-fio-preserves-world-hp-and-rank',hp() == 20 and display() == 20)
     finally:
         save.write_bytes(original)
-    put('gTtyd64PartnerHPPrototypeEnabled',0)
+    cmd('call ttyd64_mode_select_file(0)')
     check('prototype-off-immediately-hides-world-row',display() == -1 and hp() == 20)
     capture('world-hud-prototype-off')
     Path(required_env('WORLD_HUD_RESULT')).write_text(json.dumps({

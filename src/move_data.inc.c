@@ -542,8 +542,8 @@ MoveData gMoveTable[] = {
         .flags = 0,
         .category = MOVE_TYPE_ITEMS,
         .actionTip = -1,
-        .costFP = TTYD64_FP_DOUBLE_DIP,
-        .costBP = TTYD64_BP_DOUBLE_DIP,
+        .costFP = 3,
+        .costBP = 1,
     },
     {   // 0x36: TripleDip
         .nameMsg = MSG_PlayerMoveName_TripleDip,
@@ -552,8 +552,8 @@ MoveData gMoveTable[] = {
         .flags = 0,
         .category = MOVE_TYPE_ITEMS,
         .actionTip = -1,
-        .costFP = TTYD64_FP_TRIPLE_DIP,
-        .costBP = TTYD64_BP_TRIPLE_DIP,
+        .costFP = 6,
+        .costBP = 3,
     },
     {   // 0x37: ChangePartner
         .nameMsg = MSG_NONE, // "つうじょう",
@@ -703,7 +703,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_DEFENSE_UP,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = TTYD64_BP_DEFEND_PLUS, // TTYD64 globals/Moves.xml, DefendPlus (0x045).
+        .costBP = 6,
     },
     {   // 0x46: LastStand
         .nameMsg = MSG_MoveName_LastStand,
@@ -993,7 +993,7 @@ MoveData gMoveTable[] = {
         .category = MOVE_TYPE_NONE,
         .actionTip = -1,
         .costFP = 0,
-        .costBP = TTYD64_BP_FLOWER_SAVER,
+        .costBP = 6,
     },
     {   // 0x63: PayOff
         .nameMsg = MSG_ItemName_PayOff,

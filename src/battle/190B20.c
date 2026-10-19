@@ -717,7 +717,7 @@ void deduct_current_move_fp(void) {
     BattleStatus* battleStatus = &gBattleStatus;
     PlayerData* playerData = &gPlayerData;
     Actor* actor = battleStatus->playerActor;
-    s32 fpCost = gMoveTable[battleStatus->selectedMoveID].costFP;
+    s32 fpCost = get_move_fp_cost(battleStatus->selectedMoveID);
 
     fpCost = ttyd64_move_fp_cost(fpCost, player_team_is_ability_active(actor, ABILITY_FLOWER_SAVER),
                                 player_team_is_ability_active(actor, ABILITY_FLOWER_FANATIC));

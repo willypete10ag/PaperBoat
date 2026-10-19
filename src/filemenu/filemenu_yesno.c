@@ -3,6 +3,7 @@
 #include "fio.h"
 #include "game_modes.h"
 #include "dx/config.h"
+#include "ttyd64_assets.h"
 #include <string.h>
 
 #if VERSION_IQUE
@@ -29,11 +30,34 @@
 #define NUMBER_OFFSET_Y                 0
 #endif
 
+s8* load_message_to_buffer(s32 msgID);
+
+static void filemenu_draw_mode_message(s32 msgID, s32 x, s32 y) {
+    filemenu_draw_message((u8*)load_message_to_buffer(msgID), x, y, 255, MSG_PAL_WHITE, 0);
+}
+
+static Ttyd64Mode NewFileMode;
+
+void filemenu_choose_mode(MenuPanel* menu) {
+    NewFileMode = TTYD64_MODE_VANILLA;
+    menu->state = FM_CHOOSE_MODE;
+    filemenu_set_selected(menu, 0, 0);
+    gWindows[WIN_FILES_CONFIRM_OPTIONS].width = 260;
+    gWindows[WIN_FILES_CONFIRM_OPTIONS].height = 90;
+    gWindows[WIN_FILES_CONFIRM_OPTIONS].pos.x = CENTER_WINDOW_X(WIN_FILES_CONFIRM_OPTIONS);
+    gWindows[WIN_FILES_CONFIRM_OPTIONS].pos.y = 100;
+    gWindows[WIN_FILES_CONFIRM_PROMPT].width = 240;
+    gWindows[WIN_FILES_CONFIRM_PROMPT].height = 26;
+    gWindows[WIN_FILES_CONFIRM_PROMPT].pos.x = CENTER_WINDOW_X(WIN_FILES_CONFIRM_PROMPT);
+    gWindows[WIN_FILES_CONFIRM_PROMPT].pos.y = -34;
+}
+
 u8 filemenu_yesno_gridData[] = {
     0, 1,
     0, 1,
     0, 1,
     0, 1,
+    0, 1, // FM_CHOOSE_MODE: the generic grid accessor indexes by state.
 };
 
 MenuWindowBP filemenu_yesno_windowBPs[] = {
@@ -96,6 +120,15 @@ void filemenu_yesno_draw_options_contents(
     s32 cursorGoalXOffset;
     s32 cursorGoalYOffset;
 
+    if (menu->state == FM_CHOOSE_MODE) {
+        filemenu_draw_mode_message(MSG_TTYD64_ModeVanilla, baseX + 28, baseY + 4);
+        filemenu_draw_mode_message(MSG_TTYD64_ModeVanillaDesc, baseX + 28, baseY + 21);
+        filemenu_draw_mode_message(MSG_TTYD64_ModeTTYD64, baseX + 28, baseY + 46);
+        filemenu_draw_mode_message(MSG_TTYD64_ModeTTYD64Desc, baseX + 28, baseY + 63);
+        filemenu_set_cursor_goal_pos(WIN_FILES_CONFIRM_OPTIONS, baseX + 18, baseY + 12 + menu->selected * 42);
+        return;
+    }
+
     switch (menu->state) {
         case FM_CONFIRM_DELETE:
             xOffset1 = 28;
@@ -148,6 +181,11 @@ void filemenu_yesno_draw_prompt_contents(
     s32 msgColor;
     s32 xOffset;
     s32 i;
+
+    if (menu->state == FM_CHOOSE_MODE) {
+        filemenu_draw_mode_message(MSG_TTYD64_ModeTitle, baseX + 10, baseY + 4);
+        return;
+    }
 
     switch (menu->state) {
         case FM_CONFIRM_DELETE:
@@ -226,6 +264,22 @@ void filemenu_yesno_handle_input(MenuPanel* menu) {
         sfx_play_sound(SOUND_MENU_CHANGE_SELECTION);
     }
 
+    if (menu->state == FM_CHOOSE_MODE && (filemenu_pressedButtons & (BUTTON_A | BUTTON_START))) {
+        NewFileMode = menu->selected == 1 ? TTYD64_MODE_TTYD64 : TTYD64_MODE_VANILLA;
+        menu->state = FM_CONFIRM_CREATE;
+        filemenu_set_selected(menu, 0, 0);
+        gWindows[WIN_FILES_CONFIRM_OPTIONS].width = 69;
+        gWindows[WIN_FILES_CONFIRM_OPTIONS].height = 44;
+        gWindows[WIN_FILES_CONFIRM_OPTIONS].pos.x = CENTER_WINDOW_X(WIN_FILES_CONFIRM_OPTIONS);
+        gWindows[WIN_FILES_CONFIRM_OPTIONS].pos.y = 121;
+        gWindows[WIN_FILES_CONFIRM_PROMPT].width = 164;
+        gWindows[WIN_FILES_CONFIRM_PROMPT].height = 62;
+        gWindows[WIN_FILES_CONFIRM_PROMPT].pos.x = CENTER_WINDOW_X(WIN_FILES_CONFIRM_PROMPT);
+        gWindows[WIN_FILES_CONFIRM_PROMPT].pos.y = -70;
+        sfx_play_sound(SOUND_MENU_NEXT);
+        return;
+    }
+
     if ((filemenu_pressedButtons & BUTTON_START) && menu->state == FM_CONFIRM_START) {
         filemenu_set_selected(menu, 0, 0);
         filemenu_pressedButtons = BUTTON_A;
@@ -261,6 +315,10 @@ void filemenu_yesno_handle_input(MenuPanel* menu) {
                         gSaveSlotMetadata[selected].validData = false;
                         break;
                     case FM_CONFIRM_COPY:
+                        if (!fio_copy_game(filemenu_CopyFromFileIdx, filemenu_CopyToFileIdx)) {
+                            sfx_play_sound(SOUND_MENU_ERROR);
+                            return;
+                        }
                         filemenu_currentMenu = FILE_MENU_MESSAGE;
                         filemenu_menus[FILE_MENU_MESSAGE]->state = FM_MESSAGE_COPIED;
                         gWindows[WIN_FILES_MESSAGE].width = 154;
@@ -269,13 +327,12 @@ void filemenu_yesno_handle_input(MenuPanel* menu) {
                         gWindows[WIN_FILES_MESSAGE].pos.y = CENTER_WINDOW_Y(WIN_FILES_MESSAGE);
                         set_window_update(WIN_FILES_MESSAGE, WINDOW_UPDATE_SHOW);
                         set_window_update(WIN_FILES_CONFIRM_OPTIONS, (intptr_t)filemenu_update_hidden_name_confirm);
-                        fio_load_game(filemenu_CopyFromFileIdx);
                         gSaveSlotSummary[filemenu_CopyToFileIdx] = gSaveSlotSummary[filemenu_CopyFromFileIdx];
                         gSaveSlotMetadata[filemenu_CopyToFileIdx] = gSaveSlotMetadata[filemenu_CopyFromFileIdx];
-                        fio_save_game(filemenu_CopyToFileIdx);
                         break;
                     case FM_CONFIRM_CREATE:
                         clear_player_data();
+                        ttyd64_mode_select_file(NewFileMode);
                         clear_saved_variables();
                         get_map_IDs_by_name_checked(NEW_GAME_MAP_ID, &gGameStatusPtr->areaID, &gGameStatusPtr->mapID);
                         gGameStatusPtr->entryID = NEW_GAME_ENTRY_ID;
@@ -369,6 +426,7 @@ void filemenu_yesno_handle_input(MenuPanel* menu) {
                 filemenu_currentMenu = FILE_MENU_MAIN;
                 set_window_update(WIN_FILES_CONFIRM_OPTIONS, (intptr_t)filemenu_update_hidden_name_confirm);
                 break;
+            case FM_CHOOSE_MODE:
             case FM_CONFIRM_CREATE:
                 filemenu_currentMenu = FILE_MENU_INPUT_NAME;
                 set_window_update(WIN_FILES_CONFIRM_OPTIONS, (intptr_t)filemenu_update_hidden_name_confirm);

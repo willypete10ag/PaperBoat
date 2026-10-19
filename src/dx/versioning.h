@@ -145,6 +145,7 @@ typedef struct ShipSaveData {
     u8 hasDiedOnce;
     // Native JSON extension, never overlaid on legacy partner unknown bytes.
     Ttyd64PartnerHP partnerHP[TTYD64_PARTNER_HP_COUNT];
+    u8 ttyd64Mode; // Optional versioned native JSON; zero defaults to Vanilla.
 } ShipSaveData;
 
 typedef struct SaveData {

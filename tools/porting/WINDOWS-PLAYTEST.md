@@ -1,9 +1,10 @@
 # Windows TTYD64 partner playtest
 
-> **Policy supersession:** prior off/unsaved/reset activation policy below is superseded by [ADR 0007](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/decisions/0007-per-save-ttyd64-mode.md). Historical code/results keep their original scope; saved mode is not implemented yet.
+> **Policy supersession:** prior off/unsaved/reset activation policy below is superseded by [ADR 0007](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/decisions/0007-per-save-ttyd64-mode.md). Historical code/results keep their original scope. This branch implements per-save mode; use the milestone PR for current acceptance/CI status.
 
 This is an early Goomba Village/Road slice, not the full TTYD64 campaign. Normal
-Paperboat.exe launches in the current prototype keep the feature off (historical behavior; activation policy superseded by ADR 0007). Use the launcher below
+Paperboat.exe offers Vanilla (default) or experimental TTYD64 when creating a
+file. Existing saves stay Vanilla. Use the launcher below
 to opt into a fresh isolated developer session with Goombario, Kooper and Bombette.
 No GDB, Python, source checkout or private seed save is needed to play.
 
@@ -61,8 +62,9 @@ initialization; it does not rely on SHIP_HOME for Windows. Portable Windows
 builds are required. Normal game configuration and saves are not imported.
 
 Session state comes from native new-game initialization with deliberate developer
-recruitment, wounds, inventory and progression. The activation flag is unsaved **[Activation policy superseded by ADR 0007; historical behavior.]**
-and the setup request is consumed once; reset/new-game does not reactivate it.
+recruitment, wounds, inventory and progression. The file explicitly saves TTYD64
+rules; native file selection/continuation restores its mode. The one-shot setup
+request is consumed once; a new file still defaults to Vanilla.
 Save Blocks write within the session. This launcher currently starts fresh each
 time; resuming a session across launches is not provided. Keep experimental saves
 separate from normal campaign saves. Source story progression, flying partners,

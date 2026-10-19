@@ -4,7 +4,7 @@
 #include "ttyd64_partner_hp.h"
 #include "port/PlaytestSession.h"
 
-// A deliberate process-only developer scenario, never a normal new-game preset.
+// A deliberate disposable developer scenario with an ordinary saved TTYD64 mode.
 int ttyd64_playtest_startup(void) {
     const int profile = ttyd64_playtest_take_request();
     if (profile == 0) {
@@ -50,8 +50,8 @@ int ttyd64_playtest_startup(void) {
         add_item(ITEM_LIFE_SHROOM);
     }
     // Same native serialization/new-game path as file creation; no distributed seed.
-    // The optional HP save field contains health only, never the activation flag.
-    gTtyd64PartnerHPPrototypeEnabled = true;
+    // The same versioned mode contract is used by normal new-file selection.
+    ttyd64_mode_select_file(TTYD64_MODE_TTYD64);
     fio_save_game(3);
     set_curtain_scale(2.0f);
     set_curtain_fade(0.0f);

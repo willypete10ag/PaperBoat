@@ -34,7 +34,7 @@ API_CALLABLE(N(ChangeNpcToPartner)) {
             break;
         case 2:
             playerData->curPartner = partnerID;
-            if (!playerData->partners[partnerID].enabled) {
+            if (ttyd64_mode_enabled() && !playerData->partners[partnerID].enabled) {
                 ttyd64_reset_partner_hp(partnerID);
             }
             playerData->partners[partnerID].enabled = true;

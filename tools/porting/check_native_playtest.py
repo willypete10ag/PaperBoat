@@ -80,7 +80,7 @@ def observe():
         neutral()
         for _ in range(80):
             until('step_game_mode')
-        check('native prototype enabled in Village', val('gTtyd64PartnerHPPrototypeEnabled') == 1 and
+        check('native saved TTYD64 mode enabled in Village', val('ttyd64_mode_enabled()') == 1 and
               val('gGameStatus.areaID') == 0 and val('gGameStatus.mapID') == 1)
         check('native Mario stats and gear', val('gPlayerData.curHP') == 15 and val('gPlayerData.curMaxHP') == 20 and
               val('gPlayerData.curFP') == 10 and val('gPlayerData.hammerLevel') == 0 and val('gPlayerData.hasActionCommands') == 1)
@@ -90,7 +90,8 @@ def observe():
                   val(f'gCurrentSaveFile.shipSaveData.partnerHP[{partner}].maxHP') == maximum)
         check('native world partner bound', val('wCurrentPartnerId') == 1 and val('WorldPartnerID') == 1)
         save = Path(os.environ['NATIVE_PLAYTEST_SESSION']) / 'saves/file3.json'
-        check('native save generated without a seed', save.is_file() and 'ttyd64PartnerHP' in save.read_text())
+        check('native save generated with TTYD64 mode, without a seed', save.is_file() and
+              json.loads(save.read_text())['ship']['ttyd64Mode'] == {'version': 1, 'rules': 'ttyd64'})
         old_x = float(gdb.parse_and_eval('gPlayerStatus.pos.x'))
         key('d', 12)
         check('keyboard moves Mario', float(gdb.parse_and_eval('gPlayerStatus.pos.x')) > old_x,
@@ -138,11 +139,12 @@ def observe():
         check('keyboard unpause restores owner', val('WorldPartnerID') == 2, 'real keyboard input after native CLI setup')
         # Explicitly controlled reset boundary; no assertion that keyboard reset was tested.
         cmd('call set_game_mode(GAME_MODE_STARTUP)')
-        wait('gTtyd64PartnerHPPrototypeEnabled == 0')
+        wait('ttyd64_mode_enabled() == 0')
         for _ in range(10):
             until('step_game_mode')
-        check('reset consumes request and leaves normal prototype off', val('gTtyd64PartnerHPPrototypeEnabled') == 0 and
-              val('gPlayerData.curHP') == 10, 'debugger API selects STARTUP; native reset runs, predicate observation')
+        check('controlled startup clears active mode, saved file remains TTYD64', val('ttyd64_mode_enabled()') == 0 and
+              val('gPlayerData.curHP') == 10 and
+              json.loads(save.read_text())['ship']['ttyd64Mode']['rules'] == 'ttyd64', 'debugger API selects STARTUP; native reset runs, predicate observation')
         result['status'] = 'pass'
     except Exception as error:
         result['error'] = str(error)

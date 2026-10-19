@@ -1029,6 +1029,10 @@ void filemenu_main_handle_input(MenuPanel* menu) {
                     } else {
                         filemenu_CopyToFileIdx = menu->selected;
                         if (!gSaveSlotMetadata[menu->selected].hasData) {
+                            if (!fio_copy_game(filemenu_CopyFromFileIdx, filemenu_CopyToFileIdx)) {
+                                sfx_play_sound(SOUND_MENU_ERROR);
+                                return;
+                            }
                             sfx_play_sound(SOUND_MENU_NEXT);
                             filemenu_currentMenu = FILE_MENU_MESSAGE;
                             filemenu_menus[FILE_MENU_MESSAGE]->state = FM_MESSAGE_COPIED;
@@ -1039,10 +1043,8 @@ void filemenu_main_handle_input(MenuPanel* menu) {
 
                             set_window_update(WIN_FILES_MESSAGE, WINDOW_UPDATE_SHOW);
                             set_window_update(WIN_FILES_CONFIRM_OPTIONS, WINDOW_UPDATE_HIDE);
-                            fio_load_game(filemenu_CopyFromFileIdx);
                             gSaveSlotSummary[filemenu_CopyToFileIdx] = gSaveSlotSummary[filemenu_CopyFromFileIdx];
                             gSaveSlotMetadata[filemenu_CopyToFileIdx] = gSaveSlotMetadata[filemenu_CopyFromFileIdx];
-                            fio_save_game(filemenu_CopyToFileIdx);
                         } else {
                             sfx_play_sound(SOUND_MENU_NEXT);
                             set_window_update(WIN_FILES_CONFIRM_OPTIONS, (intptr_t)filemenu_update_show_name_confirm);

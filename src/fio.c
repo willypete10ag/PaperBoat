@@ -169,23 +169,44 @@ b32 fio_fetch_saved_file_info(void) {
     return true;
 }
 
-b32 fio_load_game(s32 saveSlot) {
-    gGameStatusPtr->saveSlot = saveSlot;
-
+static b32 fio_read_game(s32 saveSlot) {
     CALL_CANCELLABLE_EVENT(OnSaveFileLoad, saveSlot) {
         fio_fetch_saved_file_info();
         fio_read_flash(LogicalSaveInfo[saveSlot].slot, &gCurrentSaveFile, MAX(sizeof(VanillaSaveData), sizeof(SaveData)));
     }
-    if (strcmp(gCurrentSaveFile.magicString, MagicSaveString) == 0) {
-        if (gGameStatusPtr->saveCount < gCurrentSaveFile.saveCount) {
-            gGameStatusPtr->saveCount = gCurrentSaveFile.saveCount;
-        }
-        fio_deserialize_state();
-        gSaveSlotSummary[gGameStatusPtr->saveSlot] = gCurrentSaveFile.summary;
-        return true;
+    return strcmp(gCurrentSaveFile.magicString, MagicSaveString) == 0;
+}
+
+b32 fio_load_summary(s32 saveSlot) {
+    // Preview I/O shares this buffer with native flags/HP. Restore it in full;
+    // never deserialize the preview into the running file or choose its mode.
+    SaveData running = gCurrentSaveFile;
+    b32 valid = fio_read_game(saveSlot);
+    if (valid) {
+        gSaveSlotSummary[saveSlot] = gCurrentSaveFile.summary;
+        gSaveSlotMetadata[saveSlot].hasData = true;
+        gSaveSlotMetadata[saveSlot].validData = strcmp(gCurrentSaveFile.modName, DX_MOD_NAME) == 0;
+        memcpy(gSaveSlotMetadata[saveSlot].modName, gCurrentSaveFile.modName, sizeof(gSaveSlotMetadata[saveSlot].modName));
+    } else {
+        memset(&gSaveSlotMetadata[saveSlot], 0, sizeof(gSaveSlotMetadata[saveSlot]));
     }
-    return false;
-    
+    gCurrentSaveFile = running;
+    return valid;
+}
+
+b32 fio_load_game(s32 saveSlot) {
+    SaveData running = gCurrentSaveFile;
+    if (!fio_read_game(saveSlot)) {
+        gCurrentSaveFile = running;
+        return false;
+    }
+    gGameStatusPtr->saveSlot = saveSlot;
+    CALL_EVENT(OnPostSaveFileLoad);
+    if (gGameStatusPtr->saveCount < gCurrentSaveFile.saveCount)
+        gGameStatusPtr->saveCount = gCurrentSaveFile.saveCount;
+    fio_deserialize_state();
+    gSaveSlotSummary[saveSlot] = gCurrentSaveFile.summary;
+    return true;
 }
 
 void fio_save_game(s32 saveSlot) {

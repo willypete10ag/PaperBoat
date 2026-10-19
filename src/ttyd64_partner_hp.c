@@ -3,7 +3,6 @@
 #include "ttyd64_partner_hp.h"
 #include "dx/versioning.h"
 
-b32 gTtyd64PartnerHPPrototypeEnabled = false;
 static Actor* BoundPartnerActor;
 static s32 BoundPartnerID = PARTNER_NONE;
 static u16 DeathHandledMask;
@@ -59,7 +58,7 @@ void ttyd64_partner_hp_begin_battle(void) {
 
 void ttyd64_partner_hp_new_game(void) {
     ttyd64_partner_hp_init(gCurrentSaveFile.shipSaveData.partnerHP, &gPlayerData);
-    gTtyd64PartnerHPPrototypeEnabled = false;
+    ttyd64_mode_select_file(TTYD64_MODE_VANILLA);
     WorldPartnerID = PARTNER_NONE;
     ttyd64_partner_hp_begin_battle();
 }
@@ -96,7 +95,7 @@ b32 ttyd64_has_hp_partner(void) {
 }
 
 static b32 can_bind_actor(void) {
-    return gTtyd64PartnerHPPrototypeEnabled && gGameStatusPtr->context == CONTEXT_BATTLE
+    return ttyd64_mode_enabled() && gGameStatusPtr->context == CONTEXT_BATTLE
         && !(gGameStatusPtr->demoBattleFlags & DEMO_BTL_FLAG_ENABLED)
         && !(gPlayerStatusPtr->animFlags & PA_FLAG_USING_PEACH_PHYSICS)
         && !(gBattleStatus.flags2 & BS_FLAGS2_PEACH_BATTLE);
@@ -139,6 +138,7 @@ void ttyd64_reset_partner_hp(s32 partnerID) {
 }
 
 void ttyd64_fully_restore_partner_hp(void) {
+    if (!ttyd64_mode_enabled()) return;
     s32 i;
     b32 anyUnlocked = false;
 
@@ -412,7 +412,7 @@ s32 ttyd64_partner_combat_heal(Actor* actor, s32 amount) {
 }
 
 static b32 can_display_world_hp(void) {
-    return gTtyd64PartnerHPPrototypeEnabled && gGameStatusPtr->context == CONTEXT_WORLD
+    return ttyd64_mode_enabled() && gGameStatusPtr->context == CONTEXT_WORLD
         && gGameStatusPtr->demoState == DEMO_STATE_NONE
         && !(gPlayerStatusPtr->animFlags & PA_FLAG_USING_PEACH_PHYSICS)
         && ttyd64_partner_hp_supported(WorldPartnerID) && gPlayerData.curPartner == WorldPartnerID

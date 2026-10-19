@@ -140,7 +140,7 @@ def run():
     [t for t in gdb.selected_inferior().threads() if t.is_stopped()][0].switch()
     put('gPortResetToTitleScreen',1)
     until('state_step_title_screen')
-    check('prototype-default-off',val('gTtyd64PartnerHPPrototypeEnabled') == 0)
+    check('prototype-default-off',val('ttyd64_mode_enabled()') == 0)
     put('TitleScreenNextState',val('NEXT_STATE_FILE_SELECT'))
     put('gGameStatusPtr->startupState',val('TITLE_STATE_EXIT'))
     put('gGameStatusPtr->titleScreenTimer',0)
@@ -167,7 +167,7 @@ def run():
         put(f'gPlayerData.invItems[{i}]',0)
     cmd('call evt_set_variable((Evt*)0, GF_Tutorial_SwapTurnOrder, 1)')
     assert val('ttyd64_set_partner_hp(1,6)') == 6
-    put('gTtyd64PartnerHPPrototypeEnabled',1)
+    cmd('call ttyd64_mode_select_file(1)')
     cmd('call switch_to_partner(1)')
     tick(100)
     check('native-world-goombario-ready',val('wCurrentPartnerId') == 1 and display() == 6)
@@ -194,7 +194,7 @@ def run():
         check('zero-reentry-rejects-turn-and-sentinel',val('btl_partner_can_act()') == 0 and val('gBattleStatus.partnerActor->curHP') == 0)
         leave(0)
         check('repeated-zero-return-keeps-world-row',display() == 0)
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         check('prototype-off-hides-returned-row',display() == -1 and hp() == 0)
         capture('battle-return-prototype-off')
         owner = 'gCurrentEncounter.encounterList[0]->enemy[0]'

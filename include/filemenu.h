@@ -14,6 +14,8 @@
     : (SCREEN_HEIGHT / 2)) \
     - (gWindows[id].height  / 2))
 
+void filemenu_choose_mode(MenuPanel* menu);
+
 enum {
     FILE_MENU_MAIN          = 0, // file selection
     FILE_MENU_CONFIRM       = 1, // confirmation prompt is open
@@ -31,6 +33,7 @@ enum {
     FM_CONFIRM_CREATE           = 1,
     FM_CONFIRM_COPY             = 2, // unused
     FM_CONFIRM_START            = 3,
+    FM_CHOOSE_MODE              = 4,
 
     FM_MESSAGE_DELETED          = 0,
     FM_MESSAGE_COPIED           = 1,

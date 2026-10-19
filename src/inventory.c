@@ -1,4 +1,5 @@
 #include "inventory.h"
+#include "fio.h"
 #include "ttyd64_partner_hp.h"
 #include "hud_element.h"
 #include "dx/config.h"
@@ -161,7 +162,17 @@ void clear_player_data(void) {
     playerData->smashGamePlays = 0;
     playerData->smashGameTotal = 0;
     playerData->smashGameRecord = 0;
+    gCurrentSaveFile.shipSaveData.hasDiedOnce = 0;
+    gCurrentSaveFile.shipSaveData.ttyd64Mode = TTYD64_MODE_VANILLA;
     ttyd64_partner_hp_new_game();
+}
+
+s32 get_move_fp_cost(s32 moveID) {
+    return ttyd64_mode_fp_cost(ttyd64_mode_enabled(), moveID, gMoveTable[moveID].costFP);
+}
+
+s32 get_move_bp_cost(s32 moveID) {
+    return ttyd64_mode_bp_cost(ttyd64_mode_enabled(), moveID, gMoveTable[moveID].costBP);
 }
 
 s32 add_item(s32 itemID) {
@@ -237,6 +248,13 @@ s32 remove_item(s32 itemID) {
 
     // handle badges
     if (item_is_badge(itemID)) {
+        // Vanilla removes every equipped copy even when the item is not owned.
+        if (!ttyd64_mode_enabled()) {
+            for (idx = 0; idx < ARRAY_COUNT(gPlayerData.equippedBadges); idx++) {
+                if (gPlayerData.equippedBadges[idx] == itemID)
+                    gPlayerData.equippedBadges[idx] = ITEM_NONE;
+            }
+        }
         for (idx = 0; idx < ARRAY_COUNT(gPlayerData.badges); idx++) {
             if (gPlayerData.badges[idx] == itemID) {
                 break;
@@ -1906,6 +1924,8 @@ void reset_status_bar(void) {
 }
 
 s32 is_ability_active(s32 ability) {
+    if (!ttyd64_mode_enabled() && (ability == ABILITY_FP_DRAIN || ability == ABILITY_HAMMERMAN
+        || ability == ABILITY_JUMPMAN || ability == ABILITY_PITY_FLOWER)) return 0;
     PlayerData* playerData = &gPlayerData;
     s32 attackFXArray[6];
     s32 attackFXIndex;

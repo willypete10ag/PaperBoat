@@ -16233,6 +16233,11 @@ static const char* const gMsgPaths_sec2F[] = {
     "__OTR__messages/ttyd64/CouplesCakeDesc",
     "__OTR__messages/ttyd64/MeteorMealName",
     "__OTR__messages/ttyd64/MeteorMealDesc",
+    "__OTR__messages/ttyd64/ModeTitle",
+    "__OTR__messages/ttyd64/ModeVanilla",
+    "__OTR__messages/ttyd64/ModeVanillaDesc",
+    "__OTR__messages/ttyd64/ModeTTYD64",
+    "__OTR__messages/ttyd64/ModeTTYD64Desc",
 };
 
 static const char* const* const gMsgSectionPaths[] = {

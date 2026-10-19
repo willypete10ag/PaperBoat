@@ -484,7 +484,7 @@ void filemenu_choose_name_handle_input(MenuPanel* menu) {
                 gWindows[WIN_FILES_CONFIRM_PROMPT].pos.y = -70;
 
                 filemenu_currentMenu = FILE_MENU_CONFIRM;
-                filemenu_menus[filemenu_currentMenu]->state = FM_CONFIRM_CREATE;
+                filemenu_choose_mode(filemenu_menus[filemenu_currentMenu]);
                 filemenu_set_selected(filemenu_menus[filemenu_currentMenu], 0, 0);
                 return;
             default:
@@ -567,7 +567,7 @@ void filemenu_choose_name_handle_input(MenuPanel* menu) {
         gWindows[WIN_FILES_CONFIRM_PROMPT].pos.y = -70;
 
         filemenu_currentMenu = FILE_MENU_CONFIRM;
-        filemenu_menus[FILE_MENU_CONFIRM]->state = FM_CONFIRM_CREATE;
+        filemenu_choose_mode(filemenu_menus[FILE_MENU_CONFIRM]);
         filemenu_set_selected(filemenu_menus[FILE_MENU_CONFIRM], 0, 0);
     }
 }

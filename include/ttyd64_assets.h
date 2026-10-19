@@ -1,6 +1,12 @@
 #ifndef TTYD64_ASSETS_H
 #define TTYD64_ASSETS_H
 
+#define MSG_TTYD64_ModeTitle MESSAGE_ID(0x2F, 24)
+#define MSG_TTYD64_ModeVanilla MESSAGE_ID(0x2F, 25)
+#define MSG_TTYD64_ModeVanillaDesc MESSAGE_ID(0x2F, 26)
+#define MSG_TTYD64_ModeTTYD64 MESSAGE_ID(0x2F, 27)
+#define MSG_TTYD64_ModeTTYD64Desc MESSAGE_ID(0x2F, 28)
+
 // Native IDs are appended; Star Rod's item/move/message indices are not reused.
 #define MSG_TTYD64_PityFlowerName MESSAGE_ID(0x2F, 0)
 #define MSG_TTYD64_PityFlowerDesc MESSAGE_ID(0x2F, 1)

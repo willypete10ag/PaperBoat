@@ -143,7 +143,7 @@ def run():
     [t for t in gdb.selected_inferior().threads() if t.is_stopped()][0].switch()
     put('gPortResetToTitleScreen',1)
     until('state_step_title_screen')
-    check('startup-prototype-off',val('gTtyd64PartnerHPPrototypeEnabled') == 0)
+    check('startup-prototype-off',val('ttyd64_mode_enabled()') == 0)
     put('TitleScreenNextState',val('NEXT_STATE_FILE_SELECT'))
     put('gGameStatusPtr->startupState',val('TITLE_STATE_EXIT'))
     put('gGameStatusPtr->titleScreenTimer',0)
@@ -176,7 +176,7 @@ def run():
     capture('world-swap-prototype-off')
     cancel()
     check('off-cancel-preserves-partner-hp-and-input',val('wCurrentPartnerId') == 1 and hp() == 3)
-    put('gTtyd64PartnerHPPrototypeEnabled',1)
+    cmd('call ttyd64_mode_select_file(1)')
     open_menu()
     check('on-source-world-list-geometry',val('gWindows[WIN_POPUP_CONTENT].width') == 208 and val('gWindows[WIN_POPUP_CONTENT].pos.x') == 91 and val('gWindows[WIN_POPUP_TITLE_B].pos.x') == 45)
     check('on-current-partner-row-remains-disabled',val('WorldPopupMenu.userIndex[0]') == 1 and val('WorldPopupMenu.enabled[0]') == 0 and val('WorldPopupMenu.enabled[1]') != 0)
@@ -236,7 +236,7 @@ def run():
     check('keyboard-items-switch-restores-native-layout',val('gWindows[WIN_POPUP_CONTENT].width') == 145 and val('popup_world_partner_hp_active()') == 0)
     capture('world-swap-items')
     cancel()
-    put('gTtyd64PartnerHPPrototypeEnabled',0)
+    cmd('call ttyd64_mode_select_file(0)')
     open_menu()
     check('off-reopen-restores-native-geometry-with-all-ranks',val('gWindows[WIN_POPUP_CONTENT].width') == 139 and val('popup_world_partner_hp_active()') == 0)
     capture('world-swap-final-off')
@@ -245,7 +245,7 @@ def run():
     check('off-keyboard-scroll-keeps-native-ranks',val('PopupMenu_FirstDisplayIndex') > 0 and val('WorldPopupMenu.value[7]') == 2)
     capture('world-swap-off-bottom')
     cancel()
-    check('final-menu-cleanup-keeps-normal-flag-off',val('gTtyd64PartnerHPPrototypeEnabled') == 0 and val('gPopupState') == val('POPUP_STATE_MINUS_5') and hp() == 30)
+    check('final-menu-cleanup-keeps-normal-flag-off',val('ttyd64_mode_enabled()') == 0 and val('gPopupState') == val('POPUP_STATE_MINUS_5') and hp() == 30)
     assert save.read_bytes() == original
     Path(required_env('WORLD_SWAP_RESULT')).write_text(json.dumps({
         'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'capture_states':capture_states,

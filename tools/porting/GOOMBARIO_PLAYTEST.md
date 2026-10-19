@@ -1,6 +1,6 @@
 # Isolated Goombario developer playtest
 
-> **Policy supersession:** prior off/unsaved/reset activation policy below is superseded by [ADR 0007](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/decisions/0007-per-save-ttyd64-mode.md). Historical code/results keep their original scope; saved mode is not implemented yet.
+> **Policy supersession:** prior off/unsaved/reset activation policy below is superseded by [ADR 0007](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/decisions/0007-per-save-ttyd64-mode.md). Historical code/results keep their original scope. The saved-mode implementation is under review in PR9; see README.md for the shared contract and current acceptance methods.
 
 Build and run the portable acceptance setup in [README.md](README.md) first.
 This is an early partner-HP slice, not a completed TTYD64 mod. No private cloud

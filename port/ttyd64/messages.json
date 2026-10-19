@@ -22,5 +22,10 @@
   "CouplesCakeName": "Couple's Cake",
   "CouplesCakeDesc": "Food that slowly refills HP.\n\nYou can't eat it alone.",
   "MeteorMealName": "Meteor Meal",
-  "MeteorMealDesc": "Food that refills 7 HP and\n\ngradually recovers even more."
+  "MeteorMealDesc": "Food that refills 7 HP and\n\ngradually recovers even more.",
+  "ModeTitle": "Choose rules for this file",
+  "ModeVanilla": "Vanilla",
+  "ModeVanillaDesc": "Original Paper Mario rules.",
+  "ModeTTYD64": "TTYD64 (experimental)",
+  "ModeTTYD64Desc": "Partner HP and new battle rules."
 }

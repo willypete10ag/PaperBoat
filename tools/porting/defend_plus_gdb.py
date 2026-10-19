@@ -50,6 +50,7 @@ def run_checks():
     assign("gPortResetToTitleScreen", 1)
     stop_at("state_step_title_screen")
     command("continue")
+    command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
     variants = [value(f"ITEM_DEFEND_PLUS_{suffix}") for suffix in ("A", "X", "Y")]
     badge = variants[0]
     checks, branches = [], []
@@ -87,7 +88,7 @@ def run_checks():
         command("call pause_badges_handle_input(&gPausePanelBadges)")
         assign("gPausePressedButtons", 0)
 
-    check("source-cost-five-bp", value("gMoveTable[MOVE_DEFEND_PLUS].costBP") == 5)
+    check("source-cost-five-bp", value("get_move_bp_cost(MOVE_DEFEND_PLUS)") == 5)
     check("all-native-variants-share-validated-effect", all(
         value(f"gItemTable[{item}].moveID") == value("MOVE_DEFEND_PLUS") for item in variants))
     if not load_only:
@@ -148,6 +149,7 @@ def run_checks():
     command("return")
     stop_at("calc_enemy_damage_target")
     command("continue")
+    command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
     source = source_path('src/battle/1A5830.c')
     lines = source.read_text().splitlines()
     start = next(i + 1 for i, line in enumerate(lines) if "isPlayer = actorClass" in line)

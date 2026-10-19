@@ -140,12 +140,6 @@ EvtScript N(EVS_MakeEntities) = {
     EndIf
     Call(MakeEntity, Ref(Entity_BlueWarpPipe), 0, 0, 355, 0, kmr_02_ENTRY_3, Ref(N(EVS_GotoMap_tik_01_2)), EVT_INDEX_OF_GAME_FLAG(GF_KMR02_WarpPipe), MAKE_ENTITY_END)
     Call(MakeEntity, Ref(Entity_SavePoint), 250, 60, 75, -15, MAKE_ENTITY_END)
-    // Experimental native-port acquisition, separate from TTYD64's Pit floor
-    // 40 reward. Preserve vanilla rewards and save each copy independently.
-    IfGe(GB_StoryProgress, STORY_CH0_MET_INNKEEPER)
-        Call(MakeItemEntity, ITEM_PITY_FLOWER, 210, 15, 150, ITEM_SPAWN_MODE_FIXED_NEVER_VANISH, GF_TTYD64_KMR02_PityFlowerA)
-        Call(MakeItemEntity, ITEM_PITY_FLOWER, 170, 15, 150, ITEM_SPAWN_MODE_FIXED_NEVER_VANISH, GF_TTYD64_KMR02_PityFlowerB)
-    EndIf
     IfGe(GB_StoryProgress, STORY_CH0_TWINK_GAVE_LUCKY_STAR)
         Call(MakeItemEntity, ITEM_SHOOTING_STAR, 510, 0, -340, ITEM_SPAWN_MODE_FIXED_NEVER_VANISH, GF_KMR02_Item_ShootingStar)
     EndIf

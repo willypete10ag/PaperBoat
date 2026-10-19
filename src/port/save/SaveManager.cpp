@@ -1,5 +1,6 @@
 #include "SaveManager.h"
 #include "ttyd64_health_json.h"
+#include "ttyd64_mode_json.h"
 #include "SaveTypes.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -10,6 +11,7 @@
 #include <regex>
 #include <cstddef>
 #include <algorithm>
+#include <memory>
 
 extern "C" {
 #include "dx/versioning.h"
@@ -17,6 +19,7 @@ extern "C" {
 extern SaveData gCurrentSaveFile;
 extern char MagicSaveString[];
 s32 fio_calc_globals_checksum(void);
+s32 fio_calc_file_checksum(SaveData* saveData);
 }
 
 using nlohmann::json;
@@ -269,9 +272,15 @@ SaveData* ConvertJSON_to_SaveData(nlohmann::json jsonSaveFile) {
         saveData->unk_1304[un] = jsonUnk1304[un];
     }
 
-    ordered_json jsonShipSaveData = jsonSaveFile["ship"];
-    saveData->shipSaveData.hasDiedOnce = jsonShipSaveData["hasDiedOnce"];
+    ordered_json jsonShipSaveData = jsonSaveFile.value("ship", ordered_json::object());
+    if (!jsonShipSaveData.is_object())
+        jsonShipSaveData = ordered_json::object();
+    saveData->shipSaveData.hasDiedOnce =
+        jsonShipSaveData.contains("hasDiedOnce") && jsonShipSaveData["hasDiedOnce"].is_number_integer()
+        ? jsonShipSaveData["hasDiedOnce"].get<int>()
+        : 0;
     ReadPartnerHP(saveData, jsonShipSaveData);
+    saveData->shipSaveData.ttyd64Mode = ttyd64_read_mode(jsonShipSaveData);
 
     return saveData;
 }
@@ -488,9 +497,41 @@ ordered_json ConvertSaveData_to_JSON(SaveData* saveData) {
     for (int i = 0; i < TTYD64_PARTNER_HP_COUNT; ++i)
         ranks[i] = saveData->player.partners[i].level;
     jsonShipSaveData["ttyd64PartnerHP"] = ttyd64_write_health(saveData->shipSaveData.partnerHP, ranks);
+    ttyd64_write_mode(jsonShipSaveData, saveData->shipSaveData.ttyd64Mode);
     jsonSave["ship"] = jsonShipSaveData;
 
     return jsonSave;
+}
+
+// Copy the JSON document directly: previews/copy never activate a file, and
+// unknown extension data travels with its source rather than the destination.
+extern "C" b32 fio_copy_game(s32 from, s32 to) {
+    if (from < 0 || from >= 4 || to < 0 || to >= 4 || from == to)
+        return false;
+    try {
+        const auto source =
+            Ship::Context::GetPathRelativeToAppDirectory(fmt::format("saves/file{}.json", from), "pm64");
+        const auto target = Ship::Context::GetPathRelativeToAppDirectory(fmt::format("saves/file{}.json", to), "pm64");
+        std::ifstream in(source);
+        if (!in.is_open())
+            return false;
+        ordered_json document;
+        in >> document;
+        document["saveSlot"] = to;
+        std::unique_ptr<SaveData> copy(ConvertJSON_to_SaveData(document));
+        copy->crc1 = 0;
+        copy->crc2 = ~copy->crc1;
+        copy->crc1 = fio_calc_file_checksum(copy.get());
+        copy->crc2 = ~copy->crc1;
+        document["crc1"] = copy->crc1;
+        document["crc2"] = copy->crc2;
+        std::ofstream out(target);
+        out << CollapsedJSONArray(document);
+        return out.good();
+    } catch (const std::exception& error) {
+        SPDLOG_ERROR("Could not copy save: {}", error.what());
+        return false;
+    }
 }
 
 static std::string GlobalsPath() {
@@ -561,6 +602,20 @@ void SaveManager_Init() {
             }
 
             filePath += fileName;
+            if (fs::exists(filePath)) {
+                std::ifstream previousFile(filePath);
+                ordered_json previous;
+                previousFile >> previous;
+                if (previous.is_object()) {
+                    ordered_json ship = previous.value("ship", ordered_json::object());
+                    if (!ship.is_object())
+                        ship = ordered_json::object();
+                    ship.update(jsonSaveFile["ship"]);
+                    previous.update(jsonSaveFile);
+                    previous["ship"] = ship;
+                    jsonSaveFile = previous;
+                }
+            }
             std::string collapsedString = CollapsedJSONArray(jsonSaveFile);
 
             std::ofstream outputFile(filePath);
@@ -583,12 +638,11 @@ void SaveManager_Init() {
             json jsonSave;
             inputFile >> jsonSave;
 
-            gCurrentSaveFile = *ConvertJSON_to_SaveData(jsonSave);
+            std::unique_ptr<SaveData> loaded(ConvertJSON_to_SaveData(jsonSave));
+            gCurrentSaveFile = *loaded;
         } else {
-            SaveData* newSaveData = new SaveData();
-            gCurrentSaveFile = *newSaveData;
+            gCurrentSaveFile = SaveData {};
         }
-        CALL_EVENT(OnPostSaveFileLoad);
     })
 
     REGISTER_LISTENER(OnSaveFileErase, EVENT_PRIORITY_HIGH, [](IEvent* event) {

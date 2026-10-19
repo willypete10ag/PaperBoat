@@ -213,9 +213,11 @@ void entity_HeartBlockContent__anim_heal(Entity* entity, s32 arg1) {
                 recover_hp(-1);
                 recover_fp(-1);
                 // PartnersHP.patch hook 106848: Heart Blocks also refill SP
-                // and the passive partner-health model, even with combat off.
-                gPlayerData.starPower = gPlayerData.maxStarPower * SP_PER_BAR;
-                ttyd64_fully_restore_partner_hp();
+                // and partner health in TTYD64 files only.
+                if (ttyd64_mode_enabled()) {
+                    gPlayerData.starPower = gPlayerData.maxStarPower * SP_PER_BAR;
+                    ttyd64_fully_restore_partner_hp();
+                }
                 sfx_play_sound(SOUND_HEART_BLOCK);
             }
             data->yawBuffer[data->yawBufferPos] = entity->rot.y;

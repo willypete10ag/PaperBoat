@@ -324,7 +324,7 @@ void pause_partners_load_portrait(s32 index) {
 // PartnersHP.patch Party consumer. Use the selected carousel identity, not
 // the world partner or a message ID cached in source RAM.
 static b32 pause_partners_hp_active(void) {
-    return gTtyd64PartnerHPPrototypeEnabled && Ttyd64PausePartnerHeartHID >= 0
+    return ttyd64_mode_enabled() && Ttyd64PausePartnerHeartHID >= 0
         && gGameStatusPtr->context == CONTEXT_PAUSE
         && gGameStatusPtr->demoState == DEMO_STATE_NONE
         && !(gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
@@ -584,7 +584,7 @@ void pause_partners_draw_movelist(MenuPanel* menu, s32 baseX, s32 baseY, s32 wid
         }
 
         if (i > 0) {
-            costFP = gMoveTable[gPausePartnersMoveBase[gPausePartnersPartnerIdx[gPausePartnersCurrentPartnerIdx]] + 2 + i].costFP;
+            costFP = get_move_fp_cost(gPausePartnersMoveBase[gPausePartnersPartnerIdx[gPausePartnersCurrentPartnerIdx]] + 2 + i);
         } else {
             costFP = 0;
         }
@@ -655,7 +655,7 @@ void pause_partners_init(MenuPanel* panel) {
         return;
     }
 
-    if (gTtyd64PartnerHPPrototypeEnabled && ttyd64_has_hp_partner()) {
+    if (ttyd64_mode_enabled() && ttyd64_has_hp_partner()) {
         Ttyd64PausePartnerHeartHID = hud_element_create(&HES_StatusHeart);
         hud_element_set_flags(Ttyd64PausePartnerHeartHID, HUD_ELEMENT_FLAG_MANUAL_RENDER);
         hud_element_set_scale(Ttyd64PausePartnerHeartHID, 22.0f / 16.0f);
