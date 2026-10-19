@@ -127,6 +127,27 @@ def observe():
                 check('fresh-process Dip costs follow mode', val('get_move_fp_cost(MOVE_DOUBLE_DIP)') == (4 if expected else 3)
                       and val('get_move_bp_cost(MOVE_DOUBLE_DIP)') == (3 if expected else 1),
                       'debugger read-only cost API queries after native load')
+                check('normal Village has no proof pickups in this mode', all(not val(f'WorldItemEntities[{i}]') or
+                      val(f'WorldItemEntities[{i}]->itemID') != val('ITEM_PITY_FLOWER') for i in range(256)),
+                      'native map after real keyboard continuation, before injected healing setup')
+                initial_hp = val('ttyd64_get_partner_hp(PARTNER_GOOMBARIO)')
+                for field, amount in (('curHP', 3), ('curFP', 1), ('maxStarPower', 2), ('starPower', 0)):
+                    cmd(f'set variable gPlayerData.{field} = {amount}')
+                for axis, amount in (('x', 200), ('y', 0), ('z', 100)):
+                    cmd(f'set variable gPlayerStatus.pos.{axis} = {amount}')
+                block = val('create_entity(&Entity_HeartBlock, 200, 60, 100, 0, 0, (uintptr_t)0x80000000)')
+                assert block >= 0
+                tick(10)
+                for _ in range(3):
+                    key('x', 5)
+                    tick(60)
+                    if val('gPlayerData.curHP == gPlayerData.curMaxHP'): break
+                check('keyboard Heart Block heals Mario in both modes', val('gPlayerData.curHP == gPlayerData.curMaxHP')
+                      and val('gPlayerData.curFP == gPlayerData.curMaxFP'),
+                      'injected wounds/SP/position/test Heart Block; real jump/native healing animation')
+                check('Heart Block extra HP/SP follows saved mode', val('ttyd64_get_partner_hp(PARTNER_GOOMBARIO)') == (10 if expected else initial_hp)
+                      and val('gPlayerData.starPower') == (512 if expected else 0),
+                      'injected wounds/SP/position/test Heart Block; real jump/native healing animation')
             result['status'] = 'pass'
             return
         wait('!(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
