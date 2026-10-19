@@ -231,12 +231,12 @@ def run_checks():
     clear()
     grant()
     grant(other)
-    assign("get_move_bp_cost(MOVE_LAST_STAND)", -1)
+    assign("gMoveTable[MOVE_LAST_STAND].costBP", -1)
     assign("gPlayerData.maxBP", 0)
     check("negative-bp-equip-fixture", equip() == 3 and equip(other) == 3)
     check("negative-bp-removal-protection", value(f"pause_badges_try_remove({badge})") == -1
           and count("equippedBadges") == 1)
-    assign("get_move_bp_cost(MOVE_LAST_STAND)", cost)
+    assign("gMoveTable[MOVE_LAST_STAND].costBP", cost)
 
     clear()
     assign("gPlayerData.badges[11]", badge)
@@ -257,11 +257,11 @@ def run_checks():
     for _ in range(128):
         assert grant() >= 0
     check("full-inventory-rejects-extra-copy", grant() == -1 and count("badges") == 128)
-    assign("get_move_bp_cost(MOVE_LAST_STAND)", 0)
+    assign("gMoveTable[MOVE_LAST_STAND].costBP", 0)
     for _ in range(64):
         assert equip() == 3
     check("full-equipped-array-rejects-extra-copy", equip() == 2 and count("equippedBadges") == 64)
-    assign("get_move_bp_cost(MOVE_LAST_STAND)", cost)
+    assign("gMoveTable[MOVE_LAST_STAND].costBP", cost)
     clear()
     setup_menu()
     check("empty-menu-standin-not-equipped", value("gPauseBadgesItemIds[0]") == 32766 and rows() == [False])
