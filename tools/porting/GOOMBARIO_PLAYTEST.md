@@ -1,5 +1,7 @@
 # Isolated Goombario developer playtest
 
+> **Policy supersession:** prior off/unsaved/reset activation policy below is superseded by [ADR 0007](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/decisions/0007-per-save-ttyd64-mode.md). Historical code/results keep their original scope; saved mode is not implemented yet.
+
 Build and run the portable acceptance setup in [README.md](README.md) first.
 This is an early partner-HP slice, not a completed TTYD64 mod. No private cloud
 snapshot is required. Supply your ROM and archives locally; never commit them.
@@ -22,7 +24,7 @@ The launcher creates a new marked session under
 and committed input profile, stages supplied archives, prepares the scene with
 GDB, then detaches for real input. Close the game window to finish. Normal
 configuration and saves are never used. The prototype is enabled only in this
-process; normal launches remain off. Read the printed session log/readiness
+process; normal launches remain off. Read the printed session log/readiness **[Activation policy superseded by ADR 0007; historical behavior.]**
 report; startup verification is not complete playthrough acceptance.
 
 ## Controls and scenario
@@ -100,7 +102,7 @@ Add `--ground-partners` to recruit Goombario, Kooper and Bombette in the new
 isolated session, each initially wounded at 3 HP. Native normal-rank maxima are
 10, 10 and 15. Use the world Partners menu or battle Change Partner to select
 one. `--verify --ground-partners` checks setup/input and closes automatically.
-Default invocation still recruits only Goombario; normal launches remain off.
+Default invocation still recruits only Goombario; normal launches remain off. **[Activation policy superseded by ADR 0007; historical behavior.]**
 
 The supported HP group shares damage/death/Life Shroom, turn skipping, team
 positions, shrooms and HP presentation. Kooper additionally has source DEF1
@@ -113,7 +115,7 @@ in HP mode. Lethal contact selects death/revival directly.
 Complete move sets, source status animation assets and remaining combat/cure
 interactions, broader enemy AI and flying exceptions remain unfinished. The
 guarded group now enables native status infliction/lifecycle as described below.
-Normal play stays off, and original save layouts are preserved.
+Normal play stays off, and original save layouts are preserved. **[Activation policy superseded by ADR 0007; historical behavior.]**
 
 For developer acceptance, PARTNER_SLICE_PARTNER=2 or 3 selects Kooper/Bombette
 in the shared ground-contracts, ground-combat, team, victory and victory-dead
@@ -138,7 +140,7 @@ and remaining combat/cure interactions are still incomplete.
 Developer acceptance uses PARTNER_SLICE_PHASES=statuses for partner1/2/3, sharing
 native keyboard rounds, frozen swaps and flee, with controlled API infliction
 and setup. This does not claim natural status-bearing enemy AI, all item effects,
-all partner moves or a campaign port. The prototype remains off in normal play.
+all partner moves or a campaign port. The prototype remains off in normal play. **[Activation policy superseded by ADR 0007; historical behavior.]**
 See the [shared status handoff](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-16-partner-status-lifecycle.md)
 for source timing, validation scope and the remaining combat/cure interactions.
 
@@ -154,5 +156,5 @@ ground-contracts phase. Source Battle_NewStatuses replaces vanilla Shrink with
 attack debuffs/tiny state, so legacy Shrink application checks remain native
 smoke coverage until that typed subsystem is ported. Complete attack/elemental
 interactions, source status assets, other curatives/AI/partners and campaign are
-still unfinished. Normal activation remains off.
+still unfinished. Normal activation remains off. **[Activation policy superseded by ADR 0007; historical behavior.]**
 See the [recovery handoff](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-16-partner-recovery-consumers.md).

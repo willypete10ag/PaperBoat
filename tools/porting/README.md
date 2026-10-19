@@ -1,5 +1,7 @@
 # Reproducible native TTYD64 checks
 
+> **Policy supersession:** prior off/unsaved/reset activation policy below is superseded by [ADR 0007](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/decisions/0007-per-save-ttyd64-mode.md). Historical code/results keep their original scope; saved mode is not implemented yet.
+
 Partner HP combat remains **off in normal play**. These are developer checks,
 not a completed mod or campaign acceptance. All runtime fixtures use debugger
 setup, except the native-launch checks described below; several use injected damage/forced guard/RNG returns. Per-check method
@@ -11,7 +13,7 @@ hardware rendering or audible output.
 
 The Windows CI ZIP now includes an explicit isolated developer-session launcher.
 See [WINDOWS-PLAYTEST.md](WINDOWS-PLAYTEST.md) for local-ROM setup, controls,
-profiles, saves and logs. Normal launches keep the development feature off.
+profiles, saves and logs. Normal launches keep the development feature off. **[Activation policy superseded by ADR 0007; historical behavior.]**
 The launcher creates new-game state natively; no GDB or private seed is needed.
 
 Linux and packaged Windows CI run `check_playtest_preflight.py` with a synthetic
@@ -172,14 +174,14 @@ The existing status phase additionally checks poison-death/Life Shroom cleanup.
 three-argument source APIs; `Ttyd64MakeActorTiny/Giant(actor)` require a matching
 signed attack effect. Enemy applications store one extra turn. Same-sign values
 replace; opposite signs cancel. Inactive partner timers pause. State is unsaved,
-cleared at battle boundaries/death, and guarded by the existing default-off flag.
+cleared at battle boundaries/death, and guarded by the existing default-off flag. **[Activation policy superseded by ADR 0007; historical behavior.]**
 Legacy two-argument permanent BoostAttack/BoostDefense keep their native ABI and
 release timed ownership of their axis. Ported scripts should use the explicit
 APIs. Native Shrink applications in the guarded context become -1 attack + Tiny,
 coexisting with ordinary debuffs; generic native chances/duration inputs remain,
 so this does not port every source Shrink move/chance or AI consumer. Full source
 buff counters/arrows, HP/FP regeneration and charge conversion remain separate.
-No normal activation or campaign parity is implied.
+No normal activation or campaign parity is implied. **[Activation policy superseded by ADR 0007; historical behavior.]**
 
 ## Seed and input provenance
 
@@ -258,7 +260,7 @@ partners. Slow Shroom and Couple's Cake set HP +2 for 10 turns; the latter
 consumes without effect on its Mario owner. Gradual Syrup sets recipient-owned
 FP +2 for 10 turns, recovering shared player-team FP. Meteor Meal heals its
 recipient 7 immediately, then HP +2 for 3 turns. IDs 0x175–0x178 append;
-all original IDs/save fields remain unchanged. Normal activation stays off.
+all original IDs/save fields remain unchanged. Normal activation stays off. **[Activation policy superseded by ADR 0007; historical behavior.]**
 Only guarded battle consumers are implemented; source world use, shops and
 recipes are pending. Source message-box/wave choreography and persistent
 regeneration counters are not complete.
