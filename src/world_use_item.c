@@ -6,7 +6,7 @@
 #include "world/partners.h"
 
 b32 ttyd64_world_item_can_target_partner(s32 itemID) {
-    if (!gTtyd64PartnerHPPrototypeEnabled || gGameStatusPtr->context != CONTEXT_WORLD
+    if (!ttyd64_mode_enabled() || gGameStatusPtr->context != CONTEXT_WORLD
         || gGameStatusPtr->demoState != DEMO_STATE_NONE
         || (gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
         || !ttyd64_has_hp_partner()) {
@@ -26,7 +26,7 @@ API_CALLABLE(WorldItem_GetHPRecipientPos) {
     Bytecode* args = script->ptrReadPos;
     Vec3f* pos = &gPlayerStatus.pos;
 
-    if (gTtyd64PartnerHPPrototypeEnabled && ttyd64_partner_hp_supported(script->varTable[14])
+    if (ttyd64_mode_enabled() && ttyd64_partner_hp_supported(script->varTable[14])
         && wCurrentPartnerId == script->varTable[14] && wPartnerNpc != nullptr) {
         pos = &wPartnerNpc->pos;
     }
@@ -75,7 +75,7 @@ API_CALLABLE(WorldItem_RestoreHP) {
 
     s32 partnerID = script->varTable[14];
     if (partnerID != PARTNER_NONE) {
-        if (gTtyd64PartnerHPPrototypeEnabled && ttyd64_partner_hp_supported(partnerID)
+        if (ttyd64_mode_enabled() && ttyd64_partner_hp_supported(partnerID)
             && playerData->partners[partnerID].enabled) {
             // Active world-item source adds/caps even from zero HP. Battle
             // food's separate no-revival rule must not leak into this path.

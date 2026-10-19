@@ -10,10 +10,6 @@
 extern "C" {
 #endif
 
-// Development-only actor binding, off at startup/new game and never saved.
-// Damage/death/item/UI consumers must be translated before normal activation.
-extern b32 gTtyd64PartnerHPPrototypeEnabled;
-
 // Returns -1 for no partner/noncombat IDs; clamps rank to the supported range.
 s32 ttyd64_partner_base_max_hp(s32 partnerID, s32 rank);
 void ttyd64_partner_hp_init(Ttyd64PartnerHP* health, const PlayerData* player);

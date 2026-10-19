@@ -1,6 +1,7 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#include "ttyd64_mode.h"
 #include <string.h>
 #include <math.h>
 

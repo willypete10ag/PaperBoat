@@ -13,7 +13,7 @@ static Actor* ModifierPartnerOwner;
 static s32 ModifierPartnerID;
 
 b32 ttyd64_actor_modifiers_active(Actor* actor) {
-    if (actor == nullptr || !gTtyd64PartnerHPPrototypeEnabled || gGameStatusPtr->context != CONTEXT_BATTLE
+    if (actor == nullptr || !ttyd64_mode_enabled() || gGameStatusPtr->context != CONTEXT_BATTLE
         || (gGameStatusPtr->demoBattleFlags & DEMO_BTL_FLAG_ENABLED)
         || (gPlayerStatusPtr->animFlags & PA_FLAG_USING_PEACH_PHYSICS)
         || (gBattleStatus.flags2 & BS_FLAGS2_PEACH_BATTLE))

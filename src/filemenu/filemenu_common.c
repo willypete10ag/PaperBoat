@@ -901,16 +901,7 @@ void filemenu_init(s32 mode) {
 
     if (menu->state == FM_MAIN_SELECT_FILE) {
         for (i = 0; i < ARRAY_COUNT(filemenu_menus); i++) {
-            if (fio_load_game(i)) {
-                gSaveSlotSummary[i] = gCurrentSaveFile.summary;
-                gSaveSlotMetadata[i].hasData = true;
-                gSaveSlotMetadata[i].validData = strcmp(gCurrentSaveFile.modName, DX_MOD_NAME) == 0;
-                memcpy(gSaveSlotMetadata[i].modName, gCurrentSaveFile.modName, ARRAY_COUNT(gSaveSlotMetadata[i].modName));
-            } else {
-                gSaveSlotMetadata[i].hasData = false;
-                gSaveSlotMetadata[i].validData = false;
-                memset(gSaveSlotMetadata[i].modName, 0, ARRAY_COUNT(gSaveSlotMetadata[i].modName));
-            }
+            fio_load_summary(i);
         }
 
         fio_load_globals();

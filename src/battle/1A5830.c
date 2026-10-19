@@ -458,7 +458,8 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
 
             if (lastStandCount > 0) {
                 // TTYD64: TTYD_BadgeSystem.patch, Last Stand hook (80277950).
-                damage = ttyd64_last_stand_damage(damage, target->curHP, lastStandCount);
+                damage = ttyd64_mode_enabled()
+                    ? ttyd64_last_stand_damage(damage, target->curHP, lastStandCount) : damage / 2;
             }
         }
     }

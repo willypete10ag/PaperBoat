@@ -11,6 +11,7 @@ void fio_serialize_state() {
     s32 i, j;
 
     saveData->player = gPlayerData;
+    saveData->shipSaveData.ttyd64Mode = ttyd64_mode_enabled();
     ttyd64_partner_hp_normalize(saveData->shipSaveData.partnerHP, &saveData->player);
 
     saveData->areaID = gGameStatus.areaID;
@@ -37,6 +38,8 @@ void fio_serialize_state() {
 void fio_deserialize_state() {
     SaveData* saveData = &gCurrentSaveFile;
 
+    ttyd64_mode_select_file(strcmp(saveData->modName, DX_MOD_NAME) == 0
+        ? saveData->shipSaveData.ttyd64Mode : TTYD64_MODE_VANILLA);
     if (saveData->modName[0] == '\0') {
         // handle loading vanilla saves here
         ver_deserialize_vanilla_save(saveData);

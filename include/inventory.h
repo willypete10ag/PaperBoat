@@ -7,6 +7,10 @@
 /// Returns the index of the new item in the player's inventory, or -1 if there was no room.
 s32 add_item(s32 itemID);
 
+// Shared mode-aware costs for menus, payment, BP accounting and shops.
+s32 get_move_fp_cost(s32 moveID);
+s32 get_move_bp_cost(s32 moveID);
+
 /// Remove first instance of `itemID` found in player inventory.
 /// Returns the index of the removed item in the player's inventory, or -1 none was found.
 s32 remove_item(s32 itemID);
@@ -44,7 +48,8 @@ s32 get_stored_empty(void);
 
 /// Returns whether `itemID` is a Consumable.
 static ALWAYS_INLINE b32 item_is_consumable(s32 itemID) {
-    return gItemTable[itemID].typeFlags & ITEM_TYPE_FLAG_CONSUMABLE;
+    return (itemID < ITEM_COURAGE_SHELL || ttyd64_mode_enabled())
+        && (gItemTable[itemID].typeFlags & ITEM_TYPE_FLAG_CONSUMABLE);
 }
 
 /// Returns whether `itemID` is a Badge.

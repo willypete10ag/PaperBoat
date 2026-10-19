@@ -1007,6 +1007,9 @@ void load_battle_section(void);
 void btl_update(void);
 void update_item_entities(void);
 void restore_map_collision_data(void);
+s32 get_move_fp_cost(s32 moveID);
+s32 get_move_bp_cost(s32 moveID);
+
 void mdl_load_all_textures(struct ModelNode* model, u8* textureData, s32 size);
 void mdl_calculate_model_sizes(void);
 

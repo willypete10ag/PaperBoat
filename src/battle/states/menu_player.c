@@ -160,7 +160,7 @@ void btl_init_menu_boots(void) {
         move = &gMoveTable[battleStatus->submenuMoves[i]];
 
         // Calculate FP cost
-        fpCost = move->costFP;
+        fpCost = get_move_fp_cost(move - gMoveTable);
         if (fpCost != 0) {
             fpCost -= player_team_is_ability_active(player, ABILITY_FLOWER_SAVER);
             fpCost -= player_team_is_ability_active(player, ABILITY_FLOWER_FANATIC) * 2;
@@ -252,7 +252,7 @@ void btl_init_menu_hammer(void) {
         move = &gMoveTable[battleStatus->submenuMoves[i]];
 
         // Calculate FP cost
-        fpCost = move->costFP;
+        fpCost = get_move_fp_cost(move - gMoveTable);
         if (fpCost != 0) {
             fpCost -= player_team_is_ability_active(player, ABILITY_FLOWER_SAVER);
             fpCost -= player_team_is_ability_active(player, ABILITY_FLOWER_FANATIC) * 2;
@@ -588,7 +588,7 @@ void btl_state_update_player_menu(void) {
                             s32 moveID = gItemTable[playerData->equippedBadges[i]].moveID;
                             moveData = &gMoveTable[moveID];
                             if (moveData->category == BattleMenu_CategoryForSubmenu[battleStatus->curSubmenu]) {
-                                s32 cost = moveData->costFP;
+                                s32 cost = get_move_fp_cost(moveData - gMoveTable);
                                 battleStatus->submenuMoves[entryIdx] = moveID;
                                 battleStatus->submenuIcons[entryIdx] = playerData->equippedBadges[i];
                                 battleStatus->submenuStatus[entryIdx] = 1;
@@ -648,7 +648,7 @@ void btl_state_update_player_menu(void) {
                         if (playerActor->targetListLength == 0) {
                             battleStatus->submenuStatus[entryIdx] = -2;
                         }
-                        if (playerData->starPower / SP_PER_BAR < moveData->costFP) {
+                        if (playerData->starPower / SP_PER_BAR < get_move_fp_cost(moveData - gMoveTable)) {
                             battleStatus->submenuStatus[entryIdx] = 0;
                         }
                         if (gBattleStatus.flags2 & BS_FLAGS2_NO_TARGET_AVAILABLE) {
@@ -669,7 +669,7 @@ void btl_state_update_player_menu(void) {
                         if (playerActor->targetListLength == 0) {
                             battleStatus->submenuStatus[entryIdx] = -2;
                         }
-                        if (playerData->starPower / SP_PER_BAR < moveData->costFP) {
+                        if (playerData->starPower / SP_PER_BAR < get_move_fp_cost(moveData - gMoveTable)) {
                             battleStatus->submenuStatus[entryIdx] = 0;
                         }
                         if (gBattleStatus.flags2 & BS_FLAGS2_NO_TARGET_AVAILABLE) {
@@ -689,7 +689,7 @@ void btl_state_update_player_menu(void) {
                         if (playerActor->targetListLength == 0) {
                             battleStatus->submenuStatus[entryIdx] = -2;
                         }
-                        if (playerData->starPower / SP_PER_BAR < moveData->costFP) {
+                        if (playerData->starPower / SP_PER_BAR < get_move_fp_cost(moveData - gMoveTable)) {
                             battleStatus->submenuStatus[entryIdx] = 0;
                         }
                         if (gBattleStatus.flags2 & BS_FLAGS2_NO_TARGET_AVAILABLE) {
@@ -783,8 +783,8 @@ void btl_state_update_player_menu(void) {
                     MovesOptionHudScripts[i] = hudScriptPair->disabled;
                 }
 
-                MovesOptionDisplayCosts[i] = moveData->costFP;
-                MovesOptionBPCosts[i] = moveData->costBP;
+                MovesOptionDisplayCosts[i] = get_move_fp_cost(moveData - gMoveTable);
+                MovesOptionBPCosts[i] = get_move_bp_cost(moveData - gMoveTable);
                 MovesOptionSortPriority[i] = 0;
                 MovesOptionDiscounts[i] = 0;
                 MovesOptionDiscountColors[i] = 0;
@@ -992,7 +992,8 @@ void btl_state_update_player_menu(void) {
                 }
                 itemData = &gItemTable[playerData->invItems[i]];
                 hudScriptPair = &gItemHudScripts[itemData->hudElemID];
-                if (!(itemData->typeFlags & ITEM_TYPE_FLAG_BATTLE_USABLE)) {
+                if ((!ttyd64_mode_enabled() && itemData >= &gItemTable[ITEM_COURAGE_SHELL])
+                    || !(itemData->typeFlags & ITEM_TYPE_FLAG_BATTLE_USABLE)) {
                     continue;
                 }
                 battleStatus->moveCategory = BTL_MENU_TYPE_ITEMS;
@@ -1100,7 +1101,8 @@ void btl_state_update_player_menu(void) {
                 }
                 itemData = &gItemTable[playerData->invItems[i]];
                 hudScriptPair = &gItemHudScripts[itemData->hudElemID];
-                if (!(itemData->typeFlags & ITEM_TYPE_FLAG_BATTLE_USABLE)) {
+                if ((!ttyd64_mode_enabled() && itemData >= &gItemTable[ITEM_COURAGE_SHELL])
+                    || !(itemData->typeFlags & ITEM_TYPE_FLAG_BATTLE_USABLE)) {
                     continue;
                 }
                 battleStatus->moveCategory = BTL_MENU_TYPE_ITEMS;
@@ -1212,8 +1214,8 @@ void btl_state_update_player_menu(void) {
                 if (battleStatus->submenuStatus[i] == 0) {
                     MovesOptionHudScripts[i] = StarPowerMovesHudScripts[STAR_POWER_INDEX(battleStatus->submenuMoves[i])].disabled;
                 }
-                MovesOptionDisplayCosts[i] = moveData->costFP;
-                MovesOptionBPCosts[i] = moveData->costBP;
+                MovesOptionDisplayCosts[i] = get_move_fp_cost(moveData - gMoveTable);
+                MovesOptionBPCosts[i] = get_move_bp_cost(moveData - gMoveTable);
                 MovesOptionSortPriority[i] = 0;
                 MovesOptionIndices[i] = i;
                 MovesOptionEnabled[i] = battleStatus->submenuStatus[i];
@@ -1309,7 +1311,8 @@ void btl_state_update_player_menu(void) {
                     }
                     itemData = &gItemTable[playerData->invItems[i]];
                     hudScriptPair = &gItemHudScripts[itemData->hudElemID];
-                    if (!(itemData->typeFlags & ITEM_TYPE_FLAG_BATTLE_USABLE)) {
+                    if ((!ttyd64_mode_enabled() && itemData >= &gItemTable[ITEM_COURAGE_SHELL])
+                    || !(itemData->typeFlags & ITEM_TYPE_FLAG_BATTLE_USABLE)) {
                         continue;
                     }
 

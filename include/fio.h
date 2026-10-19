@@ -7,6 +7,8 @@
 b32 fio_load_globals(void);
 b32 fio_save_globals(void);
 b32 fio_load_game(s32 saveSlot);
+b32 fio_load_summary(s32 saveSlot);
+b32 fio_copy_game(s32 from, s32 to);
 void fio_save_game(s32 saveSlot);
 void fio_erase_game(s32 saveSlot);
 

@@ -241,7 +241,7 @@ void btl_init_menu_partner(void) {
     for (i = 0; i < battleStatus->submenuMoveCount; i++){
         MoveData* move = &gMoveTable[battleStatus->submenuMoves[i]];
 
-        fpCost = move->costFP;
+        fpCost = get_move_fp_cost(move - gMoveTable);
         if (fpCost != 0) {
             fpCost -= player_team_is_ability_active(player, ABILITY_FLOWER_SAVER);
             fpCost -= player_team_is_ability_active(player, ABILITY_FLOWER_FANATIC) * 2;
@@ -575,8 +575,8 @@ void btl_state_update_partner_menu(void) {
             MovesOptionEnabled[i] = battleStatus->submenuStatus[i];
             MovesOptionNames[i] = moveData->nameMsg;
             MovesOptionDesc[i] = moveData->shortDescMsg;
-            MovesOptionDisplayCosts[i] = moveData->costFP;
-            MovesOptionBPCosts[i] = moveData->costBP;
+            MovesOptionDisplayCosts[i] = get_move_fp_cost(moveData - gMoveTable);
+            MovesOptionBPCosts[i] = get_move_bp_cost(moveData - gMoveTable);
             MovesOptionSortPriority[i] = i;
 
             MovesOptionDiscounts[i] = 0;
@@ -672,7 +672,8 @@ void btl_state_update_partner_menu(void) {
             item = &gItemTable[playerData->invItems[i]];
             hudScript = &gItemHudScripts[item->hudElemID].enabled;
 
-            if (!(item->typeFlags & ITEM_TYPE_FLAG_BATTLE_USABLE)) {
+            if ((!ttyd64_mode_enabled() && item >= &gItemTable[ITEM_COURAGE_SHELL])
+                    || !(item->typeFlags & ITEM_TYPE_FLAG_BATTLE_USABLE)) {
                 continue;
             }
             popupMenu->ptrIcon[popupIndex] = hudScript[0];
@@ -850,8 +851,8 @@ void btl_state_update_partner_menu(void) {
             if (battleStatus->submenuStatus[i] == 0) {
                 MovesOptionHudScripts[i] = StarPowerMovesHudScripts[STAR_POWER_INDEX(battleStatus->submenuMoves[i])].disabled;
             }
-            MovesOptionDisplayCosts[i] = moveData->costFP;
-            MovesOptionBPCosts[i] = moveData->costBP;
+            MovesOptionDisplayCosts[i] = get_move_fp_cost(moveData - gMoveTable);
+            MovesOptionBPCosts[i] = get_move_bp_cost(moveData - gMoveTable);
             MovesOptionIndices[i] = i;
             MovesOptionSortPriority[i] = i;
             MovesOptionEnabled[i] = battleStatus->submenuStatus[i];

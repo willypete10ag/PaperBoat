@@ -152,7 +152,7 @@ void popup_draw_star_pieces_content(s32* userData, s32 x, s32 y);
 // PartnersHP.patch world/battle list consumers share the typed HP model.
 // Only the supported ground group has rows; ordinary play retains native layout.
 static b32 popup_partner_hp_active(void) {
-    return gTtyd64PartnerHPPrototypeEnabled && gPopupMenu != nullptr
+    return ttyd64_mode_enabled() && gPopupMenu != nullptr
         && gPopupMenu->popupType == POPUP_MENU_SWITCH_PARTNER
         && ((PopupNotBattle && gGameStatusPtr->context == CONTEXT_WORLD)
             || (!PopupNotBattle && gGameStatusPtr->context == CONTEXT_BATTLE

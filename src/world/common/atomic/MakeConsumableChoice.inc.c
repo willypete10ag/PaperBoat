@@ -12,8 +12,8 @@ API_CALLABLE(N(BuildItemChoiceList)) {
         }
         N(ItemChoiceList)[i] = ITEM_NONE;
     } else {
-        for (i = 0; i < ITEM_NUM_CONSUMABLES; i++) {
-            N(ItemChoiceList)[i] = ttyd64_consumable_id_at(i);
+        for (i = 0; i < ttyd64_consumable_count(); i++) {
+            N(ItemChoiceList)[i] = ttyd64_mode_consumable_id_at(i);
         }
         N(ItemChoiceList)[i] = ITEM_NONE;
     }

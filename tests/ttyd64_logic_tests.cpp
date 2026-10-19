@@ -1,4 +1,6 @@
 #include "ttyd64_health_json.h"
+#include "ttyd64_mode_json.h"
+#include "move_enum.h"
 #include "item_enum.h"
 #include <climits>
 #include <cstdlib>
@@ -28,6 +30,46 @@ static int fixed(int max) {
     return boundary;
 }
 int main() {
+    // Independent persistence contract: never infer from health/proof content.
+    CHECK(!ttyd64_mode_enabled());
+    auto modeShip = ordered_json { { "hasDiedOnce", 1 }, { "otherExtension", { { "keep", 17 } } } };
+    CHECK(ttyd64_read_mode(modeShip) == TTYD64_MODE_VANILLA);
+    ttyd64_write_mode(modeShip, TTYD64_MODE_TTYD64);
+    CHECK(ttyd64_read_mode(ordered_json::parse(modeShip.dump())) == TTYD64_MODE_TTYD64);
+    CHECK(modeShip["hasDiedOnce"] == 1 && modeShip["otherExtension"]["keep"] == 17);
+    CHECK(!ttyd64_mode_enabled()); // JSON preview never activates anything.
+    ttyd64_mode_select_file(TTYD64_MODE_TTYD64);
+    ttyd64_write_mode(modeShip, TTYD64_MODE_VANILLA);
+    CHECK(ttyd64_read_mode(modeShip) == TTYD64_MODE_VANILLA && ttyd64_mode_enabled());
+    for (const auto& invalid : {
+            ordered_json(nullptr), ordered_json::array(), ordered_json(17),
+            ordered_json { { "ttyd64PartnerHP", { { "version", 1 } } } },
+            ordered_json { { "ttyd64Mode", true } },
+            ordered_json { { "ttyd64Mode", { { "version", 1 } } } },
+            ordered_json { { "ttyd64Mode", { { "version", 2 }, { "rules", "ttyd64" } } } },
+            ordered_json { { "ttyd64Mode", { { "version", 1.0 }, { "rules", "ttyd64" } } } },
+            ordered_json { { "ttyd64Mode", { { "version", "1" }, { "rules", "ttyd64" } } } },
+            ordered_json { { "ttyd64Mode", { { "version", UINT64_MAX }, { "rules", "ttyd64" } } } },
+            ordered_json { { "ttyd64Mode", { { "version", 1 }, { "rules", true } } } },
+            ordered_json { { "ttyd64Mode", { { "version", 1 }, { "rules", "unknown" } } } } }) {
+        CHECK(ttyd64_read_mode(invalid) == TTYD64_MODE_VANILLA);
+        CHECK(ttyd64_mode_enabled());
+    }
+    for (int mode : { TTYD64_MODE_VANILLA, TTYD64_MODE_TTYD64 }) {
+        ttyd64_mode_select_file(mode);
+        CHECK(ttyd64_consumable_count() == (mode ? 104 : 96));
+        CHECK(ttyd64_mode_consumable_id_at(95) == ITEM_FIRST_CONSUMABLE + 95);
+        CHECK(ttyd64_mode_consumable_id_at(96) == (mode ? ITEM_COURAGE_SHELL : ITEM_NONE));
+        CHECK(ttyd64_mode_consumable_id_at(ttyd64_consumable_count()) == ITEM_NONE);
+        CHECK(ttyd64_mode_fp_cost(mode, MOVE_DOUBLE_DIP, 3) == (mode ? 4 : 3));
+        CHECK(ttyd64_mode_fp_cost(mode, MOVE_TRIPLE_DIP, 6) == (mode ? 8 : 6));
+        CHECK(ttyd64_mode_bp_cost(mode, MOVE_DOUBLE_DIP, 1) == (mode ? 3 : 1));
+        CHECK(ttyd64_mode_bp_cost(mode, MOVE_DEFEND_PLUS, 6) == (mode ? 5 : 6));
+        CHECK(ttyd64_mode_bp_cost(mode, MOVE_FLOWER_SAVER, 6) == (mode ? 4 : 6));
+        CHECK(ttyd64_mode_bp_cost(mode, MOVE_POWER_JUMP, 1) == 1);
+    }
+    ttyd64_mode_select_file(INT_MAX);
+    CHECK(!ttyd64_mode_enabled());
     CHECK(ttyd64_consumable_id_at(-1) == ITEM_NONE);
     CHECK(ttyd64_consumable_id_at(0) == ITEM_FIRST_CONSUMABLE);
     CHECK(ttyd64_consumable_id_at(95) == ITEM_FIRST_CONSUMABLE + 95);

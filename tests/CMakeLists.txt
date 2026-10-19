@@ -1,5 +1,5 @@
 find_package(nlohmann_json 3.11 REQUIRED)
-add_library(ttyd64_logic STATIC ../src/ttyd64_rules.c ../src/ttyd64_health_json.cpp)
+add_library(ttyd64_logic STATIC ../src/ttyd64_mode.c ../src/ttyd64_mode_json.cpp ../src/ttyd64_rules.c ../src/ttyd64_health_json.cpp)
 target_include_directories(ttyd64_logic PUBLIC ../include)
 target_link_libraries(ttyd64_logic PUBLIC nlohmann_json::nlohmann_json)
 target_compile_features(ttyd64_logic PUBLIC cxx_std_17)
