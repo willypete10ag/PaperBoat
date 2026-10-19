@@ -1,19 +1,51 @@
 # Reproducible native TTYD64 checks
 
-> **Policy supersession:** prior off/unsaved/reset activation policy below is superseded by [ADR 0007](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/decisions/0007-per-save-ttyd64-mode.md). Historical code/results keep their original scope; saved mode is not implemented yet.
+> **Policy supersession:** prior off/unsaved/reset activation policy below is superseded by [ADR 0007](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/decisions/0007-per-save-ttyd64-mode.md). Historical code/results keep their original scope. This branch implements the saved-mode contract below; acceptance/CI status is recorded in its milestone PR.
 
-Partner HP combat remains **off in normal play**. These are developer checks,
-not a completed mod or campaign acceptance. All runtime fixtures use debugger
+New files offer **Vanilla** (default) or **TTYD64 (experimental)**. Existing saves
+remain Vanilla. These checks are not full-mod or campaign acceptance. All runtime fixtures use debugger
 setup, except the native-launch checks described below; several use injected damage/forced guard/RNG returns. Per-check method
 records and complete logs identify those cases. Capturing a frame does not
 prove anyone inspected it. Software rendering and dummy audio do not validate
 hardware rendering or audible output.
 
+## Per-save mode and shared acceptance
+
+ADR0007 is implemented by the new-file rules screen. Choice is fixed for the
+file; no normal menu/CVar changes an existing campaign. The optional native JSON
+is `ship.ttyd64Mode = {"version": 1, "rules": "vanilla" | "ttyd64"}`. Missing,
+invalid or unknown data defaults to Vanilla, including old native saves and
+vanilla imports. HP/inventory/proof flags never infer the choice. The legacy
+player/partner structs and save prefix stay fixed. Unrelated JSON keys survive
+save/copy. Runtime mode belongs to the loaded file; summary previews and file
+copy do not select a file. The normal maps contain neither proof Pity Flower.
+
+After a clean committed build (the full runner below creates its matching
+`porting-build.json` receipt), run the grouped Linux acceptance:
+
+```bash
+python3 tools/porting/check_save_modes.py --source "$PAPERBOAT_SOURCE_DIR" \
+  --executable "$PAPERBOAT_EXECUTABLE" --package "$PAPERBOAT_BUILD_DIR" \
+  --archive "$PAPERBOAT_ROM_ARCHIVE" --output "$PORTING_WORK_DIR/save-modes-new-run"
+```
+
+The output must be new. Real keyboard-only creation makes both file modes;
+separate processes use title/file selection to resume TTYD64 and a mode-less old
+file. The lifecycle group uses native CLI setup, harmless injected JSON probes,
+native copy/preview/erase APIs and controlled route/1HP/empty items, followed by
+real encounter/Do Nothing/native fatal damage/game-over/title/keyboard continue.
+Every group writes its own full log, timestamps, source/fixture commits and
+binary/fixture hashes. GDB observes creation/restart without injecting their
+input/state. There is no forced guard/RNG or injected reset/game-over API.
+This supplements the shared healing/status/badge fixtures; passing one group
+is not a full-suite result. Old proof-acquisition fixtures now first check native
+absence, then explicitly inject disposable test entities for pickup/capacity.
+
 ## Windows playtest and native startup checks
 
 The Windows CI ZIP now includes an explicit isolated developer-session launcher.
 See [WINDOWS-PLAYTEST.md](WINDOWS-PLAYTEST.md) for local-ROM setup, controls,
-profiles, saves and logs. Normal launches keep the development feature off. **[Activation policy superseded by ADR 0007; historical behavior.]**
+profiles, saves and logs. Normal launches use the selected file's saved mode; the launcher creates an explicitly TTYD64 developer file.
 The launcher creates new-game state natively; no GDB or private seed is needed.
 
 Linux and packaged Windows CI run `check_playtest_preflight.py` with a synthetic
