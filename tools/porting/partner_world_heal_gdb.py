@@ -95,7 +95,7 @@ def run():
     def report():
         Path(required_env('WORLD_HEAL_RESULT')).write_text(json.dumps({
             'baseline':baseline,'checks_passed':len(checks),'checks':checks,'captures':captures,
-            'health':{str(i):hp(i) for i in partners},'prototype_enabled':val('gTtyd64PartnerHPPrototypeEnabled'),
+            'health':{str(i):hp(i) for i in partners},'prototype_enabled':val('ttyd64_mode_enabled()'),
             'heart_block_keyboard_jump_attempts':jump_attempts,
             'limits':'Controlled map load/rank/unlock/wound grants and direct full-rest API matrix. Native bed trigger started by fixture, dialog chosen with keyboard; fixture-spawned Heart Block.'},indent=2)+'\n')
         print('WORLD_HEAL_PASSED=' + str(len(checks)))
@@ -107,12 +107,15 @@ def run():
     [t for t in gdb.selected_inferior().threads() if t.is_stopped()][0].switch()
     put('gPortResetToTitleScreen',1)
     until('state_step_title_screen')
-    check('prototype-default-off',val('gTtyd64PartnerHPPrototypeEnabled') == 0)
+    check('prototype-default-off',val('ttyd64_mode_enabled()') == 0)
     put('TitleScreenNextState',val('NEXT_STATE_FILE_SELECT'))
     put('gGameStatusPtr->startupState',val('TITLE_STATE_EXIT'))
     put('gGameStatusPtr->titleScreenTimer',0)
     until('filemenu_update')
     assert val('fio_load_game(3)') == 1
+    if not baseline:
+        put('gCurrentSaveFile.shipSaveData.ttyd64Mode',1)
+        cmd('call ttyd64_mode_select_file(1)')
     # Ordinary Mario house pipe entry, skipping only the already-seen Luigi scene.
     put('gCurrentSaveFile.areaID',0)
     put('gCurrentSaveFile.mapID',11)
@@ -144,7 +147,7 @@ def run():
         check('baseline-full-rest-leaves-partner-wounded',hp(1) == 3)
         report()
         return
-    check('full-rest-restores-partner-with-prototype-off',hp(1) == 10 and val('gTtyd64PartnerHPPrototypeEnabled') == 0)
+    check('full-rest-restores-partner-in-ttyd64-file',hp(1) == 10 and val('ttyd64_mode_enabled()') == 1)
     for i in range(12):
         put(f'gPlayerData.partners[{i}].enabled',0)
     health(1,3)
@@ -193,7 +196,7 @@ def run():
     check('native-bed-script-completes',val(f'does_script_exist({script_id})') == 0)
     check('native-bed-restores-partner-identity',val('gPlayerData.curPartner') == 1)
     check('native-bed-unlocks-input',val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED') == 0)
-    check('world-heal-keeps-combat-and-battle-hud-off',val('gTtyd64PartnerHPPrototypeEnabled') == 0 and val('ttyd64_partner_hp_display()') == -1)
+    check('world-heal-retains-file-mode-and-world-hp',val('ttyd64_mode_enabled()') == 1 and val('ttyd64_partner_hp_display()') == 10)
     tick(90)  # the native fade child may outlive the main bed script
     capture('world-rest-complete')
     door('EVS_ExitRoomDoor')
@@ -238,7 +241,7 @@ def run():
         check('world-recovered-hp-persists-native-fio',hp(1) == 10 and hp(9) == 30)
     finally:
         save.write_bytes(original)
-    check('world-recovery-remains-default-off',val('gTtyd64PartnerHPPrototypeEnabled') == 0)
+    check('world-recovery-retains-saved-mode',val('ttyd64_mode_enabled()') == 1)
     report()
 
 try:

@@ -1,4 +1,5 @@
 #include "inventory.h"
+#include "fio.h"
 #include "ttyd64_partner_hp.h"
 #include "hud_element.h"
 #include "dx/config.h"

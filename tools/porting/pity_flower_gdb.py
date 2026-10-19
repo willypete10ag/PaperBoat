@@ -81,6 +81,7 @@ def run_checks():
     assign("gPortResetToTitleScreen", 1)
     stop_at("state_step_title_screen")
     command("continue")
+    command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
     badge = value("ITEM_PITY_FLOWER")
     results, battles = [], []
 
@@ -111,7 +112,7 @@ def run_checks():
 
     check("appended-native-item-and-move", badge == 365 and value("gItemTable[ITEM_PITY_FLOWER].moveID") == 185)
     check("badge-classification-and-bp", value("gItemTable[ITEM_PITY_FLOWER].typeFlags & ITEM_TYPE_FLAG_BADGE") != 0
-          and value("gMoveTable[MOVE_PITY_FLOWER].costBP") == 3)
+          and value("get_move_bp_cost(MOVE_PITY_FLOWER)") == 3)
     name = gdb.parse_and_eval("load_message_to_buffer(gItemTable[ITEM_PITY_FLOWER].nameMsg)")
     raw = bytes(gdb.selected_inferior().read_memory(int(name), 12))
     check("dedicated-name-message-loaded", raw == b"\x30\x49\x54\x59\xF7\x26\x4C\x4F\x57\x45\x52\xFD")

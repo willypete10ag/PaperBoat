@@ -79,14 +79,14 @@ def run_checks():
     check("legacy-layout-unchanged", value("sizeof(PartnerData)") == 8 and value("sizeof(PlayerData)") == 0x428
           and value("sizeof(VanillaSaveData)") == 0x1380
           and value("(char*)&gCurrentSaveFile.shipSaveData - (char*)&gCurrentSaveFile") == 0x1380)
-    check("prototype-default-off", value("gTtyd64PartnerHPPrototypeEnabled") == 0)
+    check("prototype-default-off", value("ttyd64_mode_enabled()") == 0)
 
     if not load_only:
-        assign("gTtyd64PartnerHPPrototypeEnabled", 1)
+        command('call ttyd64_mode_select_file(1)')
         assign(f"{health}[1].curHP", -20)
         command("call clear_player_data()")
         check("new-game-initializes-health-and-disables-prototype", current(1) == 10 and maximum(1) == 10
-              and value("gTtyd64PartnerHPPrototypeEnabled") == 0)
+              and value("ttyd64_mode_enabled()") == 0)
         for partner, rank, hp in ((1, 0, 7), (2, 1, 0), (3, 2, 33), (4, 0, 5),
                                   (6, 1, 8), (7, 2, 16), (8, 1, 3), (9, 2, 4)):
             assign(f"gPlayerData.partners[{partner}].enabled", 1)
@@ -103,6 +103,7 @@ def run_checks():
         assign("gPlayerData.curPartner", value("PARTNER_BOW"))
         assign("gPlayerData.maxBP", 8)
         assign("gPlayerData.curFP", 2)
+        command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
         for _ in range(2):
             assert value("add_item(ITEM_FLOWER_SAVER_A)") >= 0
             assert value("pause_badges_try_equip(ITEM_FLOWER_SAVER_A)") == 3
@@ -122,7 +123,7 @@ def run_checks():
           for p in range(12) for i in range(3)))
     check("existing-badges-and-ship-flag-retained", value("is_ability_active(ABILITY_FLOWER_SAVER)") == 2
           and value("pause_get_total_equipped_bp_cost()") == 8 and value("gCurrentSaveFile.shipSaveData.hasDiedOnce") == 1)
-    check("loading-health-does-not-activate-combat", value("gTtyd64PartnerHPPrototypeEnabled") == 0)
+    check("loading-file-restores-its-explicit-mode", value("ttyd64_mode_enabled()") == 1)
 
     # Mutate only this disposable fixture save; restore exact bytes even on fail.
     def load_variant(name, block, expected):
@@ -185,7 +186,7 @@ def run_checks():
     check("default-native-partner-hp-unmodified", value(f"{actor}->curHP") == 99 and current(9) == 4)
     check("inactive-setter-keeps-vanilla-actor", value("ttyd64_set_partner_hp(9, 3)") == 3 and value(f"{actor}->curHP") == 99)
     assert value("ttyd64_set_partner_hp(9, 4)") == 4
-    assign("gTtyd64PartnerHPPrototypeEnabled", 1)
+    command('call ttyd64_mode_select_file(1)')
     command(f"call ttyd64_partner_hp_bind_actor({actor})")
     check("demo-context-excluded", value(f"{actor}->curHP") == 99)
     command("set variable gGameStatusPtr->demoBattleFlags &= ~DEMO_BTL_FLAG_ENABLED")

@@ -60,6 +60,7 @@ def run_checks():
     command("continue")
     if not load_only:
         command("call clear_player_data()")
+        command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
         assign("gPlayerData.maxBP", 6)
         assign("gGameStatusPtr->areaID", 0)
         assign("gGameStatusPtr->mapID", 1)
@@ -106,6 +107,13 @@ def run_checks():
     def flags():
         return [value(f"get_global_flag({i})") for i in (2046, 2047)]
 
+    check("normal-map-has-no-proof-pity-flowers", entities() == [])
+    if not load_only:
+        # Explicit debugger-only entities preserve native pickup/capacity
+        # acceptance after removing proof content from BOTH ordinary modes.
+        for x, flag in ((210, 2046), (170, 2047)):
+            assert value(f"make_item_entity_nodelay(ITEM_PITY_FLOWER, {x}.0, 15.0, 150.0, ITEM_SPAWN_MODE_FIXED_NEVER_VANISH, {flag})") >= 0
+
     if visual:
         check("native-world-two-unclaimed-pickups", len(entities()) == 2 and owned() == 0 and flags() == [0, 0])
         Path(required_env('WORLD_BADGES_PID')).write_text(str(gdb.selected_inferior().pid))
@@ -119,7 +127,7 @@ def run_checks():
         check("fresh-world-map-does-not-respawn-pickups", entities() == [])
     else:
         items = sorted(entities(), key=lambda p: value(f"((ItemEntity*){p})->boundVar"))
-        check("map-spawns-two-new-badge-entities", len(items) == 2 and owned() == 0)
+        check("debugger-spawns-two-test-only-badge-entities", len(items) == 2 and owned() == 0)
         check("independent-pickup-save-bits", [value(f"((ItemEntity*){p})->boundVar") for p in items] == [2046, 2047])
         check("initial-pickup-flags-clear", flags() == [0, 0])
 
@@ -184,8 +192,8 @@ def run_checks():
         check("real-map-reload-no-respawn", entities() == [] and owned() == 2 and flags() == [1, 1])
 
     report = {"checks_passed": len(results), "checks": results, "fresh_process": load_only,
-              "owned_world_acquired_copies": 2, "equipped_copies": 2,
-              "bp_cost": 6, "pickup_flags": [2046, 2047], "schema_changed": False}
+              "owned_debugger_spawned_pickup_copies": 2, "equipped_copies": 2,
+              "bp_cost": 6, "pickup_flags": [2046, 2047], "setup": "Native map has no proof pickups; debugger injects two disposable test entities, then native pickup/FIO", "schema_changed": True}
     Path(required_env('WORLD_BADGES_RESULT')).write_text(json.dumps(report, indent=2) + "\n")
     print("WORLD_BADGES_RESULT=" + json.dumps(report))
     command("kill")

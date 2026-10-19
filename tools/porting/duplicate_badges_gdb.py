@@ -43,9 +43,10 @@ def run_checks():
     assign("gPortResetToTitleScreen", 1)
     gdb.Breakpoint("state_step_title_screen", temporary=True, internal=True)
     command("continue")
+    command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
     badge = value("ITEM_LAST_STAND")
     other = value("ITEM_SPEEDY_SPIN")
-    cost = value("gMoveTable[MOVE_LAST_STAND].costBP")
+    cost = value("get_move_bp_cost(MOVE_LAST_STAND)")
     assert cost == 1
     results = []
 
@@ -166,7 +167,7 @@ def run_checks():
     grant(power_b)
     check("legacy-distinct-id-stack-equip", equip(power_a) == 3 and equip(power_b) == 3)
     check("legacy-distinct-id-stack-bp", value("pause_get_total_equipped_bp_cost()")
-          == 2 * value("gMoveTable[MOVE_POWER_PLUS].costBP"))
+          == 2 * value("get_move_bp_cost(MOVE_POWER_PLUS)"))
 
     clear()
     for _ in range(3):
@@ -213,12 +214,12 @@ def run_checks():
     clear()
     grant()
     grant(other)
-    assign("gMoveTable[MOVE_LAST_STAND].costBP", -1)
+    assign("get_move_bp_cost(MOVE_LAST_STAND)", -1)
     assign("gPlayerData.maxBP", 0)
     check("negative-bp-equip-fixture", equip() == 3 and equip(other) == 3)
     check("negative-bp-removal-protection", value(f"pause_badges_try_remove({badge})") == -1
           and count("equippedBadges") == 1)
-    assign("gMoveTable[MOVE_LAST_STAND].costBP", cost)
+    assign("get_move_bp_cost(MOVE_LAST_STAND)", cost)
 
     clear()
     assign("gPlayerData.badges[11]", badge)
@@ -239,11 +240,11 @@ def run_checks():
     for _ in range(128):
         assert grant() >= 0
     check("full-inventory-rejects-extra-copy", grant() == -1 and count("badges") == 128)
-    assign("gMoveTable[MOVE_LAST_STAND].costBP", 0)
+    assign("get_move_bp_cost(MOVE_LAST_STAND)", 0)
     for _ in range(64):
         assert equip() == 3
     check("full-equipped-array-rejects-extra-copy", equip() == 2 and count("equippedBadges") == 64)
-    assign("gMoveTable[MOVE_LAST_STAND].costBP", cost)
+    assign("get_move_bp_cost(MOVE_LAST_STAND)", cost)
     clear()
     setup_menu()
     check("empty-menu-standin-not-equipped", value("gPauseBadgesItemIds[0]") == 32766 and rows() == [False])

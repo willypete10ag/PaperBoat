@@ -58,6 +58,8 @@ def run_checks():
     assign("gPortResetToTitleScreen", 1)
     stop_at("state_step_title_screen")
     command("continue")
+    if not baseline:
+        command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
     command("set scheduler-locking off")
     checks, costs = [], []
     a, b, x = [value("ITEM_FLOWER_SAVER_" + suffix) for suffix in ("A", "B", "X")]
@@ -96,12 +98,12 @@ def run_checks():
         assign("gPausePressedButtons", 0)
 
     expected_bp = 6 if baseline else 4
-    check("flower-saver-table-bp", value("gMoveTable[MOVE_FLOWER_SAVER].costBP") == expected_bp)
+    check("flower-saver-table-bp", value("get_move_bp_cost(MOVE_FLOWER_SAVER)") == expected_bp)
     check("native-variants-share-ability", all(value(f"gItemTable[{item}].moveID") == value("MOVE_FLOWER_SAVER") for item in (a, b, x)))
-    check("double-dip-source-costs", value("gMoveTable[MOVE_DOUBLE_DIP].costFP") == (3 if baseline else 4)
-          and value("gMoveTable[MOVE_DOUBLE_DIP].costBP") == (1 if baseline else 3))
-    check("triple-dip-source-costs", value("gMoveTable[MOVE_TRIPLE_DIP].costFP") == (6 if baseline else 8)
-          and value("gMoveTable[MOVE_TRIPLE_DIP].costBP") == 3)
+    check("double-dip-source-costs", value("get_move_fp_cost(MOVE_DOUBLE_DIP)") == (3 if baseline else 4)
+          and value("get_move_bp_cost(MOVE_DOUBLE_DIP)") == (1 if baseline else 3))
+    check("triple-dip-source-costs", value("get_move_fp_cost(MOVE_TRIPLE_DIP)") == (6 if baseline else 8)
+          and value("get_move_bp_cost(MOVE_TRIPLE_DIP)") == 3)
     if not baseline and not load_only:
         for label, item in (("A", a), ("B", b)):
             write_slots("badges", [])
@@ -156,6 +158,8 @@ def run_checks():
     command("return")
     stop_at("calc_player_damage_enemy")
     command("continue")
+    if not baseline:
+        command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
     command("set scheduler-locking off")
     check("native-battle-actors-created", value("gBattleStatus.playerActor") != 0
           and value("gBattleStatus.enemyActors[0]") != 0)
@@ -189,7 +193,7 @@ def run_checks():
         discount = len(savers) + (2 if fanatic else 0)
         for move in ("MOVE_DOUBLE_DIP", "MOVE_TRIPLE_DIP"):
             mid = value(move)
-            base = value(f"gMoveTable[{mid}].costFP")
+            base = value(f"get_move_fp_cost({mid})")
             expected = max(1, base - discount)
             below = expected - 1
             status = item_menu(below)[mid]
@@ -207,7 +211,7 @@ def run_checks():
                           "below_cost_enabled": bug, "fp_after_payment": 0})
         for init, move in (("btl_init_menu_boots", "MOVE_POWER_JUMP"),
                            ("btl_init_menu_hammer", "MOVE_POWER_SMASH")):
-            expected = max(1, value(f"gMoveTable[{move}].costFP") - discount)
+            expected = max(1, value(f"get_move_fp_cost({move})") - discount)
             for fp in (expected - 1, expected):
                 assign("gPlayerData.curFP", fp)
                 command(f"call {init}()")

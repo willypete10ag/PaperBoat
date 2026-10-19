@@ -107,7 +107,7 @@ def run():
         [t for t in gdb.selected_inferior().threads() if t.is_stopped()][0].switch()
     put('gPortResetToTitleScreen', 1)
     until('state_step_title_screen')
-    check('default-off-at-title', val('gTtyd64PartnerHPPrototypeEnabled') == 0)
+    check('default-off-at-title', val('ttyd64_mode_enabled()') == 0)
     put('TitleScreenNextState', val('NEXT_STATE_FILE_SELECT'))
     put('gGameStatusPtr->startupState', val('TITLE_STATE_EXIT'))
     put('gGameStatusPtr->titleScreenTimer', 0)
@@ -137,7 +137,7 @@ def run():
     put('gPlayerData.curMaxHP', 30)
     until('calc_enemy_test_target')
     cmd('set variable gGameStatusPtr->demoBattleFlags &= ~DEMO_BTL_FLAG_ENABLED')
-    put('gTtyd64PartnerHPPrototypeEnabled', 1)
+    cmd('call ttyd64_mode_select_file(1)')
     cmd(f'call ttyd64_partner_hp_bind_actor({actor})')
     check('native-created-goombario-binds-in-controlled-context', val(f'ttyd64_partner_combat_active({actor})') == 1 and hp() == 10 and val(f'{actor}->curHP') == 10)
     # Redirect a real enemy script's test and damage target, preserving execution.
@@ -367,7 +367,7 @@ def run():
     check('revived-partner-reaches-native-menu', val('gBattleState') == val('BATTLE_STATE_PARTNER_MENU') and val('btl_partner_can_act()') != 0)
     # Off retains vanilla sentinel and KO behavior without writing model health.
     health(6)
-    put('gTtyd64PartnerHPPrototypeEnabled', 0)
+    cmd('call ttyd64_mode_select_file(0)')
     target()
     check('prototype-off-test-keeps-native-sentinel', val('calc_enemy_test_target($enemy)') != val('HIT_RESULT_MISS') and val(f'{actor}->curHP') == 127 and hp() == 6)
     put('gBattleStatus.curAttackDamage', 3)

@@ -201,7 +201,7 @@ def run():
         wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         tick(30)
     def enter_road_battle():
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         put('gPlayerData.partners[$slicePartner].level',0)
         cmd('call ttyd64_reset_partner_hp($slicePartner)')
         assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
@@ -296,7 +296,7 @@ def run():
     [t for t in gdb.selected_inferior().threads() if t.is_stopped()][0].switch()
     put('gPortResetToTitleScreen',1)
     until('state_step_title_screen')
-    check('startup-prototype-off',val('gTtyd64PartnerHPPrototypeEnabled') == 0)
+    check('startup-prototype-off',val('ttyd64_mode_enabled()') == 0)
     put('TitleScreenNextState',val('NEXT_STATE_FILE_SELECT'))
     put('gGameStatusPtr->startupState',val('TITLE_STATE_EXIT'))
     put('gGameStatusPtr->titleScreenTimer',0)
@@ -344,7 +344,7 @@ def run():
             put(f'gPlayerData.invItems[{i}]',val(['ITEM_MUSHROOM','ITEM_MUSHROOM','ITEM_MUSHROOM','ITEM_SUPER_SHROOM','ITEM_LIFE_SHROOM','ITEM_LIFE_SHROOM'][i]) if i < 6 else 0)
         cmd('call evt_set_variable((Evt*)0, GB_StoryProgress, STORY_CH1_DEFEATED_KOOPA_BROS)')
         cmd('call evt_set_variable((Evt*)0, GF_Tutorial_SwapTurnOrder, 1)')
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         cmd('call ttyd64_partner_hp_world_bind(wCurrentPartnerId)')
         check('isolated-playtest-world-ready',hp() == 3 and val('ttyd64_partner_hp_display()') == 3 and val('wCurrentPartnerId') == partner_id and val('gPlayerStatus.inputDisabledCount') == 0)
         # Prove native input is live before handing control to the tester.
@@ -370,7 +370,7 @@ def run():
         return
     if 'ground-ui' in phases:
         assert partner_id == 1
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         for i in range(1,12):
             put(f'gPlayerData.partners[{i}].enabled',int(i in (1,2,3,4)))
         expected_hp = {1:3,2:4,3:6}
@@ -413,7 +413,7 @@ def run():
             capture(f'ground-recipient-{pid}')
             consume(ids.index(pid))
             check(f'ground-world-keyboard-zero-heal-{pid}',val(f'ttyd64_get_partner_hp({pid})') == 5 and item_count() == 1 and val('wCurrentPartnerId') == 1)
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         inventory()
         put('gPlayerData.curHP',2)
         open_items()
@@ -427,7 +427,7 @@ def run():
         capture('pause-party-off')
         close_pause()
         check('off-native-world-return-preserves-health',hp() == 3 and val('gPlayerData.curPartner') == 1)
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         # Native creation is deliberately used before opening the guarded cycle.
         cmd('call switch_to_partner(2)')
         tick(100)
@@ -477,14 +477,14 @@ def run():
         close_pause()
         check('guarded-unpause-restores-world-hp-owner',val('WorldPartnerID') == partner_id and val('ttyd64_partner_hp_display()') == 27 and hp() == 27)
         capture('pause-party-world-return')
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         open_party()
         check('off-reopen-allocates-no-experimental-heart',val('Ttyd64PausePartnerHeartHID') == -1 and val('pause_partners_hp_active()') == 0 and hp() == 27)
         capture('pause-party-final-off')
         close_pause()
-        check('off-final-world-control-and-passive-hp',val('gTtyd64PartnerHPPrototypeEnabled') == 0 and hp() == 27 and val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED') == 0)
+        check('off-final-world-control-and-passive-hp',val('ttyd64_mode_enabled()') == 0 and hp() == 27 and val('gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED') == 0)
     if 'world-items' in phases:
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         put('gPlayerData.partners[$slicePartner].level',0)
         cmd('call ttyd64_reset_partner_hp($slicePartner)')
         put('gPlayerData.curHP',2)
@@ -521,7 +521,7 @@ def run():
         open_recipient()
         consume(1)
         check('world-inactive-goombario-heals-without-changing-partner',hp() == 8 and val('wCurrentPartnerId') == 2 and val('gPlayerData.curHP') == 7 and item_count() == 1)
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         put('gPlayerData.curHP',2)
         inventory()
         open_items()
@@ -543,12 +543,12 @@ def run():
         wait('gBattleSubState == 31 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
         check('battle-current-row-rejection-preserves-hp-and-turns',hp() == 3 and val('gPlayerData.curPartner') == 1 and val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED') == 0)
         cancel_battle_partners()
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         battle_partners()
         check('battle-off-list-keeps-native-width',val('gWindows[WIN_POPUP_CONTENT].width') == 139 and val('popup_partner_hp_active()') == 0 and hp() == 3)
         capture('battle-swap-off')
         cancel_battle_partners()
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         battle_partners()
         key('s')
         assert val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == 2
@@ -588,14 +588,14 @@ def run():
         tick(30)
         capture('battle-route-world-return')
         check('route-final-capture-remains-in-world',val('gGameStatusPtr->context') == val('CONTEXT_WORLD') and val('gEncounterState') == val('ENCOUNTER_STATE_NEUTRAL'))
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
     if 'regeneration' in phases:
         enter_road_battle()
         player, partner = 'gBattleStatus.playerActor', 'gBattleStatus.partnerActor'
         items = ['ITEM_SLOW_SHROOM','ITEM_GRADUAL_SYRUP','ITEM_COUPLES_CAKE','ITEM_METEOR_MEAL']
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         check('regen-default-off-rejects-effects',all(val('ttyd64_status_item_apply('+i+','+partner+',1)') == 0 for i in items) and val('ttyd64_actor_set_regeneration('+player+',0,2,10)') == 0)
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
         check('regen-dead-recipient-cannot-revive',val('ttyd64_actor_set_regeneration('+partner+',0,2,10)') == 0 and val('ttyd64_actor_regeneration_heal('+partner+',7)') == 0 and hp() == 0)
         assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
@@ -704,7 +704,7 @@ def run():
             assert val('fio_load_game(3)') == 1
             check('regen-native-fio-round-trip-keeps-appended-ids',all(val(f'gPlayerData.invItems[{i}]') == val(item) for i,item in enumerate(items)))
         finally:save.write_bytes(original)
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
     if 'status-items' in phases:
         enter_road_battle()
         player = 'gBattleStatus.playerActor'
@@ -712,7 +712,7 @@ def run():
         assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
         items = ['ITEM_COURAGE_SHELL','ITEM_POWER_PUNCH','ITEM_MINI_MR_MINI','ITEM_MR_SOFTENER']
         check('items-native-definitions-have-consumable-battle-only-flags',all(val('gItemTable['+item+'].typeFlags & ITEM_TYPE_FLAG_CONSUMABLE') and val('gItemTable['+item+'].typeFlags & ITEM_TYPE_FLAG_BATTLE_USABLE') and not val('gItemTable['+item+'].typeFlags & ITEM_TYPE_FLAG_WORLD_USABLE') for item in items))
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         put('gBattleStatus.moveCategory',val('BTL_MENU_TYPE_ITEMS'))
         for item in items:
             put('gBattleStatus.moveArgument',val(item))
@@ -727,7 +727,7 @@ def run():
         check('items-flag-off-native-menu-disables-experimental-copies',val('gPopupMenu->enabled[0]') == 0 and val('gPopupMenu->enabled[1]') == 0 and item_count() == 2)
         key('c')
         wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         put('gBattleStatus.moveArgument',val('ITEM_COURAGE_SHELL'))
         put('gBattleStatus.curTargetListFlags',val('TARGET_FLAG_PLAYER'))
         assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
@@ -836,18 +836,18 @@ def run():
             check('items-native-save-round-trip-keeps-four-appended-ids',all(val(f'gPlayerData.invItems[{i}]') == val(item) for i,item in enumerate(items)))
         finally:
             save.write_bytes(original)
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
     if 'modifiers' in phases:
         enter_road_battle()
         actor = 'gBattleStatus.partnerActor'
         enemy = 'gBattleStatus.enemyActors[0]'
         other = 2 if partner_id == 1 else 1
         assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         put(f'{actor}->attackBoost',2)
         check('modifier-off-preserves-native-fields-and-rejects-api',val(f'ttyd64_actor_attack_boost({actor})') == 2 and val(f'ttyd64_actor_add_modifier({actor},0,4,3)') == 0)
         put(f'{actor}->attackBoost',0)
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         # Synthetic API arguments exercise the public event adapters. These
         # calls are debugger driven; round/swap controls below use keyboard UI.
         cmd('set $modifierEvt = (Evt*)heap_malloc(sizeof(Evt))')
@@ -1077,9 +1077,9 @@ def run():
         assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
         check('recovery-cure-items-reject-dead-partner',not val('ttyd64_partner_status_can_target_item(ITEM_TASTY_TONIC)') and not val('ttyd64_partner_status_can_target_item(ITEM_SUPER_SODA)'))
         assert val('ttyd64_set_partner_hp($slicePartner,8)') == 8
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         check('recovery-off-rejects-new-cure-targets',not val('ttyd64_partner_status_can_target_item(ITEM_TASTY_TONIC)') and not val('ttyd64_partner_status_can_target_item(ITEM_SUPER_SODA)'))
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         flee_battle()
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
         check('recovery-native-world-return',val('WorldPartnerID') == partner_id)
@@ -1087,10 +1087,10 @@ def run():
         enter_road_battle()
         actor = 'gBattleStatus.partnerActor'
         assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         val(f'inflict_status({actor},STATUS_KEY_SLEEP,3)')
         check('status-off-keeps-native-partner-immunity',val(f'{actor}->debuff') == 0)
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         for status in ('UNUSED','DIZZY','PARALYZE','SLEEP','FROZEN','STOP','POISON','STONE','STATIC','TRANSPARENT'):
             keyname = 'STATUS_KEY_' + status
             assert val(f'inflict_status({actor},{keyname},3)') == 1
@@ -1194,9 +1194,9 @@ def run():
             reaction_done()
         if partner_id == 2:
             check('kooper-normal-defense-one',val(f'get_defense({actor},(int*){actor}->partsTable->defenseTable,0)') == 1)
-            put('gTtyd64PartnerHPPrototypeEnabled',0)
+            cmd('call ttyd64_mode_select_file(0)')
             check('kooper-flag-off-native-defense-zero',val(f'get_defense({actor},(int*){actor}->partsTable->defenseTable,0)') == 0)
-            put('gTtyd64PartnerHPPrototypeEnabled',1)
+            cmd('call ttyd64_mode_select_file(1)')
             check('kooper-ignore-defense-remains-zero',val(f'get_defense({actor},(int*){actor}->partsTable->defenseTable,DAMAGE_TYPE_IGNORE_DEFENSE)') == 0)
             item_hit(1,'0')
             check('kooper-defense-prevents-one-damage-item',hp() == 3 and not val(f'ttyd64_kooper_flipped({actor})'))
@@ -1422,9 +1422,9 @@ def run():
         spend_turn()
         targets = [r for r in team_trace[after_death:] if r['event'] == 'target']
         check('team-next-round-ai-attacks-mario-not-dead-partner',len(targets) >= 2 and all(r['target'] == val('ACTOR_PLAYER') for r in targets) and hp() == 0 and len([r for r in team_trace if r['event'] == 'death']) == 2)
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
         check('team-off-target-and-swap-helpers-preserve-native',val('ttyd64_partner_team_active()') == 0 and val('ttyd64_partner_team_resolve_target(ACTOR_PARTNER)') == val('ACTOR_PARTNER') and val('ttyd64_partner_team_should_swap(1)') != 0 and val('ttyd64_partner_team_should_swap(0)') == 0 and hp() == 0)
-        put('gTtyd64PartnerHPPrototypeEnabled',1)
+        cmd('call ttyd64_mode_select_file(1)')
         flee_battle()
         check('team-natural-combat-flee-keeps-zero-health-world-owner',hp() == 0 and val('WorldPartnerID') == partner_id and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED'))
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
@@ -1553,7 +1553,7 @@ def run():
         capture(victory_phase + '-world-return')
         victory_point.delete()
         team_trace.extend([{'event':victory_phase,'attacks':attacks,'saves':saves,**victory_trace[0]}])
-        put('gTtyd64PartnerHPPrototypeEnabled',0)
+        cmd('call ttyd64_mode_select_file(0)')
     assert save.read_bytes() == original
     Path(required_env('PARTNER_SLICE_RESULT')).write_text(json.dumps({'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
         'limits':'Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')

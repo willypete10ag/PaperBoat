@@ -46,6 +46,7 @@ def run_checks():
     assign("gPortResetToTitleScreen", 1)
     stop_at("state_step_title_screen")
     command("continue")
+    command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
     badge = value("ITEM_HAMMERMAN")
     checks, attacks = [], []
 
@@ -71,7 +72,7 @@ def run_checks():
 
     check("appended-native-item-and-move", badge == 367
           and value("gItemTable[ITEM_HAMMERMAN].moveID") == 187)
-    check("source-cost-two-bp", value("gMoveTable[MOVE_HAMMERMAN].costBP") == 2)
+    check("source-cost-two-bp", value("get_move_bp_cost(MOVE_HAMMERMAN)") == 2)
     for suffix in ("", ".pal", ".disabled.pal"):
         check("resource-loaded" + (suffix or "-raster"),
               value(f'GameEngine_GetDataExact("icons/badge/Hammerman{suffix}")') != 0)

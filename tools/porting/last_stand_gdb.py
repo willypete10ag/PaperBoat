@@ -67,6 +67,7 @@ def run_checks():
     breakpoint_at(f"{native_source}:{start_line}")
     command("continue")
     assert value("actorClass") == 0  # This attack really targets Mario.
+    command("call ttyd64_mode_select_file(" + ("1" if variant == "stacking" else "0") + ")")
     command("set scheduler-locking on")
     start_pc = gdb.decode_line(f"{native_source}:{start_line}")[1][0].pc
     end_breakpoint = gdb.Breakpoint(f"{native_source}:{end_line}", internal=True)

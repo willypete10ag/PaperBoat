@@ -86,6 +86,7 @@ def run_checks():
     assign("gPortResetToTitleScreen", 1)
     stop_at("state_step_title_screen")
     command("continue")
+    command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
     badge = value("ITEM_FP_DRAIN")
     checks, attacks = [], []
 
@@ -114,7 +115,7 @@ def run_checks():
 
     check("appended-native-item-and-move", badge == 368
           and value("gItemTable[ITEM_FP_DRAIN].moveID") == 188)
-    check("source-cost-three-bp", value("gMoveTable[MOVE_FP_DRAIN].costBP") == 3)
+    check("source-cost-three-bp", value("get_move_bp_cost(MOVE_FP_DRAIN)") == 3)
     for suffix in ("", ".pal", ".disabled.pal"):
         check("resource-loaded" + (suffix or "-raster"),
               value(f'GameEngine_GetDataExact("icons/badge/FPDrain{suffix}")') != 0)
