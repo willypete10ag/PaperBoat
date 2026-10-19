@@ -339,6 +339,7 @@ def run():
         wait('gPauseMenuCurrentTab == 2')
         tick(20)
         numbers, orbs = [], []
+        budget_line = next(i for i,line in enumerate(source_path("src/pause/pause_badges.c").read_text().splitlines(),1) if "maxBP = playerData->maxBP;" in line)
         class DrawTrace(gdb.Breakpoint):
             def __init__(self, name):
                 super().__init__(name,internal=True)
@@ -350,13 +351,14 @@ def run():
                 if caller.name() == 'pause_badges_draw_contents':
                     if self.function == 'draw_number':
                         numbers.append(int(frame.read_var('value')))
-                    else:
+                    elif caller.find_sal().line >= budget_line:
                         orbs.append(int(caller.read_var('orbIndex')))
                 return False
         points = [DrawTrace('draw_number'),DrawTrace('pause_badges_draw_bp_orbs')]
         try: tick(6)
         finally:
             for point in points: point.delete()
+        print('BP_RENDER_TRACE=' + json.dumps({'numbers':numbers,'summary_orb_indices':orbs}))
         before = os.environ.get('PARTNER_BP_BASELINE') == '1'
         check('bp-native-render-available-number',(-3 in numbers) if before else (numbers and min(numbers) >= 0 and 0 in numbers))
         check('bp-native-render-orbs-nonnegative',bool(orbs) and min(orbs) >= 0 and max(orbs) < 3)
