@@ -122,6 +122,17 @@ def run_checks():
             command("call fio_save_game(3)")
             saved = json.loads(fixture_save().read_text())["player"]
             check("dip-native-resave-migrated-equipment", saved["equippedBadges"].count(dd) == 1 and saved["badges"].count(dd) == 3)
+        if not dip_baseline:
+            write_slots("equippedBadges", [dd, 32767, -1, value("ITEM_MUSHROOM")])
+            command("call fio_save_game(3)")
+            assert value("fio_load_game(3)") == 1
+            check("dip-migration-clears-invalid-equipment", value("gPlayerData.equippedBadges[0]") == dd and all(value(f"gPlayerData.equippedBadges[{i}]") == 0 for i in range(1,64)))
+        command("call ttyd64_mode_select_file(0)")
+        write_slots("equippedBadges", [dd, dd])
+        assign("gPlayerData.maxBP", 1)
+        command("call fio_save_game(3)")
+        assert value("fio_load_game(3)") == 1
+        check("dip-vanilla-load-keeps-legacy-equipment", value("ttyd64_mode_enabled()") == 0 and value("pause_get_total_equipped_bp_cost()") == 2)
         command("call load_demo_battle(0)")
         command("return")
         stop_at("calc_player_damage_enemy")
