@@ -460,6 +460,9 @@ def main():
     )
     add("badge-assets", "check_badge_assets.py", "badge-assets", kind="empty")
     add("last-stand", "last_stand_gdb.py", "last-stand", kind="empty")
+    add("last-stand-vanilla", "last_stand_gdb.py", "last-stand-vanilla", {"LAST_STAND_VARIANT": "baseline"}, kind="empty")
+    add("flower-saver-vanilla", "flower_saver_gdb.py", "flower-saver", {"FLOWER_SAVER_BASELINE": "1"}, kind="empty", suffix="vanilla-runtime")
+    add("duplicate-badges-vanilla", "duplicate_badges_gdb.py", "duplicate-badges", {"DUPLICATE_BADGES_VANILLA": "1"}, kind="empty", suffix="vanilla-runtime")
     add("last-stand-forced-guard", "last_stand_gdb.py", "last-stand-blocked", {"LAST_STAND_BLOCKED": "1"}, kind="empty")
     for name, script, group, suffix in [
         ("pity-animation", "pity_flower_animation.gdb", "pity-flower", "animation-runtime"),

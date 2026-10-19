@@ -45,7 +45,7 @@ class ChooseItems(gdb.Breakpoint):
 
 def run_checks():
     runtime = Path(required_env('SHIP_HOME')).resolve()
-    assert runtime == fixture_path('flower-saver/runtime')
+    assert runtime == fixture_path('flower-saver/' + ('vanilla-runtime' if os.environ.get('FLOWER_SAVER_BASELINE') == '1' else 'runtime'))
     baseline = os.environ.get("FLOWER_SAVER_BASELINE", "0") == "1"
     load_only = os.environ.get("FLOWER_SAVER_LOAD_ONLY", "0") == "1"
     assert not (baseline and load_only)

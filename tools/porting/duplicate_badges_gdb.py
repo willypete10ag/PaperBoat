@@ -31,7 +31,8 @@ def assign(expression, number):
 
 def run_checks():
     runtime = Path(required_env('SHIP_HOME')).resolve()
-    assert runtime == fixture_path('duplicate-badges/runtime')
+    vanilla = os.environ.get('DUPLICATE_BADGES_VANILLA') == '1'
+    assert runtime == fixture_path('duplicate-badges/' + ('vanilla-runtime' if vanilla else 'runtime'))
     load_only = os.environ.get("DUPLICATE_BADGES_LOAD_ONLY", "0") == "1"
     if not load_only:
         assert not (fixture_save()).exists(), "Use a fresh disposable save directory"
@@ -43,7 +44,7 @@ def run_checks():
     assign("gPortResetToTitleScreen", 1)
     gdb.Breakpoint("state_step_title_screen", temporary=True, internal=True)
     command("continue")
-    command("call ttyd64_mode_select_file(TTYD64_MODE_TTYD64)")
+    command("call ttyd64_mode_select_file(" + ("0" if vanilla else "1") + ")")
     badge = value("ITEM_LAST_STAND")
     other = value("ITEM_SPEEDY_SPIN")
     cost = value("get_move_bp_cost(MOVE_LAST_STAND)")
@@ -89,6 +90,22 @@ def run_checks():
     def rows():
         return [bool(value(f"pause_badges_is_row_equipped({i})"))
                 for i in range(value("gPauseBadgesNumItems"))]
+
+    if vanilla:
+        clear()
+        for _ in range(2): assert value(f"add_item({badge})") >= 0
+        check("vanilla-first-copy-equips", value(f"pause_badges_try_equip({badge})") == 3)
+        check("vanilla-identical-second-copy-rejected", value(f"pause_badges_try_equip({badge})") == 0)
+        setup_menu()
+        check("vanilla-owned-duplicates-retain-shared-row-mark", rows() == [True, True])
+        command("call pause_badges_load_badges(1)")
+        check("vanilla-active-list-keeps-native-equipped-array", value("gPauseBadgesNumItems") == 1)
+        assign("gPlayerData.equippedBadges[1]", badge)
+        check("vanilla-remove-item-unequips-all-identical-copies", value(f"remove_item({badge})") >= 0 and count("equippedBadges") == 0)
+        Path(required_env('DUPLICATE_BADGES_RESULT')).write_text(json.dumps({"checks": results, "checks_passed": len(results), "mode": "vanilla",
+            "limits": "Controlled inventory/mode/native menu API calls; no keyboard badge UI"}, indent=2) + "\n")
+        command("kill")
+        return
 
     if load_only:
         check("fresh-process-load", value("fio_load_game(3)") == 1)
