@@ -420,6 +420,14 @@ def main():
         )
     for pid in (1, 2, 3):
         add(
+            "partner-recovery-hooks-" + str(pid),
+            "partner_playable_slice_gdb.py",
+            "partner-playable-slice",
+            {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": "recovery-hooks",
+             "PARTNER_RECOVERY_BASELINE": os.environ.get("PORTING_RECOVERY_BASELINE", "0")},
+        )
+    for pid in (1, 2, 3):
+        add(
             "actor-modifiers-" + str(pid),
             "partner_playable_slice_gdb.py",
             "partner-playable-slice",
