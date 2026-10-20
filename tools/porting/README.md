@@ -9,6 +9,29 @@ records and complete logs identify those cases. Capturing a frame does not
 prove anyone inspected it. Software rendering and dummy audio do not validate
 hardware rendering or audible output.
 
+## World item-description layout (PT-UI-001)
+
+The eight appended status/regeneration descriptions use one newline between
+text lines, matching the native two-line world popup. The window/font geometry
+and original item messages are unchanged.
+
+Add `--descriptions` to `check_native_playtest.py` for the grouped UI cohort.
+It runs the native developer healing/status profiles, navigates every item with
+real keyboard input and records loaded message controls, native font pitch,
+width, actual popup dimensions and private capture hashes. For the Vanilla
+comparison it explicitly edits only the disposable file's saved mode, uses
+native FIO load and reuses its inventory; this is not normal Vanilla acquisition
+of appended items. Original save bytes are restored before process cleanup.
+The cohort stops after menu checks; later swap/healing/battle acceptance is not
+included. Captures stay private and require inspection.
+
+`--descriptions --description-baseline` expects the old blank-line overflow and
+is only for pinned pre-fix reproduction. `get_msg_lines` ignores blank lines;
+the observer therefore counts loaded ENDL controls and records that helper's
+nonempty-line count separately. A passing baseline report means the old defect
+was reproduced, not that the UI fits. No Windows rendering claim follows from
+a Linux run or a green platform build.
+
 ## Per-save mode and shared acceptance
 
 ADR0007 is implemented by the new-file rules screen. Choice is fixed for the
