@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -334,6 +334,81 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'native-guard' in phases:
+        # Observe real Goomba scripts and schedule X through SDL keyboard input.
+        # Never write the action-command ring, block result, damage or RNG.
+        guard_mode = 'none'
+        pending = None
+        held = False
+        last_frame = -1
+        class GuardFrame(gdb.Breakpoint):
+            def stop(self):
+                nonlocal pending, held, last_frame
+                frame = val('gGameStatusPtr->frameCounter')
+                if frame == last_frame: return False
+                last_frame = frame
+                if pending is not None and frame >= pending:
+                    focus()
+                    subprocess.run(['xdotool','keydown' if not held else 'keyup','x'],check=True,env=runtime_env)
+                    team_trace.append({'event':'guard-key','frame':frame,'down':not held,'mode':guard_mode})
+                    if held:
+                        pending = None
+                    else:
+                        pending = frame + 1
+                    held = not held
+                return False
+        class GuardTest(gdb.Breakpoint):
+            def stop(self):
+                nonlocal pending
+                actor = val('script->owner1.actorID')
+                if actor >= val('ACTOR_ENEMY0') and val(f'get_actor({actor})->actorType') == val('ACTOR_TYPE_GOOMBA'):
+                    frame = val('gGameStatusPtr->frameCounter')
+                    team_trace.append({'event':'guard-test','frame':frame,'mode':guard_mode})
+                    pending = None if guard_mode == 'none' else frame + (16 if guard_mode == 'timed' else 7)
+                return False
+        class GuardFinish(gdb.FinishBreakpoint):
+            def __init__(self, attacker):
+                super().__init__(internal=True)
+                self.silent = True
+                self.row = {'event':'guard-hit','frame':val('gGameStatusPtr->frameCounter'),'mode':guard_mode,
+                            'target':val(f'((Actor*){attacker})->targetActorID'),
+                            'player_before':val('gPlayerData.curHP'),'partner_before':hp()}
+            def stop(self):
+                self.row.update(player_after=val('gPlayerData.curHP'),partner_after=hp(),
+                                blocked=bool(val('gBattleStatus.flags1 & BS_FLAGS1_ATK_BLOCKED')),
+                                block_result=val('gBattleStatus.blockResult'),damage=val('gBattleStatus.lastAttackDamage'))
+                team_trace.append(self.row)
+                return False
+        class GuardHit(gdb.Breakpoint):
+            def stop(self):
+                GuardFinish(val('attacker'))
+                return False
+        enter_road_battle()
+        frame_point=GuardFrame('render_game_mode_backUI',internal=True); frame_point.silent=True
+        test_point=GuardTest('EnemyTestTarget',internal=True); test_point.silent=True
+        hit_point=GuardHit('calc_enemy_damage_target',internal=True); hit_point.silent=True
+        for guard_mode in ('none','timed','early'):
+            start = len(team_trace)
+            for _ in range(32):
+                put('gPlayerData.curHP',20)
+                cmd('call ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))')
+                spend_turn()
+                rows=[r for r in team_trace[start:] if r['event']=='guard-hit']
+                if {r['target'] for r in rows} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')}: break
+            rows=[r for r in team_trace[start:] if r['event']=='guard-hit']
+            print('GUARD_ROWS='+json.dumps(rows),flush=True)
+            check('native-'+guard_mode+'-both-team-targets',{r['target'] for r in rows} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')})
+            check('native-'+guard_mode+'-block-result',all(r['blocked'] == (guard_mode=='timed') for r in rows))
+            # Goomba1; Kooper DEF1. Native guard saves one damage, floored at0.
+            for target in ('ACTOR_PLAYER','ACTOR_PARTNER'):
+                expected = max(0,1-int(target=='ACTOR_PARTNER' and partner_id==2)-int(guard_mode=='timed'))
+                sample=[r for r in rows if r['target']==val(target)]
+                check('native-'+guard_mode+'-'+target+'-damage',all(r['damage']==expected for r in sample))
+        frame_point.delete(); test_point.delete(); hit_point.delete()
+        if held: subprocess.run(['xdotool','keyup','x'],check=True,env=runtime_env)
+        flee_battle()
+        check('native-guard-flee-returns-world',val('WorldPartnerID')==partner_id)
+        team_trace.append({'event':'native-guard-method','method':'Controlled shared route/recruitment/rank/HP/refills and stock; native Road contact, menu Do Nothing, ordinary AI/target/RNG/damage, timed X via xdotool and native SDL/action-command input ring. Early and no-input controls; no forced block/guard/RNG/damage/input-buffer writes. Common file-select return is forced.'})
     if 'family' in phases:
         baseline = os.environ.get('PARTNER_FAMILY_BASELINE') == '1'
         # Both are real kmr_06 encounters, approached from their nearest entry.
