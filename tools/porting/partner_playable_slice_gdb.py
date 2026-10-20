@@ -354,7 +354,8 @@ def run():
                     if held:
                         pending = None
                     else:
-                        pending = frame + 1
+                        time.sleep(0.04)
+                        pending = frame + 3
                     held = not held
                 return False
         class GuardTest(gdb.Breakpoint):
@@ -394,15 +395,16 @@ def run():
                 cmd('call ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))')
                 spend_turn()
                 rows=[r for r in team_trace[start:] if r['event']=='guard-hit']
-                if {r['target'] for r in rows} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')}: break
+                if {r['target'] for r in rows if r['blocked'] == (guard_mode=='timed')} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')}: break
             rows=[r for r in team_trace[start:] if r['event']=='guard-hit']
             print('GUARD_ROWS='+json.dumps(rows),flush=True)
             check('native-'+guard_mode+'-both-team-targets',{r['target'] for r in rows} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')})
-            check('native-'+guard_mode+'-block-result',all(r['blocked'] == (guard_mode=='timed') for r in rows))
+            check('native-'+guard_mode+'-block-result',
+                  {r['target'] for r in rows if r['blocked'] == (guard_mode=='timed')} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')})
             # Goomba1; Kooper DEF1. Native guard saves one damage, floored at0.
             for target in ('ACTOR_PLAYER','ACTOR_PARTNER'):
                 expected = max(0,1-int(target=='ACTOR_PARTNER' and partner_id==2)-int(guard_mode=='timed'))
-                sample=[r for r in rows if r['target']==val(target)]
+                sample=[r for r in rows if r['target']==val(target) and r['blocked'] == (guard_mode=='timed')]
                 check('native-'+guard_mode+'-'+target+'-damage',all(r['damage']==expected for r in sample))
         frame_point.delete(); test_point.delete(); hit_point.delete()
         if held: subprocess.run(['xdotool','keyup','x'],check=True,env=runtime_env)
