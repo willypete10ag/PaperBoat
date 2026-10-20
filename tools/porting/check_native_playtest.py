@@ -121,6 +121,8 @@ def observe():
         open_items()
         check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == (6 if profile == 'healing' else 10), 'real keyboard input after native CLI setup')
         if descriptions:
+            result['description_baseline'] = baseline
+            result['description_setup'] = 'native TTYD64 developer file; Vanilla comparison edits only its disposable saved mode and uses native FIO load; stock is reused, not normal Vanilla acquisition'
             result['descriptions'] = []
             original = save.read_bytes()
             ported = {val(name) for name in ('ITEM_COURAGE_SHELL', 'ITEM_POWER_PUNCH', 'ITEM_MINI_MR_MINI',
@@ -292,7 +294,7 @@ def main():
             data.update(git_commit=commit, fixture_commit=fixture_commit, executable_sha256=digest(exe), fixture_sha256=digest(Path(__file__)),
                         archive_sha256=digest(archive), started_utc=started, ended_utc=utc(), exit_code=code,
                         command=command, full_log=log.read_text(), skipped=['build performed separately', 'ROM extraction; supplied verified archive reused',
-                        'Windows rendering/input', 'hardware graphics/audio', 'full 51-fixture regression'])
+                        'Windows rendering/input', 'hardware graphics/audio', 'full registered ROM-dependent fixture suite'])
             if code:
                 data['status'] = 'fail'
             (output / (profile + '-result.json')).write_text(json.dumps(data, indent=2) + '\n')
