@@ -139,6 +139,8 @@ def observe():
                     check(rules + ' item menu uses loaded file mode', val('ttyd64_mode_enabled()') == (rules == 'ttyd64'),
                           'native CLI file; Vanilla comparison edits only disposable saved mode and calls native FIO load')
                     for row in range(val('WorldPopupMenu.numEntries')):
+                        box_height = val('gWindows[WIN_POPUP_DESC].height')
+                        box_width = val('gWindows[WIN_POPUP_DESC].width')
                         selected = val('PopupMenu_SelectedIndex')
                         item = val(f'gPlayerData.invItems[WorldPopupMenu.userIndex[{selected}]]')
                         message = val(f'WorldPopupMenu.descMsg[{selected}]')
@@ -150,10 +152,10 @@ def observe():
                               lines == expected if item in ported else 1 <= lines <= 2,
                               'real keyboard world-item navigation; compiled message metrics observed; baseline expects reproduced overflow')
                         check(f'{rules} description {item} reproduces or clears vertical overflow',
-                              (height > 32) == (baseline and item in ported), 'compiled native line pitch against unchanged 32-pixel description box')
+                              (height > box_height) == (baseline and item in ported), 'compiled native line pitch against unchanged 32-pixel description box')
                         result['descriptions'].append(dict(rules=rules, item=item, lines=lines, width=width, height=height,
-                                                          box_height=32, expected_overflow=baseline and item in ported))
-                        check(f'{rules} description {item} fits box width', width <= 264,
+                                                          box_height=box_height, box_width=box_width, expected_overflow=baseline and item in ported))
+                        check(f'{rules} description {item} fits box width', width <= box_width - 16,
                               'compiled native message width; unchanged 280-pixel description box with 8-pixel side inset')
                         if item in ported or row == 0:
                             for _ in range(3):
