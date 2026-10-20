@@ -149,8 +149,8 @@ def observe():
                               'real keyboard world-item navigation; compiled message metrics observed; baseline expects reproduced overflow')
                         result['descriptions'].append(dict(rules=rules, item=item, lines=lines, width=width,
                                                           box_height=32, expected_overflow=baseline and item in ported))
-                        check(f'{rules} description {item} fits box width', width <= 280,
-                              'compiled native message width; unchanged 296-pixel description box with 8-pixel side inset')
+                        check(f'{rules} description {item} fits box width', width <= 264,
+                              'compiled native message width; unchanged 280-pixel description box with 8-pixel side inset')
                         if item in ported or row == 0:
                             for _ in range(3):
                                 until('render_game_mode_backUI')
