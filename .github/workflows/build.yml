@@ -149,7 +149,7 @@ jobs:
           cmake --build build/ninja-release --parallel $(nproc)
 
       - name: ROM-free gameplay tests
-        run: ctest --test-dir build/ninja-release --output-on-failure -R ttyd64_gameplay_logic --no-tests=error
+        run: ctest --test-dir build/ninja-release --output-on-failure -R 'ttyd64_(gameplay_logic|source_rules)' --no-tests=error
 
       - name: ROM-free playtest process and save isolation checks
         run: |

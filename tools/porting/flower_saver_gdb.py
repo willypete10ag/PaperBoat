@@ -127,9 +127,38 @@ def run_checks():
             rows.append(row)
             if effective[1] != expected: differences.append(row)
         check('source-cost-difference-set',sorted(row['index'] for row in differences) == (expected_ids if before else []))
+        if not before:
+            quick, dd = value('ITEM_QUICK_CHANGE'), value('ITEM_DOUBLE_DIP')
+            write_slots('badges', [quick, dd, dd])
+            write_slots('equippedBadges', [])
+            assign('gPlayerData.maxBP',10)
+            check('source-quick-change-seven-bp-equip-budget',value(f'pause_badges_try_equip({quick})') == 3
+                  and value(f'pause_badges_try_equip({dd})') == 3
+                  and value(f'pause_badges_try_equip({dd})') == 1
+                  and value('pause_get_total_equipped_bp_cost()') == 10)
+            write_slots('equippedBadges', [quick,dd,dd])
+            command('call fio_save_game(3)')
+            assert value('fio_load_game(3)') == 1
+            check('source-repriced-load-trims-tail-not-owned-badges',value('pause_get_total_equipped_bp_cost()') == 10
+                  and sum(value(f'gPlayerData.equippedBadges[{i}]') == dd for i in range(64)) == 1
+                  and sum(value(f'gPlayerData.badges[{i}]') == dd for i in range(128)) == 2)
+            command('call load_demo_battle(0)')
+            command('return')
+            stop_at('calc_player_damage_enemy')
+            command('continue')
+            command('set scheduler-locking off')
+            command('call ttyd64_mode_select_file(1)')
+            write_slots('equippedBadges', [])
+            assign('gPlayerData.curMaxFP',20)
+            assign('gPlayerData.hardMaxFP',20)
+            for name, expected_cost in [('MOVE_CHARGE',3),('MOVE_MULTIBONK',4),('MOVE_OUTTA_SIGHT',1)]:
+                assign('gBattleStatus.selectedMoveID',value(name))
+                assign('gPlayerData.curFP',20)
+                command('call deduct_current_move_fp()')
+                check('source-native-payment-'+name,value('gPlayerData.curFP') == 20-expected_cost)
         report = {'checks_passed':len(checks),'checks':checks,'pre_fix_reproduction':before,
                   'source_XML_sha256':hashlib.sha256(xml_path.read_bytes()).hexdigest(),'rows':rows,'differences':differences,'excluded_indices':skipped,
-                  'limits':'ROM-loaded native title, debugger mode selection and native pure cost getter calls; no menus, payment, move mechanics or real input. Expected values parsed directly from pinned source Moves.xml, not port constants.'}
+                  'limits':'ROM-loaded native title, debugger mode selection and native cost getter calls. Fixed-game extension injects budget/equipment and calls native pause/FIO plus FP payment in demo-created actors (forced demo return); no full move mechanics or real input. Expected matrix values parsed directly from pinned source Moves.xml, not port constants.'}
         Path(required_env('FLOWER_SAVER_RESULT')).write_text(json.dumps(report,indent=2)+'\n')
         print('FLOWER_SAVER_PASSED=' + str(len(checks)))
         command('kill')

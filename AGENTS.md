@@ -36,9 +36,10 @@ input/injected/pending), next action/PR and resolving commit. Update the shared
 FINDINGS.md with it. Reproduce before fixing; cite pinned code/source for disputes.
 Static concerns are not demonstrated runtime hangs. Preserve all old evidence.
 
-Current: saved-mode/Vanilla gates and proof removal merged in PR9; current-only
-world-heart/level-up healing merged in PR10. PR11 addresses R1-M1/R2-M1 Dip/BP,
-then costs R1-L7/R2-M3, representative playtest R2-M5 and lower findings.
-Charge/new features remain paused during ordered remediation. The owner asks to
-pause once a meaningful gameplay-visible Windows playtest build is ready, with
-a green package and focused test brief; do not continue past that checkpoint.
+Current: saved-mode/proof remediation merged in PR9, current-partner recovery in
+PR10 and Double Dip/BP in PR11. Next R2-M3/R1-L7 costs/independent source oracle,
+then Flower Saver X and representative preset/Paragoomba/Spiky/native-input gaps.
+Price parity does not validate move mechanics or source distribution. Charge/new
+features remain paused during ordered remediation. The owner asks to pause at a
+meaningful gameplay-visible Windows playtest milestone, with a green package and
+focused test brief; do not continue past it without notice.
