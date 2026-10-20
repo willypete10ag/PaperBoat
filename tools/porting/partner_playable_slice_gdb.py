@@ -239,7 +239,9 @@ def run():
         for _ in range(40):
             if val('gEncounterState') != val('ENCOUNTER_STATE_NEUTRAL'):
                 break
-            key('a' if family == 'para' else 'd',16)
+            # Para is airborne: real moving jumps make contact; walking under
+            # it would reach the unrelated ground Spiky encounter instead.
+            key('a+x' if family == 'para' else 'd',16)
             walk_inputs += 1
         wait('gGameStatusPtr->context == CONTEXT_BATTLE && gBattleState == BATTLE_STATE_PLAYER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING',900)
         check('keyboard-contact-enters-guarded-native-battle',walk_inputs > 0 and val('gGameStatusPtr->debugEnemyContact') == 0 and val('gBattleStatus.partnerActor->curHP') == 3 and val('ttyd64_partner_combat_active(gBattleStatus.partnerActor)') == 1)
@@ -361,6 +363,9 @@ def run():
         for family, actor_type in [('spiky', 'ACTOR_TYPE_SPIKED_GOOMBA'), ('para', 'ACTOR_TYPE_PARAGOOMBA')]:
             enter_road_battle(family)
             wanted = val(actor_type)
+            observed_types = [val(f'gBattleStatus.enemyActors[{i}]->actorType')
+                              for i in range(24) if val(f'gBattleStatus.enemyActors[{i}]')]
+            print('FAMILY_FORMATION=' + json.dumps({'family':family,'actor_types':observed_types}), flush=True)
             check('family-' + family + '-native-formation', any(
                 val(f'gBattleStatus.enemyActors[{i}]') and val(f'gBattleStatus.enemyActors[{i}]->actorType') == wanted
                 for i in range(24)))
