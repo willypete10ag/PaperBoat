@@ -359,7 +359,26 @@ def run():
             def stop(self):
                 FamilyFinish(val('attacker'))
                 return False
+        class FamilyTargetFinish(gdb.FinishBreakpoint):
+            def __init__(self, actor_id):
+                super().__init__(internal=True)
+                self.silent = True
+                self.index = actor_id & 255
+            def stop(self):
+                team_trace.append({'event':'family-choice',
+                    'type':val(f'gBattleStatus.enemyActors[{self.index}]->actorType'),
+                    'target':val(f'gBattleStatus.enemyActors[{self.index}]->targetActorID'),
+                    'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK'))})
+                return False
+        class FamilyTarget(gdb.Breakpoint):
+            def __init__(self):
+                super().__init__('Ttyd64GoombaChooseTarget', internal=True)
+                self.silent = True
+            def stop(self):
+                FamilyTargetFinish(val('script->owner1.actorID'))
+                return False
         trace = FamilyHit()
+        choices = FamilyTarget()
         for family, actor_type in [('spiky', 'ACTOR_TYPE_SPIKED_GOOMBA'), ('para', 'ACTOR_TYPE_PARAGOOMBA')]:
             enter_road_battle(family)
             wanted = val(actor_type)
@@ -372,14 +391,24 @@ def run():
             # Keep initial wounds out of this targeting observation. Controlled HP
             # refills between turns prevent defeat from ending the sample early.
             start = len(team_trace)
-            for _ in range(6 if baseline else 24):
+            for _ in range(6 if baseline else 36):
+                # Exercise both native orders rather than waiting for a rare
+                # back-target sample with Mario always in front. Swap only at
+                # a fresh round; no forced RNG, menu state or input buffers.
+                if not baseline and not val('gBattleStatus.flags2 & (BS_FLAGS2_PLAYER_TURN_USED | BS_FLAGS2_PARTNER_TURN_USED)'):
+                    was_back = val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK')
+                    key('z')
+                    wait(f'(gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK) != {was_back} && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
                 put('gPlayerData.curHP', 20)
                 cmd('call ttyd64_set_partner_hp(1,10)')
                 spend_turn()
                 rows = [x for x in team_trace[start:] if x.get('event') == 'family-hit' and x['type'] == wanted]
                 if baseline and len(rows) >= 3:
                     break
-                if not baseline and {x['target'] for x in rows} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')}:
+                if (not baseline and {x['target'] for x in rows} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')}
+                    and {x['player_in_back'] for x in rows} == {False,True}
+                    and any(x['player_after'] < x['player_before'] for x in rows)
+                    and any(x['partner_after'] < x['partner_before'] for x in rows)):
                     break
             rows = [x for x in team_trace[start:] if x.get('event') == 'family-hit' and x['type'] == wanted]
             check('family-' + family + '-native-targets', len(rows) >= (3 if baseline else 2) and
@@ -411,8 +440,9 @@ def run():
             check('family-' + family + '-native-flee-world-return', val('WorldPartnerID') == 1 and
                   val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED'))
         trace.delete()
+        choices.delete()
         team_trace.append({'event': 'family-method', 'baseline_expected_mario_only': baseline,
-                           'method': 'Controlled map/entry/progression, recruitment, initial stats/items; HP refills between turns. Real keyboard contact, Do Nothing and flee; native actual enemy AI, target selection, damage and turns. No forced AI/guard/RNG/damage or actor-type substitution. Common file-select startup return is forced.'})
+                           'method': 'Controlled map/entry/progression, recruitment, initial stats/items; HP refills between turns. Real keyboard contact, Z swaps at fresh rounds, Do Nothing and flee; controlled same-battle Vanilla/zero HP boundaries; passive choice/hit tracing; native actual enemy AI, target selection, damage and turns. No forced AI/guard/RNG/damage or actor-type substitution. Common file-select startup return is forced.'})
     if 'dip' in phases:
         enter_road_battle()
         dd = val('ITEM_DOUBLE_DIP')
