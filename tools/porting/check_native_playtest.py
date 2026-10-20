@@ -45,7 +45,7 @@ def observe():
     def check(name, condition, method='predicate after native CLI setup'):
         assert condition, name
         result['checks'].append(dict(check=name, method=method))
-        print('NATIVE_PLAYTEST_CHECK=' + name)
+        print('NATIVE_PLAYTEST_CHECK=' + name, flush=True)
 
     def key(name, frames=8):
         if val('gPopupState') == val('POPUP_STATE_CHOOSING') and val('PopupDelayTime') > 0:
@@ -64,6 +64,15 @@ def observe():
 
     def neutral():
         wait('gGameStatus.context == CONTEXT_WORLD && WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+
+    def open_items():
+        neutral()
+        wait('gPlayerStatus.actionState == ACTION_STATE_IDLE')
+        for _ in range(3):
+            key('Left')
+            if val('WorldMenuState') != 0:
+                break
+        wait('WorldMenuState == 3 && WorldMenuType == 1 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
 
     try:
         for setting in ('non-stop on', 'pagination off', 'confirm off', 'print thread-events off'):
@@ -84,6 +93,17 @@ def observe():
               val('gGameStatus.areaID') == 0 and val('gGameStatus.mapID') == 1)
         check('native Mario stats and gear', val('gPlayerData.curHP') == 15 and val('gPlayerData.curMaxHP') == 20 and
               val('gPlayerData.curFP') == 10 and val('gPlayerData.hammerLevel') == 0 and val('gPlayerData.hasActionCommands') == 1)
+        check('native developer badge budget and owned inventory', val('gPlayerData.maxBP') == 20 and
+              sum(val(f'gPlayerData.badges[{i}]') != 0 for i in range(128)) == 15)
+        expected = ('ITEM_DOUBLE_DIP', 'ITEM_DOUBLE_DIP', 'ITEM_FLOWER_SAVER_A',
+                    'ITEM_FLOWER_SAVER_A', 'ITEM_PITY_FLOWER', 'ITEM_LAST_STAND')
+        check('native equipped copy loadout', all(val(f'gPlayerData.equippedBadges[{i}]') == val(badge)
+              for i, badge in enumerate(expected)) and
+              all(val(f'gPlayerData.equippedBadges[{i}]') == 0 for i in range(len(expected),64)))
+        check('native loadout price and abilities', val('pause_get_total_equipped_bp_cost()') == 18 and
+              val('is_ability_active(ABILITY_DOUBLE_DIP)') == 2 and
+              val('is_ability_active(ABILITY_FLOWER_SAVER)') == 2 and
+              val('is_ability_active(ABILITY_FP_DRAIN)') == 0)
         for partner, maximum in ((1, 10), (2, 10), (3, 15)):
             check('native ground partner ' + str(partner), val(f'gPlayerData.partners[{partner}].enabled') == 1 and
                   val(f'gCurrentSaveFile.shipSaveData.partnerHP[{partner}].curHP') == 3 and
@@ -96,8 +116,7 @@ def observe():
         key('d', 12)
         check('keyboard moves Mario', float(gdb.parse_and_eval('gPlayerStatus.pos.x')) > old_x,
               'real keyboard input after native CLI setup')
-        key('Left')
-        wait('WorldMenuState == 3 && WorldMenuType == 1 && gPopupState == POPUP_STATE_CHOOSING')
+        open_items()
         check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == (6 if profile == 'healing' else 10), 'real keyboard input after native CLI setup')
         key('c')
         neutral()
@@ -111,8 +130,7 @@ def observe():
         check('keyboard swap binds wounded Kooper', val('WorldPartnerID') == 2 and
               val('gCurrentSaveFile.shipSaveData.partnerHP[2].curHP') == 3, 'real keyboard input after native CLI setup')
         if profile == 'healing':
-            key('Left')
-            wait('WorldMenuState == 3 && WorldMenuType == 1 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            open_items()
             # Native add_item compacts toward the end and inserts at the front;
             # choose by typed identity rather than assuming the first row is food.
             mushroom = next(i for i in range(val('WorldPopupMenu.numEntries'))
@@ -134,6 +152,20 @@ def observe():
         key('space')
         wait('gGameStatus.context == CONTEXT_PAUSE && StepPauseDelay < -10')
         check('keyboard pause opens', val('gGameStatus.context') == val('CONTEXT_PAUSE'), 'real keyboard input after native CLI setup')
+        for _ in range(8):
+            if val('gPauseTabsCurrentTab') == 1:
+                break
+            key('d')
+        assert val('gPauseTabsCurrentTab') == 1
+        key('x')
+        wait('gPauseMenuCurrentTab == 2')
+        check('keyboard badge panel exposes native copy loadout', val('gPauseBadgesNumItems') == 15 and
+              val('pause_get_total_equipped_bp_cost()') == 18, 'real keyboard input after native CLI setup')
+        # Private inspection aid only; captures are excluded from publication.
+        for _ in range(12):
+            until('render_game_mode_backUI')
+        subprocess.run(['import', '-window', 'root', str(Path(os.environ['NATIVE_PLAYTEST_PAYLOAD']).parent /
+                        (profile + '-badges.png'))], check=True)
         key('space')
         neutral()
         check('keyboard unpause restores owner', val('WorldPartnerID') == 2, 'real keyboard input after native CLI setup')

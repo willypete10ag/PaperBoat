@@ -59,7 +59,7 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family'}
     assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
@@ -205,7 +205,7 @@ def run():
         key('x')
         wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         tick(30)
-    def enter_road_battle():
+    def enter_road_battle(family=None):
         cmd('call ttyd64_mode_select_file(1)')
         put('gPlayerData.partners[$slicePartner].level',0)
         cmd('call ttyd64_reset_partner_hp($slicePartner)')
@@ -223,19 +223,25 @@ def run():
         # Map travel is controlled setup; collision, battle menus and outcome
         # below use ordinary keyboard input, without StartBattle/end-state calls.
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
-        for field, amount in [('areaID',0),('mapID',7),('entryID',0)]:
-            put('gGameStatusPtr->' + field,amount)
+        if family:
+            cmd('call get_map_IDs_by_name_checked("kmr_06", &gGameStatusPtr->areaID, &gGameStatusPtr->mapID)')
+            put('gGameStatusPtr->entryID', 1 if family == 'para' else 0)
+        else:
+            for field, amount in [('areaID',0),('mapID',7),('entryID',0)]:
+                put('gGameStatusPtr->' + field,amount)
         cmd('call set_game_mode(GAME_MODE_CHANGE_MAP)')
         until('state_step_world')
         tick(100)
         wait('gGameStatusPtr->context == CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
-        check('battle-route-native-road-ready',val('gGameStatusPtr->mapID') == 7 and val('WorldPartnerID') == partner_id and hp() == 3)
+        check('battle-route-native-road-ready',(family is not None or val('gGameStatusPtr->mapID') == 7) and val('WorldPartnerID') == partner_id and hp() == 3)
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_NONE'))
         walk_inputs = 0
         for _ in range(40):
             if val('gEncounterState') != val('ENCOUNTER_STATE_NEUTRAL'):
                 break
-            key('d',16)
+            # Para is airborne: real moving jumps make contact; walking under
+            # it would reach the unrelated ground Spiky encounter instead.
+            key('a+x' if family == 'para' else 'd',16)
             walk_inputs += 1
         wait('gGameStatusPtr->context == CONTEXT_BATTLE && gBattleState == BATTLE_STATE_PLAYER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING',900)
         check('keyboard-contact-enters-guarded-native-battle',walk_inputs > 0 and val('gGameStatusPtr->debugEnemyContact') == 0 and val('gBattleStatus.partnerActor->curHP') == 3 and val('ttyd64_partner_combat_active(gBattleStatus.partnerActor)') == 1)
@@ -328,6 +334,115 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'family' in phases:
+        baseline = os.environ.get('PARTNER_FAMILY_BASELINE') == '1'
+        # Both are real kmr_06 encounters, approached from their nearest entry.
+        # No actor-type substitution, StartBattle, forced damage/guard/RNG or AI calls.
+        class FamilyFinish(gdb.FinishBreakpoint):
+            def __init__(self, attacker):
+                super().__init__(internal=True)
+                self.silent = True
+                self.actor = attacker
+                self.row = {'event': 'family-hit', 'type': val(f'((Actor*){attacker})->actorType'),
+                            'target': val(f'((Actor*){attacker})->targetActorID'),
+                            'player_in_back': bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK')),
+                            'player_before': val('gPlayerData.curHP'), 'partner_before': hp()}
+            def stop(self):
+                self.row.update(player_after=val('gPlayerData.curHP'), partner_after=hp(),
+                                blocked=bool(val('gBattleStatus.flags1 & BS_FLAGS1_ATK_BLOCKED')))
+                team_trace.append(self.row)
+                return False
+        class FamilyHit(gdb.Breakpoint):
+            def __init__(self):
+                super().__init__('calc_enemy_damage_target', internal=True)
+                self.silent = True
+            def stop(self):
+                FamilyFinish(val('attacker'))
+                return False
+        class FamilyTargetFinish(gdb.FinishBreakpoint):
+            def __init__(self, actor_id):
+                super().__init__(internal=True)
+                self.silent = True
+                self.index = actor_id & 255
+            def stop(self):
+                team_trace.append({'event':'family-choice',
+                    'type':val(f'gBattleStatus.enemyActors[{self.index}]->actorType'),
+                    'target':val(f'gBattleStatus.enemyActors[{self.index}]->targetActorID'),
+                    'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK'))})
+                return False
+        class FamilyTarget(gdb.Breakpoint):
+            def __init__(self):
+                super().__init__('Ttyd64GoombaChooseTarget', internal=True)
+                self.silent = True
+            def stop(self):
+                FamilyTargetFinish(val('script->owner1.actorID'))
+                return False
+        trace = FamilyHit()
+        choices = FamilyTarget()
+        for family, actor_type in [('spiky', 'ACTOR_TYPE_SPIKED_GOOMBA'), ('para', 'ACTOR_TYPE_PARAGOOMBA')]:
+            enter_road_battle(family)
+            wanted = val(actor_type)
+            observed_types = [val(f'gBattleStatus.enemyActors[{i}]->actorType')
+                              for i in range(24) if val(f'gBattleStatus.enemyActors[{i}]')]
+            print('FAMILY_FORMATION=' + json.dumps({'family':family,'actor_types':observed_types}), flush=True)
+            check('family-' + family + '-native-formation', any(
+                val(f'gBattleStatus.enemyActors[{i}]') and val(f'gBattleStatus.enemyActors[{i}]->actorType') == wanted
+                for i in range(24)))
+            # Keep initial wounds out of this targeting observation. Controlled HP
+            # refills between turns prevent defeat from ending the sample early.
+            start = len(team_trace)
+            for _ in range(6 if baseline else 36):
+                # Exercise both native orders rather than waiting for a rare
+                # back-target sample with Mario always in front. Swap only at
+                # a fresh round; no forced RNG, menu state or input buffers.
+                if not baseline and not val('gBattleStatus.flags2 & (BS_FLAGS2_PLAYER_TURN_USED | BS_FLAGS2_PARTNER_TURN_USED)'):
+                    was_back = val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK')
+                    key('z')
+                    wait(f'(gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK) != {was_back} && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
+                put('gPlayerData.curHP', 20)
+                cmd('call ttyd64_set_partner_hp(1,10)')
+                spend_turn()
+                rows = [x for x in team_trace[start:] if x.get('event') == 'family-hit' and x['type'] == wanted]
+                if baseline and len(rows) >= 3:
+                    break
+                if (not baseline and {x['target'] for x in rows} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')}
+                    and {x['player_in_back'] for x in rows} == {False,True}
+                    and any(x['player_after'] < x['player_before'] for x in rows)
+                    and any(x['partner_after'] < x['partner_before'] for x in rows)):
+                    break
+            rows = [x for x in team_trace[start:] if x.get('event') == 'family-hit' and x['type'] == wanted]
+            check('family-' + family + '-native-targets', len(rows) >= (3 if baseline else 2) and
+                  (all(x['target'] == val('ACTOR_PLAYER') for x in rows) if baseline else
+                   {x['target'] for x in rows} == {val('ACTOR_PLAYER'), val('ACTOR_PARTNER')}))
+            check('family-' + family + '-native-damage', any(x['player_after'] < x['player_before'] for x in rows) and
+                  (all(x['partner_after'] == x['partner_before'] for x in rows) if baseline else
+                   any(x['partner_after'] < x['partner_before'] for x in rows)))
+            if not baseline:
+                # Controlled same-battle mode boundary, not a user-facing toggle.
+                cmd('call ttyd64_mode_select_file(0)')
+                start_vanilla = len(team_trace)
+                for _ in range(4):
+                    put('gPlayerData.curHP',20)
+                    spend_turn()
+                vanilla = [x for x in team_trace[start_vanilla:] if x.get('event') == 'family-hit' and x['type'] == wanted]
+                check('family-' + family + '-vanilla-ai-keeps-mario-target', bool(vanilla) and
+                      all(x['target'] == val('ACTOR_PLAYER') for x in vanilla))
+                cmd('call ttyd64_mode_select_file(1)')
+                cmd('call ttyd64_set_partner_hp(1,0)')
+                start_dead = len(team_trace)
+                for _ in range(4):
+                    put('gPlayerData.curHP',20)
+                    spend_turn()
+                dead = [x for x in team_trace[start_dead:] if x.get('event') == 'family-hit' and x['type'] == wanted]
+                check('family-' + family + '-dead-partner-ai-falls-back', bool(dead) and hp() == 0 and
+                      all(x['target'] == val('ACTOR_PLAYER') for x in dead))
+            flee_battle()
+            check('family-' + family + '-native-flee-world-return', val('WorldPartnerID') == 1 and
+                  val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED'))
+        trace.delete()
+        choices.delete()
+        team_trace.append({'event': 'family-method', 'baseline_expected_mario_only': baseline,
+                           'method': 'Controlled map/entry/progression, recruitment, initial stats/items; HP refills between turns. Real keyboard contact, Z swaps at fresh rounds, Do Nothing and flee; controlled same-battle Vanilla/zero HP boundaries; passive choice/hit tracing; native actual enemy AI, target selection, damage and turns. No forced AI/guard/RNG/damage or actor-type substitution. Common file-select startup return is forced.'})
     if 'dip' in phases:
         enter_road_battle()
         dd = val('ITEM_DOUBLE_DIP')
@@ -351,11 +466,19 @@ def run():
             assert val('MovesCursorPos') == index
             key('x')
             wait('gBattleSubState == 21 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
-        for label, move, uses, stock, cancel in [('double','MOVE_DOUBLE_DIP',2,2,False),('triple','MOVE_TRIPLE_DIP',3,3,True),('triple-short-stock','MOVE_TRIPLE_DIP',3,1,False)]:
+        for label, move, uses, stock, cancel in [('double','MOVE_DOUBLE_DIP',2,2,False),('triple','MOVE_TRIPLE_DIP',3,3,True),('triple-short-stock','MOVE_TRIPLE_DIP',3,1,False),('status-triple','MOVE_TRIPLE_DIP',3,3,False)]:
+            status_dip = label == 'status-triple'
+            if status_dip:
+                for i in (2,3): put(f'gPlayerData.badges[{i}]',val('ITEM_FLOWER_SAVER_A'))
+                put('gPlayerData.maxBP',14)
+                assert val('pause_badges_try_equip(ITEM_FLOWER_SAVER_A)') == 3
+                assert val('pause_badges_try_equip(ITEM_FLOWER_SAVER_A)') == 3
+                check('dip-status-native-two-flower-saver-copies',val('is_ability_active(ABILITY_FLOWER_SAVER)') == 2 and val('pause_get_total_equipped_bp_cost()') == 14)
             put('gPlayerData.curHP',1)
             assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
             put('gPlayerData.curFP',12)
-            for i in range(10): put(f'gPlayerData.invItems[{i}]',val('ITEM_MUSHROOM') if i < stock else 0)
+            item = 'ITEM_COURAGE_SHELL' if status_dip else 'ITEM_MUSHROOM'
+            for i in range(10): put(f'gPlayerData.invItems[{i}]',val(item) if i < stock else 0)
             choose_dip(move)
             if cancel:
                 key('c')
@@ -363,7 +486,7 @@ def run():
                 check('dip-cancel-initial-popup-preserves-fp-items',val('gPlayerData.curFP') == 12 and item_count() == stock)
                 key('x')
                 wait('gBattleSubState == 21 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
-            cost = 4 if uses == 2 else 8
+            cost = 6 if status_dip else (4 if uses == 2 else 8)
             for use in range(min(uses,stock)):
                 key('x')
                 wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
@@ -387,7 +510,17 @@ def run():
                 else:
                     wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 71 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0',1800)
                 check(f'dip-{label}-native-item-{use+1}-pays-once',item_count() == stock-use-1 and val('gPlayerData.curFP') == 12-cost)
-            check('dip-'+label+'-heals-native-recipients',val('gPlayerData.curHP') == (11 if uses == 3 and stock == 3 else 6) and hp() == (8 if stock >= 2 else 3))
+            if status_dip:
+                # Active TTYD64 Battle_NewStatuses.patch AddDefenseBoost overwrites
+                # same-sign boosts: two Courage Shells on Mario still give +3.
+                effects = {'mario_hp':val('gPlayerData.curHP'),'partner_hp':hp(),
+                           'mario_defense':val('ttyd64_actor_defense_boost(gBattleStatus.playerActor)'),
+                           'partner_defense':val('ttyd64_actor_defense_boost(gBattleStatus.partnerActor)')}
+                print('DIP_STATUS_EFFECTS=' + json.dumps(effects,sort_keys=True))
+                check('dip-status-triple-native-effects-on-both-recipients',effects ==
+                      {'mario_hp':1,'partner_hp':3,'mario_defense':3,'partner_defense':3})
+            else:
+                check('dip-'+label+'-heals-native-recipients',val('gPlayerData.curHP') == (11 if uses == 3 and stock == 3 else 6) and hp() == (8 if stock >= 2 else 3))
             check('dip-'+label+'-one-mario-turn-partner-still-ready',bool(val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')) and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
             put('gPlayerData.curHP',20)
             assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
@@ -1749,7 +1882,7 @@ def run():
         cmd('call ttyd64_mode_select_file(0)')
     assert save.read_bytes() == original
     Path(required_env('PARTNER_SLICE_RESULT')).write_text(json.dumps({'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
-        'limits':'Dip phase injects owned/equipped badges, budget, stock, wounds and FP; native pause-equip API followed by real keyboard battle menus, cancel, recipients, item scripts/payment and turn scheduling. No forced menu/guard/RNG returns in dip phase; common startup/file-select return is forced. BP phase injects an over-budget loadout and observes native rendering after keyboard pause input. Recovery-hook matrix injects identity/rank/wounds, item touch and reward substate/timer and calls native callbacks, not a naturally earned level-up. Level-up phase grants a disposable heart and initial99 star points; pickup, encounter, attacks, native rewards/level-up/stat-choice/world return/save use real keyboard. Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
+        'limits':'Family phase uses real kmr_06 encounters and keyboard menus with controlled setup/refills; see family-method trace. Dip phase injects owned/equipped badges, budget, stock, wounds and FP; native pause-equip API followed by real keyboard battle menus, cancel, recipients, item scripts/payment and turn scheduling. No forced menu/guard/RNG returns in dip phase; common startup/file-select return is forced. BP phase injects an over-budget loadout and observes native rendering after keyboard pause input. Recovery-hook matrix injects identity/rank/wounds, item touch and reward substate/timer and calls native callbacks, not a naturally earned level-up. Level-up phase grants a disposable heart and initial99 star points; pickup, encounter, attacks, native rewards/level-up/stat-choice/world return/save use real keyboard. Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
     print('PARTNER_SLICE_PHASES_PASSED=' + ','.join(phases) + ':' + str(len(checks)))
     cmd('kill')
 

@@ -36,10 +36,26 @@ input/injected/pending), next action/PR and resolving commit. Update the shared
 FINDINGS.md with it. Reproduce before fixing; cite pinned code/source for disputes.
 Static concerns are not demonstrated runtime hangs. Preserve all old evidence.
 
-Current: saved-mode/proof remediation merged in PR9, current-partner recovery in
-PR10 and Double Dip/BP in PR11. Next R2-M3/R1-L7 costs/independent source oracle,
-then Flower Saver X and representative preset/Paragoomba/Spiky/native-input gaps.
-Price parity does not validate move mechanics or source distribution. Charge/new
-features remain paused during ordered remediation. The owner asks to pause at a
-meaningful gameplay-visible Windows playtest milestone, with a green package and
-focused test brief; do not continue past it without notice.
+Current: saved-mode/proof remediation merged in PR9, partner recovery in PR10,
+Double Dip/BP in PR11, and source costs/independent HP-price oracle in PR12.
+PR13 contains the representative developer preset and common/tutorial
+Paragoomba/Spiky targeting. Targeted native acceptance is published: actual
+game3d1f, CLI20/19, Goombario126, family17, status21, Dip28 and Vanilla96 across
+batches. Original failed attempts/manifests remain preserved. Tutorials have
+compile/static source coverage, not independent native encounter acceptance.
+R1-M5 timed-input guard / actual status-enemy coverage remains open. Price
+parity does not establish move mechanics or source distribution; Flower Saver X
+remains single-equip with its documented native Dip-discount deviation.
+
+The final PR head still requires exact-head Linux/Windows/macOS/format green
+and published CI evidence before merge only into fork ttyd64/main. Preserve the
+saved-mode guard and Vanilla RNG path; normal saves receive no developer grants.
+See the current shared Codex/Claude handoff and findings register:
+https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-19-combat-playtest.md
+https://github.com/willypete10ag/ttyd64-port/blob/main/docs/reviews/FINDINGS.md
+
+The owner explicitly asks to STOP at this milestone, publish all results and a
+Windows playtest brief, and prepare NEXT_CHAT.md for a fresh Codex chat. Do not
+start charge or another subsystem after the checkpoint without a new continue.
+Do not announce a new Windows playtest before the final gates pass. At the pause,
+state that work has stopped and the handoff is ready; no implied background work.

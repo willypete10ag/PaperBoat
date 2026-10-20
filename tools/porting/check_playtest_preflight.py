@@ -95,7 +95,7 @@ def main():
                 launcher_root = root / 'Windows launcher sessions'
                 command = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
                            str(package / 'Play-TTYD64.ps1'), '-Archive', str(fake), '-SessionRoot',
-                           str(launcher_root), '-Profile', 'status', '-PreflightOnly']
+                           str(launcher_root), '-PreflightOnly']
                 proc = subprocess.run(command, cwd=root, env=env, text=True, capture_output=True, timeout=90)
                 logs = {str(p.relative_to(launcher_root)): p.read_text(encoding='utf-8-sig')
                         for p in launcher_root.glob('logs-*/*') if p.is_file()}
@@ -103,7 +103,7 @@ def main():
                                            stdout=proc.stdout, stderr=proc.stderr, launcher_logs=logs))
                 check('Windows PowerShell 5.1 launcher exits successfully', proc.returncode == 0)
                 manifests = list(launcher_root.glob('sessions/*/playtest-session.json'))
-                check('Windows launcher stages one isolated status session', len(manifests) == 1 and
+                check('Windows launcher defaults to one isolated status session', len(manifests) == 1 and
                       json.loads(manifests[0].read_text())['profile'] == 'status')
                 info = json.loads(manifests[0].read_text())
                 check('Windows launcher consumes setup arguments before engine ROM importer',

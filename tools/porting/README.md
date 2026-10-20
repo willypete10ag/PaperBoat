@@ -374,3 +374,21 @@ The phase discloses debugger inventory/map/HP/transparency setup and controlled
 API cases separately from real input. Numeric HP/timer/FX observations do not
 establish independent visual, hardware or audible acceptance. The existing
 status phase also exercises poison death/Life Shroom with both regen axes set.
+
+## Representative combat playtest group (R2-M5)
+
+`--only goomba-family` uses the shared partner driver in real kmr_06 Spiky0B /
+Para09 encounters: controlled recruitment/progression/map/entry/items and HP
+refills, then keyboard contact (moving jumps for Para), Do Nothing/flee, native
+enemy targeting/damage/turns/world return. Fixed mode expects both team targets;
+same-battle controlled Vanilla and zero-partner boundaries check fallback. No
+forced AI, guard, RNG or damage; common file-select startup return is forced.
+`PORTING_FAMILY_BASELINE=1` reproduces the earlier Mario-only behavior instead.
+This is one shared group, not complete enemy/status/timed-guard acceptance.
+
+`check_native_playtest.py` starts both CLI presets without debugger setup or a
+private seed; keyboard menus observe the granted copy loadout and its badge
+panel. Its reset boundary remains an explicitly controlled API call. Private
+badge screenshots aid inspection and must not be committed. The Windows process
+preflight additionally exercises the launcher's default status profile; it does
+not run the Windows engine/input. See WINDOWS-PLAYTEST.md for the focused brief.
