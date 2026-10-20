@@ -511,9 +511,14 @@ def run():
                     wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 71 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0',1800)
                 check(f'dip-{label}-native-item-{use+1}-pays-once',item_count() == stock-use-1 and val('gPlayerData.curFP') == 12-cost)
             if status_dip:
-                check('dip-status-triple-native-effects-on-both-recipients',val('gPlayerData.curHP') == 1 and hp() == 3 and
-                      val('ttyd64_actor_defense_boost(gBattleStatus.playerActor)') == 6 and
-                      val('ttyd64_actor_defense_boost(gBattleStatus.partnerActor)') == 3)
+                # Active TTYD64 Battle_NewStatuses.patch AddDefenseBoost overwrites
+                # same-sign boosts: two Courage Shells on Mario still give +3.
+                effects = {'mario_hp':val('gPlayerData.curHP'),'partner_hp':hp(),
+                           'mario_defense':val('ttyd64_actor_defense_boost(gBattleStatus.playerActor)'),
+                           'partner_defense':val('ttyd64_actor_defense_boost(gBattleStatus.partnerActor)')}
+                print('DIP_STATUS_EFFECTS=' + json.dumps(effects,sort_keys=True))
+                check('dip-status-triple-native-effects-on-both-recipients',effects ==
+                      {'mario_hp':1,'partner_hp':3,'mario_defense':3,'partner_defense':3})
             else:
                 check('dip-'+label+'-heals-native-recipients',val('gPlayerData.curHP') == (11 if uses == 3 and stock == 3 else 6) and hp() == (8 if stock >= 2 else 3))
             check('dip-'+label+'-one-mario-turn-partner-still-ready',bool(val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')) and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
