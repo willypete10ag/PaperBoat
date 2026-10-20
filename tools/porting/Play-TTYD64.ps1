@@ -3,7 +3,7 @@
 param(
     [string]$Rom,
     [string]$Archive,
-    [Alias('Profile')][ValidateSet('healing', 'status')][string]$PlaytestProfile = 'healing',
+    [Alias('Profile')][ValidateSet('healing', 'status')][string]$PlaytestProfile = 'status',
     [string]$SessionRoot = (Join-Path $env:LOCALAPPDATA 'PaperBoat-TTYD64-playtest'),
     [switch]$PreflightOnly,
     [switch]$CheckRuntimeOnly

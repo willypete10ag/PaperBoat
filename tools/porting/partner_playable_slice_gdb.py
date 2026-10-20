@@ -388,6 +388,25 @@ def run():
             check('family-' + family + '-native-damage', any(x['player_after'] < x['player_before'] for x in rows) and
                   (all(x['partner_after'] == x['partner_before'] for x in rows) if baseline else
                    any(x['partner_after'] < x['partner_before'] for x in rows)))
+            if not baseline:
+                # Controlled same-battle mode boundary, not a user-facing toggle.
+                cmd('call ttyd64_mode_select_file(0)')
+                start_vanilla = len(team_trace)
+                for _ in range(4):
+                    put('gPlayerData.curHP',20)
+                    spend_turn()
+                vanilla = [x for x in team_trace[start_vanilla:] if x.get('event') == 'family-hit' and x['type'] == wanted]
+                check('family-' + family + '-vanilla-ai-keeps-mario-target', bool(vanilla) and
+                      all(x['target'] == val('ACTOR_PLAYER') for x in vanilla))
+                cmd('call ttyd64_mode_select_file(1)')
+                cmd('call ttyd64_set_partner_hp(1,0)')
+                start_dead = len(team_trace)
+                for _ in range(4):
+                    put('gPlayerData.curHP',20)
+                    spend_turn()
+                dead = [x for x in team_trace[start_dead:] if x.get('event') == 'family-hit' and x['type'] == wanted]
+                check('family-' + family + '-dead-partner-ai-falls-back', bool(dead) and hp() == 0 and
+                      all(x['target'] == val('ACTOR_PLAYER') for x in dead))
             flee_battle()
             check('family-' + family + '-native-flee-world-return', val('WorldPartnerID') == 1 and
                   val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED'))

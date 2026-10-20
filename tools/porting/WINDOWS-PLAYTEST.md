@@ -25,14 +25,29 @@ controllers retain the engine's default mappings; check/remap in its input menu
 if needed. Controller hardware and actual Windows rendering/input need a human
 playtest; a green CI compile or ROM-free preflight does not validate those.
 
-Default **healing** inventory: three Mushrooms, one Super Shroom, two Life
-Shrooms. Test world healing, partner swap/Party HP, enemy damage, death/revival,
-flee/victory and a Save Block. No badges start equipped. To try the eight new
-battle status/regeneration items plus two Life Shrooms, open PowerShell in the
-extracted package folder and run:
+Default **status** inventory: Courage Shell, Power Punch, Mini Mr. Mini,
+Mr. Softener, Slow Shroom, Gradual Syrup, Couples Cake, Meteor Meal and two
+Life Shrooms. Both profiles now start with 20 BP and six equipped badges:
+two Double Dips, two Flower Saver A copies, Pity Flower and Last Stand (18 BP).
+Double/Triple Dip should cost 2/6 FP with those two Flower Savers, paid once.
+Spare copies and FP Drain, Defend Plus, Jumpman and Hammerman are owned too;
+inspect/change them in Pause → Badges. FP Drain reduces damage, so it starts
+unequipped; equipping both Jumpman and Hammerman locks both attack commands.
+These are deliberate developer grants, not source world distribution.
+
+Goombas, Paragoombas and Spiky Goombas use TTYD64 front/back target choice with
+supported partners. Z changes the front actor; a dead partner is not an enemy
+target. Other enemy families and unsupported partners remain incomplete.
+
+For a focused test, try Double/Triple Dip, status/regeneration items on Mario
+and partners, Z position changes and ordinary Road damage/death/Life Shroom.
+Observe badge copy rows, costs and effects; report which partner, item/badges
+and action were involved. Pity Flower is random, and Last Stand needs low HP.
+Try world healing and a Save Block with the alternate **healing** inventory
+(three Mushrooms, a Super Shroom and two Life Shrooms):
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Play-TTYD64.ps1 -Profile status
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Play-TTYD64.ps1 -Profile healing
 ```
 
 The process-scoped execution policy option runs the supplied local script; it

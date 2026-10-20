@@ -309,7 +309,7 @@ EvtScript N(EVS_HandleEvent) = {
 EvtScript N(EVS_TakeTurn) = {
     Call(UseIdleAnimation, ACTOR_SELF, false)
     Call(EnableIdleScript, ACTOR_SELF, IDLE_SCRIPT_DISABLE)
-    Call(SetTargetActor, ACTOR_SELF, ACTOR_PLAYER)
+    Call(Ttyd64GoombaChooseTarget, ACTOR_SELF)
     Call(UseBattleCamPreset, BTL_CAM_ENEMY_APPROACH)
     Call(BattleCamTargetActor, ACTOR_SELF)
     Call(SetBattleCamTargetingModes, BTL_CAM_YADJ_TARGET, BTL_CAM_XADJ_AVG, false)
@@ -461,7 +461,8 @@ EvtScript N(EVS_TakeTurn) = {
             Add(LVar0, 20)
             Call(SetGoalPos, ACTOR_SELF, LVar0, LVar1, LVar2)
             Call(JumpToGoal, ACTOR_SELF, 6, false, true, false)
-            Call(GetLastDamage, ACTOR_PLAYER, LVar0)
+            Call(GetOwnerTarget, LVar1, LVar2)
+            Call(GetLastDamage, LVar1, LVar0)
             IfGt(LVar0, 0)
                 Call(SetAnimation, ACTOR_SELF, PRT_MAIN, ANIM_SpikedGoomba_Laugh)
                 Wait(15)

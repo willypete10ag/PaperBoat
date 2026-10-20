@@ -30,6 +30,26 @@ int ttyd64_playtest_startup(void) {
         ttyd64_reset_partner_hp(id);
         ttyd64_set_partner_hp(id, 3);
     }
+    // Only this deliberate new developer file receives a ready badge loadout.
+    // Keep FP Drain optional: its attack penalty would erase a basic boot hit.
+    ttyd64_mode_select_file(TTYD64_MODE_TTYD64);
+    gPlayerData.maxBP = 20;
+    static const s16 equipped[] = {
+        ITEM_DOUBLE_DIP, ITEM_DOUBLE_DIP, ITEM_FLOWER_SAVER_A,
+        ITEM_FLOWER_SAVER_A, ITEM_PITY_FLOWER, ITEM_LAST_STAND,
+    };
+    static const s16 spare[] = {
+        ITEM_LAST_STAND, ITEM_PITY_FLOWER, ITEM_FP_DRAIN, ITEM_FP_DRAIN,
+        ITEM_DEFEND_PLUS_A, ITEM_JUMPMAN, ITEM_HAMMERMAN,
+        ITEM_FLOWER_SAVER_B, ITEM_FLOWER_SAVER_B,
+    };
+    for (s32 i = 0; i < ARRAY_COUNT(equipped); ++i) {
+        add_item(equipped[i]);
+        gPlayerData.equippedBadges[i] = equipped[i];
+    }
+    for (s32 i = 0; i < ARRAY_COUNT(spare); ++i) {
+        add_item(spare[i]);
+    }
     if (profile == 1) {
         add_item(ITEM_MUSHROOM);
         add_item(ITEM_MUSHROOM);
@@ -51,7 +71,6 @@ int ttyd64_playtest_startup(void) {
     }
     // Same native serialization/new-game path as file creation; no distributed seed.
     // The same versioned mode contract is used by normal new-file selection.
-    ttyd64_mode_select_file(TTYD64_MODE_TTYD64);
     fio_save_game(3);
     set_curtain_scale(2.0f);
     set_curtain_fade(0.0f);

@@ -43,3 +43,11 @@ Price parity does not validate move mechanics or source distribution. Charge/new
 features remain paused during ordered remediation. The owner asks to pause at a
 meaningful gameplay-visible Windows playtest milestone, with a green package and
 focused test brief; do not continue past it without notice.
+
+The representative-playtest branch extends the saved-mode Goomba selector to
+Paragoomba/Spiky common and tutorial scripts and grants a developer-only equipped
+copy loadout. Normal saves receive no grants. Preserve the mode gate and
+Vanilla RNG path. R1-M5 timed guard / real status-enemy input remains open until
+actually run; the new targeting group must not be described as resolving it.
+Do not announce a new Windows playtest until the milestone PR and targeted
+acceptance are green; then pause for the owner as requested.

@@ -84,6 +84,17 @@ def observe():
               val('gGameStatus.areaID') == 0 and val('gGameStatus.mapID') == 1)
         check('native Mario stats and gear', val('gPlayerData.curHP') == 15 and val('gPlayerData.curMaxHP') == 20 and
               val('gPlayerData.curFP') == 10 and val('gPlayerData.hammerLevel') == 0 and val('gPlayerData.hasActionCommands') == 1)
+        check('native developer badge budget and owned inventory', val('gPlayerData.maxBP') == 20 and
+              sum(val(f'gPlayerData.badges[{i}]') != 0 for i in range(128)) == 15)
+        expected = ('ITEM_DOUBLE_DIP', 'ITEM_DOUBLE_DIP', 'ITEM_FLOWER_SAVER_A',
+                    'ITEM_FLOWER_SAVER_A', 'ITEM_PITY_FLOWER', 'ITEM_LAST_STAND')
+        check('native equipped copy loadout', all(val(f'gPlayerData.equippedBadges[{i}]') == val(badge)
+              for i, badge in enumerate(expected)) and
+              all(val(f'gPlayerData.equippedBadges[{i}]') == 0 for i in range(len(expected),64)))
+        check('native loadout price and abilities', val('pause_get_total_equipped_bp_cost()') == 18 and
+              val('is_ability_active(ABILITY_DOUBLE_DIP)') == 2 and
+              val('is_ability_active(ABILITY_FLOWER_SAVER)') == 2 and
+              val('is_ability_active(ABILITY_FP_DRAIN)') == 0)
         for partner, maximum in ((1, 10), (2, 10), (3, 15)):
             check('native ground partner ' + str(partner), val(f'gPlayerData.partners[{partner}].enabled') == 1 and
                   val(f'gCurrentSaveFile.shipSaveData.partnerHP[{partner}].curHP') == 3 and
@@ -134,6 +145,20 @@ def observe():
         key('space')
         wait('gGameStatus.context == CONTEXT_PAUSE && StepPauseDelay < -10')
         check('keyboard pause opens', val('gGameStatus.context') == val('CONTEXT_PAUSE'), 'real keyboard input after native CLI setup')
+        for _ in range(8):
+            if val('gPauseTabsCurrentTab') == 1:
+                break
+            key('d')
+        assert val('gPauseTabsCurrentTab') == 1
+        key('x')
+        wait('gPauseMenuCurrentTab == 2')
+        check('keyboard badge panel exposes native copy loadout', val('gPauseBadgesNumItems') == 15 and
+              val('pause_get_total_equipped_bp_cost()') == 18, 'real keyboard input after native CLI setup')
+        # Private inspection aid only; captures are excluded from publication.
+        for _ in range(12):
+            until('render_game_mode_backUI')
+        subprocess.run(['import', '-window', 'root', str(Path(os.environ['NATIVE_PLAYTEST_PAYLOAD']).parent /
+                        (profile + '-badges.png'))], check=True)
         key('space')
         neutral()
         check('keyboard unpause restores owner', val('WorldPartnerID') == 2, 'real keyboard input after native CLI setup')

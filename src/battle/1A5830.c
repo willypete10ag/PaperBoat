@@ -2618,7 +2618,8 @@ API_CALLABLE(GetLastEvent) {
     return ApiStatus_DONE2;
 }
 
-// Source 00_Goomba.bpat: back when RandInt(100) < 30, front otherwise.
+// Active Goomba, Paragoomba and SpikedGoomba .bpat turn scripts:
+// back when RandInt(100) < 30, front otherwise. Vanilla consumes no extra RNG.
 API_CALLABLE(Ttyd64GoombaChooseTarget) {
     s32 actorID = evt_get_variable(script, *script->ptrReadPos);
     if (actorID == ACTOR_SELF) {
@@ -2627,7 +2628,10 @@ API_CALLABLE(Ttyd64GoombaChooseTarget) {
     Actor* actor = get_actor(actorID);
     s32 target = ACTOR_PLAYER;
     if ((actorID & ACTOR_CLASS_MASK) == ACTOR_CLASS_ENEMY
-        && actor->actorType == ACTOR_TYPE_GOOMBA && ttyd64_partner_team_active()) {
+        && (actor->actorType == ACTOR_TYPE_GOOMBA
+            || actor->actorType == ACTOR_TYPE_PARAGOOMBA
+            || actor->actorType == ACTOR_TYPE_SPIKED_GOOMBA)
+        && ttyd64_partner_team_active()) {
         target = ttyd64_partner_team_target(rand_int(100) < 30);
     }
     actor->targetActorID = target;
