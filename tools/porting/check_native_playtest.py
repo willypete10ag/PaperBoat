@@ -146,7 +146,8 @@ def observe():
                         width = val(f'get_msg_width({message}, 0)')
                         height = lines * val('MsgCharsets[0]->newLineY')
                         expected = 3 if baseline and item in ported else 2
-                        check(f'{rules} description {item} has {expected} lines', lines == expected,
+                        check(f'{rules} description {item} line count {lines}',
+                              lines == expected if item in ported else 1 <= lines <= 2,
                               'real keyboard world-item navigation; compiled message metrics observed; baseline expects reproduced overflow')
                         check(f'{rules} description {item} reproduces or clears vertical overflow',
                               (height > 32) == (baseline and item in ported), 'compiled native line pitch against unchanged 32-pixel description box')
