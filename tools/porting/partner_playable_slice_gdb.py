@@ -466,11 +466,19 @@ def run():
             assert val('MovesCursorPos') == index
             key('x')
             wait('gBattleSubState == 21 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
-        for label, move, uses, stock, cancel in [('double','MOVE_DOUBLE_DIP',2,2,False),('triple','MOVE_TRIPLE_DIP',3,3,True),('triple-short-stock','MOVE_TRIPLE_DIP',3,1,False)]:
+        for label, move, uses, stock, cancel in [('double','MOVE_DOUBLE_DIP',2,2,False),('triple','MOVE_TRIPLE_DIP',3,3,True),('triple-short-stock','MOVE_TRIPLE_DIP',3,1,False),('status-triple','MOVE_TRIPLE_DIP',3,3,False)]:
+            status_dip = label == 'status-triple'
+            if status_dip:
+                for i in (2,3): put(f'gPlayerData.badges[{i}]',val('ITEM_FLOWER_SAVER_A'))
+                put('gPlayerData.maxBP',14)
+                assert val('pause_badges_try_equip(ITEM_FLOWER_SAVER_A)') == 3
+                assert val('pause_badges_try_equip(ITEM_FLOWER_SAVER_A)') == 3
+                check('dip-status-native-two-flower-saver-copies',val('is_ability_active(ABILITY_FLOWER_SAVER)') == 2 and val('pause_get_total_equipped_bp_cost()') == 14)
             put('gPlayerData.curHP',1)
             assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
             put('gPlayerData.curFP',12)
-            for i in range(10): put(f'gPlayerData.invItems[{i}]',val('ITEM_MUSHROOM') if i < stock else 0)
+            item = 'ITEM_COURAGE_SHELL' if status_dip else 'ITEM_MUSHROOM'
+            for i in range(10): put(f'gPlayerData.invItems[{i}]',val(item) if i < stock else 0)
             choose_dip(move)
             if cancel:
                 key('c')
@@ -478,7 +486,7 @@ def run():
                 check('dip-cancel-initial-popup-preserves-fp-items',val('gPlayerData.curFP') == 12 and item_count() == stock)
                 key('x')
                 wait('gBattleSubState == 21 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
-            cost = 4 if uses == 2 else 8
+            cost = 6 if status_dip else (4 if uses == 2 else 8)
             for use in range(min(uses,stock)):
                 key('x')
                 wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
@@ -502,7 +510,12 @@ def run():
                 else:
                     wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 71 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0',1800)
                 check(f'dip-{label}-native-item-{use+1}-pays-once',item_count() == stock-use-1 and val('gPlayerData.curFP') == 12-cost)
-            check('dip-'+label+'-heals-native-recipients',val('gPlayerData.curHP') == (11 if uses == 3 and stock == 3 else 6) and hp() == (8 if stock >= 2 else 3))
+            if status_dip:
+                check('dip-status-triple-native-effects-on-both-recipients',val('gPlayerData.curHP') == 1 and hp() == 3 and
+                      val('ttyd64_actor_defense_boost(gBattleStatus.playerActor)') == 6 and
+                      val('ttyd64_actor_defense_boost(gBattleStatus.partnerActor)') == 3)
+            else:
+                check('dip-'+label+'-heals-native-recipients',val('gPlayerData.curHP') == (11 if uses == 3 and stock == 3 else 6) and hp() == (8 if stock >= 2 else 3))
             check('dip-'+label+'-one-mario-turn-partner-still-ready',bool(val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')) and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
             put('gPlayerData.curHP',20)
             assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
