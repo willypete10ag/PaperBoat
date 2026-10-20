@@ -17,6 +17,8 @@ def observe():
     import gdb
     result = {'status': 'fail', 'checks': [], 'setup': 'native CLI new-game developer profile; no debugger setup'}
     profile = os.environ['NATIVE_PLAYTEST_PROFILE']
+    descriptions = os.environ.get('NATIVE_PLAYTEST_DESCRIPTIONS', '0') == '1'
+    baseline = os.environ.get('NATIVE_PLAYTEST_DESCRIPTION_BASELINE', '0') == '1'
 
     def cmd(command):
         return gdb.execute(command, to_string=True)
@@ -118,6 +120,64 @@ def observe():
               'real keyboard input after native CLI setup')
         open_items()
         check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == (6 if profile == 'healing' else 10), 'real keyboard input after native CLI setup')
+        if descriptions:
+            result['description_baseline'] = baseline
+            result['description_setup'] = 'native TTYD64 developer file; Vanilla comparison edits only its disposable saved mode and uses native FIO load; stock is reused, not normal Vanilla acquisition'
+            result['descriptions'] = []
+            original = save.read_bytes()
+            ported = {val(name) for name in ('ITEM_COURAGE_SHELL', 'ITEM_POWER_PUNCH', 'ITEM_MINI_MR_MINI',
+                      'ITEM_MR_SOFTENER', 'ITEM_SLOW_SHROOM', 'ITEM_GRADUAL_SYRUP', 'ITEM_COUPLES_CAKE', 'ITEM_METEOR_MEAL')}
+            try:
+                for rules in ('ttyd64', 'vanilla'):
+                    if rules == 'vanilla':
+                        key('c')
+                        neutral()
+                        # Explicit saved-mode fixture, never a global prototype toggle.
+                        data = json.loads(original)
+                        data['ship']['ttyd64Mode']['rules'] = rules
+                        save.write_text(json.dumps(data))
+                        assert val('fio_load_game(3)') == 1
+                        open_items()
+                    check(rules + ' item menu uses loaded file mode', val('ttyd64_mode_enabled()') == (rules == 'ttyd64'),
+                          'native CLI file; Vanilla comparison edits only disposable saved mode and calls native FIO load')
+                    for row in range(val('WorldPopupMenu.numEntries')):
+                        box_height = val('gWindows[WIN_POPUP_DESC].height')
+                        box_width = val('gWindows[WIN_POPUP_DESC].width')
+                        selected = val('PopupMenu_SelectedIndex')
+                        item = val(f'gPlayerData.invItems[WorldPopupMenu.userIndex[{selected}]]')
+                        message = val(f'WorldPopupMenu.descMsg[{selected}]')
+                        native_lines = val(f'get_msg_lines({message})')
+                        pointer = val(f'load_message_to_buffer({message})')
+                        encoded = bytes(gdb.selected_inferior().read_memory(pointer, 512)).split(b'\xfd', 1)[0]
+                        # Native get_msg_lines counts only nonempty lines. The
+                        # renderer advances for every ENDL, including blank ones.
+                        lines = encoded.count(b'\xf0') + 1
+                        width = val(f'get_msg_width({message}, 0)')
+                        height = lines * val('MsgCharsets[0]->newLineY')
+                        expected = 3 if baseline and item in ported else 2
+                        check(f'{rules} description {item} line count {lines}',
+                              lines == expected if item in ported else 1 <= lines <= 2,
+                              'real keyboard world-item navigation; native loaded message ENDL controls and font pitch; baseline expects reproduced overflow')
+                        check(f'{rules} description {item} reproduces or clears vertical overflow',
+                              (height > box_height) == (baseline and item in ported), 'compiled native line pitch against unchanged 32-pixel description box')
+                        result['descriptions'].append(dict(rules=rules, item=item, lines=lines, native_nonempty_lines=native_lines, width=width, height=height,
+                                                          box_height=box_height, box_width=box_width, expected_overflow=baseline and item in ported))
+                        check(f'{rules} description {item} fits box width', width <= box_width - 16,
+                              'compiled native message width; unchanged 280-pixel description box with 8-pixel side inset')
+                        if item in ported or row == 0:
+                            for _ in range(3):
+                                until('render_game_mode_backUI')
+                            capture = Path(os.environ['NATIVE_PLAYTEST_PAYLOAD']).parent / f'{profile}-{rules}-item-{item}.png'
+                            subprocess.run(['import', '-window', 'root', str(capture)], check=True)
+                            result.setdefault('private_captures', []).append(dict(name=capture.name, sha256=hashlib.sha256(capture.read_bytes()).hexdigest()))
+                        if row + 1 < val('WorldPopupMenu.numEntries'):
+                            key('s')
+                    key('c')
+                    neutral()
+            finally:
+                save.write_bytes(original)
+            result['status'] = 'pass'
+            return
         key('c')
         neutral()
         key('Right')
@@ -195,7 +255,10 @@ def main():
         parser.add_argument('--' + arg, type=Path, required=True)
     parser.add_argument('--source', type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument('--fixture-commit', help='Committed exported driver revision; defaults to the game checkout HEAD')
+    parser.add_argument('--descriptions', action='store_true', help='Inspect grouped world item descriptions in both saved modes')
+    parser.add_argument('--description-baseline', action='store_true', help='Expect the pre-fix three-line ported descriptions')
     args = parser.parse_args()
+    assert not args.description_baseline or args.descriptions
     exe, package, archive, output = (getattr(args, k).resolve() for k in ('executable', 'package', 'archive', 'output'))
     output.mkdir(parents=True, exist_ok=False)
     source = args.source.resolve()
@@ -219,14 +282,16 @@ def main():
             started = utc()
             env = dict(os.environ, DISPLAY=display, SDL_AUDIODRIVER='dummy', LIBGL_ALWAYS_SOFTWARE='1',
                        DEBUGINFOD_URLS='', XDG_CACHE_HOME=str(output / 'cache'), NATIVE_PLAYTEST_PROFILE=profile,
-                       NATIVE_PLAYTEST_SESSION=str(session), NATIVE_PLAYTEST_PAYLOAD=str(payload))
+                       NATIVE_PLAYTEST_SESSION=str(session), NATIVE_PLAYTEST_PAYLOAD=str(payload),
+                       NATIVE_PLAYTEST_DESCRIPTIONS=str(int(args.descriptions)),
+                       NATIVE_PLAYTEST_DESCRIPTION_BASELINE=str(int(args.description_baseline)))
             command = ['gdb', '-q', '-batch', '-x', str(Path(__file__).resolve()), '--args', str(exe),
                        '--ttyd64-playtest', str(session), str(package), str(archive), profile]
             log = output / (profile + '.log')
             with log.open('w') as stream:
                 process = subprocess.Popen(command, cwd=package, env=env, stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
                 try:
-                    code = process.wait(timeout=240)
+                    code = process.wait(timeout=420 if args.descriptions else 240)
                 except subprocess.TimeoutExpired:
                     os.killpg(process.pid, signal.SIGTERM)
                     code = process.wait(timeout=20)
@@ -234,7 +299,7 @@ def main():
             data.update(git_commit=commit, fixture_commit=fixture_commit, executable_sha256=digest(exe), fixture_sha256=digest(Path(__file__)),
                         archive_sha256=digest(archive), started_utc=started, ended_utc=utc(), exit_code=code,
                         command=command, full_log=log.read_text(), skipped=['build performed separately', 'ROM extraction; supplied verified archive reused',
-                        'Windows rendering/input', 'hardware graphics/audio', 'full 51-fixture regression'])
+                        'Windows rendering/input', 'hardware graphics/audio', 'full registered ROM-dependent fixture suite'])
             if code:
                 data['status'] = 'fail'
             (output / (profile + '-result.json')).write_text(json.dumps(data, indent=2) + '\n')
