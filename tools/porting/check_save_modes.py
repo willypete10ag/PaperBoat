@@ -33,11 +33,20 @@ def observe():
         stopped[0].switch()
         assert gdb.selected_frame().name() == s
     def wait(s, budget=1800):
+        print('SAVE_MODE_WAIT=' + s,flush=True)
         for _ in range(budget):
             if val(s): return
             until('step_game_mode')
         raise AssertionError('Frame budget: ' + s)
+    def input_state():
+        fields = ('CurGameModeID', 'gGameStatus.context', 'gGameStatus.startupState',
+                  'filemenu_currentMenu', 'gPlayerStatus.flags')
+        state = {name:val(name) for name in fields}
+        if val('filemenu_menus[0] != 0'):
+            state.update(slot=val('filemenu_menus[0]->selected'),file_state=val('filemenu_menus[0]->state'))
+        return state
     def key(s, frames=8):
+        print('SAVE_MODE_INPUT_BEGIN=' + json.dumps({'key':s, **input_state()}),flush=True)
         window = subprocess.check_output(['xdotool', 'search', '--onlyvisible', '--pid',
                                          str(gdb.selected_inferior().pid)], text=True).splitlines()[0]
         subprocess.run(['xdotool', 'windowfocus', window], check=True)
@@ -47,6 +56,7 @@ def observe():
         finally:
             subprocess.run(['xdotool', 'keyup', s], check=True)
         for _ in range(10): until('render_game_mode_backUI')
+        print('SAVE_MODE_INPUT_END=' + json.dumps({'key':s, **input_state()}),flush=True)
     def check(s, test, method):
         assert test, s
         result['checks'].append(dict(check=s, method=method))
