@@ -391,6 +391,10 @@ def run():
             check('dip-'+label+'-one-mario-turn-partner-still-ready',bool(val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')) and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
             put('gPlayerData.curHP',20)
             assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+            # Restock before the next native turn initializes its item wheel.
+            # Changing an empty inventory after that point leaves its cached
+            # command disabled; this is setup, not a menu-state override.
+            inventory()
             spend_turn()
             wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
         cmd('call ttyd64_mode_select_file(0)')
