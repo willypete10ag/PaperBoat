@@ -45,9 +45,10 @@ class ChooseItems(gdb.Breakpoint):
 
 def run_checks():
     runtime = Path(required_env('SHIP_HOME')).resolve()
+    source_costs = os.environ.get('FLOWER_SAVER_SOURCE_COSTS') == '1'
     dip = os.environ.get('FLOWER_SAVER_DIP') == '1'
     dip_baseline = os.environ.get('FLOWER_SAVER_DIP_BASELINE') == '1'
-    assert runtime == fixture_path('flower-saver/' + ('dip-runtime' if dip else ('vanilla-runtime' if os.environ.get('FLOWER_SAVER_BASELINE') == '1' else 'runtime')))
+    assert runtime == fixture_path('flower-saver/' + ('cost-runtime' if source_costs else ('dip-runtime' if dip else ('vanilla-runtime' if os.environ.get('FLOWER_SAVER_BASELINE') == '1' else 'runtime'))))
     baseline = os.environ.get("FLOWER_SAVER_BASELINE", "0") == "1"
     load_only = os.environ.get("FLOWER_SAVER_LOAD_ONLY", "0") == "1"
     assert not (baseline and load_only)
@@ -98,6 +99,70 @@ def run_checks():
         assign("gPausePressedButtons", value("BUTTON_A"))
         command("call pause_badges_handle_input(&gPausePanelBadges)")
         assign("gPausePressedButtons", 0)
+
+    if source_costs:
+        import hashlib
+        import xml.etree.ElementTree as ET
+        xml_path = reference_path('globals/Moves.xml')
+        assert hashlib.sha256(xml_path.read_bytes()).hexdigest() == '4b36da89b0ddac95845adb594afbc98d1304cbd1d1dd6502bd2fc407f1c539ae'
+        xml = ET.fromstring(xml_path.read_text())
+        skipped = {0x0f:'repurposed Poison Drive',0x11:'repurposed Ice Smash',0x30:'repurposed Tornado Jump',
+                   0xb9:'source/native appended move differs',0xba:'source/native appended move differs',
+                   0xbb:'source/native appended move differs',0xbc:'source/native appended move differs'}
+        before = os.environ.get('FLOWER_SAVER_SOURCE_COSTS_BASELINE') == '1'
+        rows, differences = [], []
+        native_limit = int(next(line for line in source_path('include/move_enum.h').read_text().splitlines() if line.startswith('#define NUM_MOVES ')).split()[-1])
+        expected_ids = [10,13,32,46,51,56,66,67,68,92,93,94,108,109,116,117,118,135,136,182]
+        for move in xml:
+            index = int(move.attrib['index'],16)
+            if index in skipped or index >= native_limit: continue
+            native = [value(f'gMoveTable[{index}].costFP'),value(f'gMoveTable[{index}].costBP')]
+            expected = [int(move.attrib['fp'],16),int(move.attrib['bp'],16)]
+            effective = {}
+            for mode in (0,1):
+                command(f'call ttyd64_mode_select_file({mode})')
+                effective[mode] = [value(f'get_move_fp_cost({index})'),value(f'get_move_bp_cost({index})')]
+                check(f'source-cost-{index}-mode-{mode}',effective[mode] == (native if mode == 0 or (before and index in expected_ids) else expected))
+            row = {'index':index,'source_name':move.attrib.get('name'),'native_fp_bp':native,'ttyd64_fp_bp':effective[1],'source_fp_bp':expected}
+            rows.append(row)
+            if effective[1] != expected: differences.append(row)
+        check('source-cost-difference-set',sorted(row['index'] for row in differences) == (expected_ids if before else []))
+        if not before:
+            quick, dd = value('ITEM_QUICK_CHANGE'), value('ITEM_DOUBLE_DIP')
+            write_slots('badges', [quick, dd, dd])
+            write_slots('equippedBadges', [])
+            assign('gPlayerData.maxBP',10)
+            check('source-quick-change-seven-bp-equip-budget',value(f'pause_badges_try_equip({quick})') == 3
+                  and value(f'pause_badges_try_equip({dd})') == 3
+                  and value(f'pause_badges_try_equip({dd})') == 1
+                  and value('pause_get_total_equipped_bp_cost()') == 10)
+            write_slots('equippedBadges', [quick,dd,dd])
+            command('call fio_save_game(3)')
+            assert value('fio_load_game(3)') == 1
+            check('source-repriced-load-trims-tail-not-owned-badges',value('pause_get_total_equipped_bp_cost()') == 10
+                  and sum(value(f'gPlayerData.equippedBadges[{i}]') == dd for i in range(64)) == 1
+                  and sum(value(f'gPlayerData.badges[{i}]') == dd for i in range(128)) == 2)
+            command('call load_demo_battle(0)')
+            command('return')
+            stop_at('calc_player_damage_enemy')
+            command('continue')
+            command('set scheduler-locking off')
+            command('call ttyd64_mode_select_file(1)')
+            write_slots('equippedBadges', [])
+            assign('gPlayerData.curMaxFP',20)
+            assign('gPlayerData.hardMaxFP',20)
+            for name, expected_cost in [('MOVE_CHARGE',3),('MOVE_MULTIBONK',4),('MOVE_OUTTA_SIGHT',1)]:
+                assign('gBattleStatus.selectedMoveID',value(name))
+                assign('gPlayerData.curFP',20)
+                command('call deduct_current_move_fp()')
+                check('source-native-payment-'+name,value('gPlayerData.curFP') == 20-expected_cost)
+        report = {'checks_passed':len(checks),'checks':checks,'pre_fix_reproduction':before,
+                  'source_XML_sha256':hashlib.sha256(xml_path.read_bytes()).hexdigest(),'rows':rows,'differences':differences,'excluded_indices':skipped,
+                  'limits':'ROM-loaded native title, debugger mode selection and native cost getter calls. Fixed-game extension injects budget/equipment and calls native pause/FIO plus FP payment in demo-created actors (forced demo return); no full move mechanics or real input. Expected matrix values parsed directly from pinned source Moves.xml, not port constants.'}
+        Path(required_env('FLOWER_SAVER_RESULT')).write_text(json.dumps(report,indent=2)+'\n')
+        print('FLOWER_SAVER_PASSED=' + str(len(checks)))
+        command('kill')
+        return
 
     if dip:
         dd, td = dip_items

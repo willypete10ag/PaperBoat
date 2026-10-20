@@ -86,6 +86,30 @@ forced file-select return; Dip selections, guards, RNG and outcomes are not
 forced. Only selected IDs run. `PORTING_DIP_BASELINE=1` expects the old defects
 for pinned pre-fix reproduction; never use that setting as fix acceptance.
 
+## Source rules and costs
+
+TTYD64 mode now uses the182 matching semantic Moves.xml identities for FP/BP
+prices. Twenty remaining differences are corrected through the saved-mode
+getters; the static Vanilla table stays intact. Seven reused/relocated source
+indices are explicitly excluded. Price parity does not port a move's mechanics,
+stacking, availability or distribution; Charge behavior remains separate.
+
+The ROM-free `ttyd64_source_rules` CTest parses committed original public source
+XML and the active partner-HP table excerpt, then calls the compiled pure
+functions. It preserves185 original Vanilla rows, compares182 semantic TTYD64
+FP/BP rows and33 partner/rank HP cells. See tests/reference/README.md for pinned
+source/provenance; no ROM, generated archive, assets or save is included.
+Linux CI runs both gameplay and source-rule CTests.
+
+`--only source-costs` extends the shared Flower Saver driver:365 matrix checks
+parse the local pinned source XML independently of port constants. Fixed-game
+checks additionally exercise native7BP Quick Change/Double Dip budget rejection,
+load-budget trimming/owned counts and the three changed FP payments through
+native APIs. Inventory/mode/state and demo actors are controlled, including a
+forced demo return; no actual move scripts or real input are claimed here.
+`PORTING_SOURCE_COSTS_BASELINE=1` expects the old20 differences for pinned
+before-fix reproduction only. It is never fix acceptance.
+
 ## Windows playtest and native startup checks
 
 The Windows CI ZIP now includes an explicit isolated developer-session launcher.
@@ -124,7 +148,7 @@ On Ubuntu 24.04, from a clean checkout:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git cmake ninja-build g++ nlohmann-json3-dev
+sudo apt-get install -y git cmake ninja-build g++ python3 nlohmann-json3-dev
 git clone --branch ttyd64/main https://github.com/willypete10ag/PaperBoat.git
 cd PaperBoat
 cmake -S . -B build/logic -G Ninja -DPAPERBOAT_LOGIC_TESTS_ONLY=ON

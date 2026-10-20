@@ -1,0 +1,14 @@
+#new:Data $PartnersHPTable
+{
+  10`b 20`b 30`b % partnerID=0x01 (Goombario)
+  10`b 15`b 25`b % partnerID=0x02 (Kooper)
+  15`b 25`b 40`b % partnerID=0x03 (Bombette)
+  15`b 20`b 25`b % Parakarry
+  0`b 0`b 0`b % Gompa (unused)
+  10`b 15`b 20`b % Watt
+  15`b 25`b 35`b % Sushie
+  15`b 20`b 30`b % Lakilester
+  10`b 20`b 30`b % Bow
+  0`b 0`b 0`b % Goombaria (unused)
+  0`b 0`b 0`b % Twink (unused)
+}

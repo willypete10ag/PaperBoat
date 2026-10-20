@@ -476,6 +476,7 @@ def main():
     add("badge-assets", "check_badge_assets.py", "badge-assets", kind="empty")
     add("last-stand", "last_stand_gdb.py", "last-stand", kind="empty")
     add("last-stand-vanilla", "last_stand_gdb.py", "last-stand-vanilla", {"LAST_STAND_VARIANT": "baseline"}, kind="empty")
+    add("source-costs", "flower_saver_gdb.py", "flower-saver", {"FLOWER_SAVER_SOURCE_COSTS": "1", "FLOWER_SAVER_SOURCE_COSTS_BASELINE": os.environ.get("PORTING_SOURCE_COSTS_BASELINE", "0")}, kind="empty", suffix="cost-runtime")
     add("dip-native", "partner_playable_slice_gdb.py", "partner-playable-slice", {"PARTNER_SLICE_PARTNER": "1", "PARTNER_SLICE_PHASES": "dip"})
     add("bp-render", "partner_playable_slice_gdb.py", "partner-playable-slice", {"PARTNER_SLICE_PARTNER": "1", "PARTNER_SLICE_PHASES": "bp", "PARTNER_BP_BASELINE": os.environ.get("PORTING_DIP_BASELINE", "0")})
     add("dip-menu", "flower_saver_gdb.py", "flower-saver", {"FLOWER_SAVER_DIP": "1", "FLOWER_SAVER_DIP_BASELINE": os.environ.get("PORTING_DIP_BASELINE", "0")}, kind="empty", suffix="dip-runtime")

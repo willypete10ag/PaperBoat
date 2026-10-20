@@ -29,7 +29,27 @@ static int fixed(int max) {
     CHECK(max == 100);
     return boundary;
 }
-int main() {
+int main(int argc, char** argv) {
+    // External source oracle supplies actual native base costs; this path calls
+    // the same pure lookups used by inventory/menu gameplay, without an engine.
+    if (argc == 2 && std::string(argv[1]) == "--source-rules") {
+        const auto input = ordered_json::parse(std::cin);
+        auto costs = ordered_json::array();
+        for (const auto& row : input.at("costs")) {
+            int id = row.at("index"), fp = row.at("fp"), bp = row.at("bp");
+            costs.push_back({ { "index", id },
+                              { "vanilla", { ttyd64_mode_fp_cost(0, id, fp), ttyd64_mode_bp_cost(0, id, bp) } },
+                              { "ttyd64", { ttyd64_mode_fp_cost(1, id, fp), ttyd64_mode_bp_cost(1, id, bp) } } });
+        }
+        auto health = ordered_json::array();
+        for (int partner = 1; partner < TTYD64_PARTNER_HP_COUNT; ++partner) {
+            health.push_back({ ttyd64_partner_base_max_hp(partner, 0),
+                               ttyd64_partner_base_max_hp(partner, 1),
+                               ttyd64_partner_base_max_hp(partner, 2) });
+        }
+        std::cout << ordered_json { { "costs", costs }, { "health", health } }.dump() << "\n";
+        return 0;
+    }
     // Independent persistence contract: never infer from health/proof content.
     CHECK(!ttyd64_mode_enabled());
     auto modeShip = ordered_json { { "hasDiedOnce", 1 }, { "otherExtension", { { "keep", 17 } } } };
