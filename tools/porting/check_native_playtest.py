@@ -146,16 +146,21 @@ def observe():
                         selected = val('PopupMenu_SelectedIndex')
                         item = val(f'gPlayerData.invItems[WorldPopupMenu.userIndex[{selected}]]')
                         message = val(f'WorldPopupMenu.descMsg[{selected}]')
-                        lines = val(f'get_msg_lines({message})')
+                        native_lines = val(f'get_msg_lines({message})')
+                        pointer = val(f'load_message_to_buffer({message})')
+                        encoded = bytes(gdb.selected_inferior().read_memory(pointer, 512)).split(b'\xfd', 1)[0]
+                        # Native get_msg_lines counts only nonempty lines. The
+                        # renderer advances for every ENDL, including blank ones.
+                        lines = encoded.count(b'\xf0') + 1
                         width = val(f'get_msg_width({message}, 0)')
                         height = lines * val('MsgCharsets[0]->newLineY')
                         expected = 3 if baseline and item in ported else 2
                         check(f'{rules} description {item} line count {lines}',
                               lines == expected if item in ported else 1 <= lines <= 2,
-                              'real keyboard world-item navigation; compiled message metrics observed; baseline expects reproduced overflow')
+                              'real keyboard world-item navigation; native loaded message ENDL controls and font pitch; baseline expects reproduced overflow')
                         check(f'{rules} description {item} reproduces or clears vertical overflow',
                               (height > box_height) == (baseline and item in ported), 'compiled native line pitch against unchanged 32-pixel description box')
-                        result['descriptions'].append(dict(rules=rules, item=item, lines=lines, width=width, height=height,
+                        result['descriptions'].append(dict(rules=rules, item=item, lines=lines, native_nonempty_lines=native_lines, width=width, height=height,
                                                           box_height=box_height, box_width=box_width, expected_overflow=baseline and item in ported))
                         check(f'{rules} description {item} fits box width', width <= box_width - 16,
                               'compiled native message width; unchanged 280-pixel description box with 8-pixel side inset')
