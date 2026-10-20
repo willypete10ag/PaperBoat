@@ -99,14 +99,14 @@ def run():
             if val(expression):
                 return
             tick()
-        print('PARTNER_PAUSE_TIMEOUT=' + json.dumps({k:val(k) for k in ('gGameStatusPtr->context','StepPauseState','StepPauseDelay','WorldMenuState','gPauseMenuCurrentTab','gPauseTabsCurrentTab','gPausePanelTabs.col','gPlayerStatus.flags','gBattleState','gBattleSubState','BattleMenuState','gPopupState','StratsCursorPos','gBattleStatus.inputBitmask','BattleMenu_ChooseDelay','gBattleStatus.curButtonsPressed')}))
+        print('PARTNER_PAUSE_TIMEOUT=' + json.dumps({k:val(k) for k in ('gGameStatusPtr->context','StepPauseState','StepPauseDelay','WorldMenuState','gPauseMenuCurrentTab','gPauseTabsCurrentTab','gPausePanelTabs.col','gPlayerStatus.flags','gPlayerStatus.actionState','gBattleState','gBattleSubState','BattleMenuState','gPopupState','StratsCursorPos','gBattleStatus.inputBitmask','BattleMenu_ChooseDelay','gBattleStatus.curButtonsPressed')}))
         raise AssertionError('Native frame budget: ' + expression)
     def focus():
         window = subprocess.check_output(['xdotool','search','--onlyvisible','--pid',str(gdb.selected_inferior().pid)],text=True,env=runtime_env).splitlines()[0]
         subprocess.run(['xdotool','windowraise',window],check=True,env=runtime_env)
         subprocess.run(['xdotool','windowfocus',window],check=True,env=runtime_env)
         assert int(subprocess.check_output(['xdotool','getwindowfocus'],text=True,env=runtime_env)) == int(window)
-    def key(name, frames=3):
+    def key(name, frames=8):
         # A visible popup can still be in its native input debounce interval.
         # Wait for actual readiness; keep all selection/cancel actions keyboard driven.
         if val('gPopupState') == val('POPUP_STATE_CHOOSING') and val('PopupDelayTime') > 0:
@@ -187,7 +187,12 @@ def run():
         wait(f'WorldMenuState == 3 && WorldMenuType == {kind} && gPopupState == POPUP_STATE_CHOOSING')
         tick(15)
     def open_items():
-        key('Left')
+        # A world-menu open is edge-triggered. Retry real input only if the
+        # prior short/queued tap left ordinary world control unchanged.
+        wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED) && gPlayerStatus.actionState == ACTION_STATE_IDLE')
+        for _ in range(3):
+            key('Left')
+            if val('WorldMenuState') != 0: break
         menu_ready(1)
     def open_recipient():
         open_items()
@@ -340,10 +345,10 @@ def run():
             check('dip-keyboard-submenu-' + move,moves == [val('MOVE_ITEMS'),val('MOVE_DOUBLE_DIP'),val('MOVE_TRIPLE_DIP')])
             index = moves.index(val(move))
             for _ in range(8):
-                current = val('SelectedMovesIndex')
+                current = val('MovesCursorPos')
                 if current == index: break
                 key('w' if index < current else 's')
-            assert val('SelectedMovesIndex') == index
+            assert val('MovesCursorPos') == index
             key('x')
             wait('gBattleSubState == 21 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
         for label, move, uses, stock, cancel in [('double','MOVE_DOUBLE_DIP',2,2,False),('triple','MOVE_TRIPLE_DIP',3,3,True),('triple-short-stock','MOVE_TRIPLE_DIP',3,1,False)]:
@@ -386,6 +391,10 @@ def run():
             check('dip-'+label+'-one-mario-turn-partner-still-ready',bool(val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')) and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
             put('gPlayerData.curHP',20)
             assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+            # Restock before the next native turn initializes its item wheel.
+            # Changing an empty inventory after that point leaves its cached
+            # command disabled; this is setup, not a menu-state override.
+            inventory()
             spend_turn()
             wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
         cmd('call ttyd64_mode_select_file(0)')
