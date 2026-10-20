@@ -144,10 +144,13 @@ def observe():
                         message = val(f'WorldPopupMenu.descMsg[{selected}]')
                         lines = val(f'get_msg_lines({message})')
                         width = val(f'get_msg_width({message}, 0)')
+                        height = lines * val('MsgCharsets[0]->newLineY')
                         expected = 3 if baseline and item in ported else 2
                         check(f'{rules} description {item} has {expected} lines', lines == expected,
                               'real keyboard world-item navigation; compiled message metrics observed; baseline expects reproduced overflow')
-                        result['descriptions'].append(dict(rules=rules, item=item, lines=lines, width=width,
+                        check(f'{rules} description {item} reproduces or clears vertical overflow',
+                              (height > 32) == (baseline and item in ported), 'compiled native line pitch against unchanged 32-pixel description box')
+                        result['descriptions'].append(dict(rules=rules, item=item, lines=lines, width=width, height=height,
                                                           box_height=32, expected_overflow=baseline and item in ported))
                         check(f'{rules} description {item} fits box width', width <= 264,
                               'compiled native message width; unchanged 280-pixel description box with 8-pixel side inset')
@@ -156,6 +159,7 @@ def observe():
                                 until('render_game_mode_backUI')
                             capture = Path(os.environ['NATIVE_PLAYTEST_PAYLOAD']).parent / f'{profile}-{rules}-item-{item}.png'
                             subprocess.run(['import', '-window', 'root', str(capture)], check=True)
+                            result.setdefault('private_captures', []).append(dict(name=capture.name, sha256=hashlib.sha256(capture.read_bytes()).hexdigest()))
                         if row + 1 < val('WorldPopupMenu.numEntries'):
                             key('s')
                     key('c')
