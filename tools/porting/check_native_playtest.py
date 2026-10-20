@@ -45,7 +45,7 @@ def observe():
     def check(name, condition, method='predicate after native CLI setup'):
         assert condition, name
         result['checks'].append(dict(check=name, method=method))
-        print('NATIVE_PLAYTEST_CHECK=' + name)
+        print('NATIVE_PLAYTEST_CHECK=' + name, flush=True)
 
     def key(name, frames=8):
         if val('gPopupState') == val('POPUP_STATE_CHOOSING') and val('PopupDelayTime') > 0:
@@ -64,6 +64,15 @@ def observe():
 
     def neutral():
         wait('gGameStatus.context == CONTEXT_WORLD && WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+
+    def open_items():
+        neutral()
+        wait('gPlayerStatus.actionState == ACTION_STATE_IDLE')
+        for _ in range(3):
+            key('Left')
+            if val('WorldMenuState') != 0:
+                break
+        wait('WorldMenuState == 3 && WorldMenuType == 1 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
 
     try:
         for setting in ('non-stop on', 'pagination off', 'confirm off', 'print thread-events off'):
@@ -107,8 +116,7 @@ def observe():
         key('d', 12)
         check('keyboard moves Mario', float(gdb.parse_and_eval('gPlayerStatus.pos.x')) > old_x,
               'real keyboard input after native CLI setup')
-        key('Left')
-        wait('WorldMenuState == 3 && WorldMenuType == 1 && gPopupState == POPUP_STATE_CHOOSING')
+        open_items()
         check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == (6 if profile == 'healing' else 10), 'real keyboard input after native CLI setup')
         key('c')
         neutral()
@@ -122,8 +130,7 @@ def observe():
         check('keyboard swap binds wounded Kooper', val('WorldPartnerID') == 2 and
               val('gCurrentSaveFile.shipSaveData.partnerHP[2].curHP') == 3, 'real keyboard input after native CLI setup')
         if profile == 'healing':
-            key('Left')
-            wait('WorldMenuState == 3 && WorldMenuType == 1 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            open_items()
             # Native add_item compacts toward the end and inserts at the front;
             # choose by typed identity rather than assuming the first row is food.
             mushroom = next(i for i in range(val('WorldPopupMenu.numEntries'))
