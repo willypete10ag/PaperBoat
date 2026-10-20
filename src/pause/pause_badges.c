@@ -680,6 +680,9 @@ void pause_badges_draw_contents(MenuPanel* menu, s32 baseX, s32 baseY, s32 width
     draw_msg(pause_get_menu_msg(PAUSE_MSG_BADGE_BP), baseX + OFFSET_2_X, baseY + 74, 255, MSG_PAL_STANDARD, DRAW_MSG_STYLE_MENU);
     draw_number(playerData->maxBP, baseX + OFFSET_3_X, baseY + OFFSET_3_Y, DRAW_NUMBER_CHARSET_THIN, MSG_PAL_STANDARD, 255, DRAW_NUMBER_STYLE_MONOSPACE | DRAW_NUMBER_STYLE_ALIGN_RIGHT);
     bpAmount = playerData->maxBP - pause_get_total_equipped_bp_cost();
+    if (ttyd64_mode_enabled() && bpAmount < 0) {
+        bpAmount = 0;
+    }
     bpAvailOffsetX = 0;
     bpAvailOffsetY = (playerData->maxBP - 1) / 10 * 8;
     if (bpAmount < 10) {
@@ -724,7 +727,10 @@ void pause_badges_draw_contents(MenuPanel* menu, s32 baseX, s32 baseY, s32 width
         orbBlinkOpacity = orbBlinkValue * 255.0f;
         gDPSetPrimColor(gMainGfxPos++, 0, 0, orbColorR, orbColorG, orbColorB, orbBlinkOpacity);
 
-        for (orbIndex = bpAvailable - costBP; orbIndex < bpAvailable; orbIndex++) {
+        // Budget eligibility above normally guarantees this is nonnegative;
+        // keep TTYD64 rendering bounded even for an injected/malformed loadout.
+        for (orbIndex = ttyd64_mode_enabled() ? MAX(0, bpAvailable - costBP) : bpAvailable - costBP;
+             orbIndex < bpAvailable; orbIndex++) {
             pause_badges_draw_bp_orbs(2, baseX + 11 +(orbIndex % 10) * 6, baseY + 92 + (orbIndex / 10) * 8);
         }
         gDPPipeSync(gMainGfxPos++);

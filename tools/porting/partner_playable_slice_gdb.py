@@ -59,7 +59,7 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip'}
     assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead'}
     checks, states, captures = [], [], []
     team_trace = []
@@ -99,14 +99,14 @@ def run():
             if val(expression):
                 return
             tick()
-        print('PARTNER_PAUSE_TIMEOUT=' + json.dumps({k:val(k) for k in ('gGameStatusPtr->context','StepPauseState','StepPauseDelay','WorldMenuState','gPauseMenuCurrentTab','gPauseTabsCurrentTab','gPausePanelTabs.col','gPlayerStatus.flags','gBattleState','gBattleSubState','BattleMenuState','gPopupState','StratsCursorPos','gBattleStatus.inputBitmask','BattleMenu_ChooseDelay','gBattleStatus.curButtonsPressed')}))
+        print('PARTNER_PAUSE_TIMEOUT=' + json.dumps({k:val(k) for k in ('gGameStatusPtr->context','StepPauseState','StepPauseDelay','WorldMenuState','gPauseMenuCurrentTab','gPauseTabsCurrentTab','gPausePanelTabs.col','gPlayerStatus.flags','gPlayerStatus.actionState','gBattleState','gBattleSubState','BattleMenuState','gPopupState','StratsCursorPos','gBattleStatus.inputBitmask','BattleMenu_ChooseDelay','gBattleStatus.curButtonsPressed')}))
         raise AssertionError('Native frame budget: ' + expression)
     def focus():
         window = subprocess.check_output(['xdotool','search','--onlyvisible','--pid',str(gdb.selected_inferior().pid)],text=True,env=runtime_env).splitlines()[0]
         subprocess.run(['xdotool','windowraise',window],check=True,env=runtime_env)
         subprocess.run(['xdotool','windowfocus',window],check=True,env=runtime_env)
         assert int(subprocess.check_output(['xdotool','getwindowfocus'],text=True,env=runtime_env)) == int(window)
-    def key(name, frames=3):
+    def key(name, frames=8):
         # A visible popup can still be in its native input debounce interval.
         # Wait for actual readiness; keep all selection/cancel actions keyboard driven.
         if val('gPopupState') == val('POPUP_STATE_CHOOSING') and val('PopupDelayTime') > 0:
@@ -187,7 +187,12 @@ def run():
         wait(f'WorldMenuState == 3 && WorldMenuType == {kind} && gPopupState == POPUP_STATE_CHOOSING')
         tick(15)
     def open_items():
-        key('Left')
+        # A world-menu open is edge-triggered. Retry real input only if the
+        # prior short/queued tap left ordinary world control unchanged.
+        wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED) && gPlayerStatus.actionState == ACTION_STATE_IDLE')
+        for _ in range(3):
+            key('Left')
+            if val('WorldMenuState') != 0: break
         menu_ready(1)
     def open_recipient():
         open_items()
@@ -323,6 +328,119 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'dip' in phases:
+        enter_road_battle()
+        dd = val('ITEM_DOUBLE_DIP')
+        for i in range(128): put(f'gPlayerData.badges[{i}]',dd if i < 2 else 0)
+        put('gPlayerData.maxBP',6)
+        put('gPlayerData.curMaxFP',12)
+        put('gPlayerData.hardMaxFP',12)
+        assert val(f'pause_badges_try_equip({dd})') == 3
+        assert val(f'pause_badges_try_equip({dd})') == 3
+        check('dip-native-equip-two-unlocks-ability-count',val('is_ability_active(ABILITY_DOUBLE_DIP)') == 2 and val('pause_get_total_equipped_bp_cost()') == 6)
+        def choose_dip(move):
+            wheel('BTL_MENU_TYPE_ITEMS')
+            wait('gBattleSubState == 2 && MovesMenuState == BTL_SUBMENU_STATE_CHOOSING')
+            moves = [val(f'gBattleStatus.submenuMoves[{i}]') for i in range(val('MovesOptionCount'))]
+            check('dip-keyboard-submenu-' + move,moves == [val('MOVE_ITEMS'),val('MOVE_DOUBLE_DIP'),val('MOVE_TRIPLE_DIP')])
+            index = moves.index(val(move))
+            for _ in range(8):
+                current = val('MovesCursorPos')
+                if current == index: break
+                key('w' if index < current else 's')
+            assert val('MovesCursorPos') == index
+            key('x')
+            wait('gBattleSubState == 21 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+        for label, move, uses, stock, cancel in [('double','MOVE_DOUBLE_DIP',2,2,False),('triple','MOVE_TRIPLE_DIP',3,3,True),('triple-short-stock','MOVE_TRIPLE_DIP',3,1,False)]:
+            put('gPlayerData.curHP',1)
+            assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
+            put('gPlayerData.curFP',12)
+            for i in range(10): put(f'gPlayerData.invItems[{i}]',val('ITEM_MUSHROOM') if i < stock else 0)
+            choose_dip(move)
+            if cancel:
+                key('c')
+                wait('gBattleSubState == 2 && MovesMenuState == BTL_SUBMENU_STATE_CHOOSING')
+                check('dip-cancel-initial-popup-preserves-fp-items',val('gPlayerData.curFP') == 12 and item_count() == stock)
+                key('x')
+                wait('gBattleSubState == 21 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            cost = 4 if uses == 2 else 8
+            for use in range(min(uses,stock)):
+                key('x')
+                wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+                if cancel and use == 1:
+                    key('c')
+                    wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 71 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+                    check('dip-cancel-later-target-keeps-paid-fp-items',val('gPlayerData.curFP') == 12-cost and item_count() == stock-use)
+                    key('x')
+                    wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+                recipient = 'ACTOR_PARTNER' if use == 1 else 'ACTOR_PLAYER'
+                player = 'gBattleStatus.playerActor'
+                target = player+'->targetData['+player+'->targetIndexList['+player+'->selectedTargetIndex]].actorID'
+                for _ in range(4):
+                    if val(target) == val(recipient): break
+                    key('d')
+                assert val(target) == val(recipient)
+                key('x')
+                last = use+1 == min(uses,stock)
+                if last:
+                    wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+                else:
+                    wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 71 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0',1800)
+                check(f'dip-{label}-native-item-{use+1}-pays-once',item_count() == stock-use-1 and val('gPlayerData.curFP') == 12-cost)
+            check('dip-'+label+'-heals-native-recipients',val('gPlayerData.curHP') == (11 if uses == 3 and stock == 3 else 6) and hp() == (8 if stock >= 2 else 3))
+            check('dip-'+label+'-one-mario-turn-partner-still-ready',bool(val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')) and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
+            put('gPlayerData.curHP',20)
+            assert val('ttyd64_set_partner_hp($slicePartner,10)') == 10
+            # Restock before the next native turn initializes its item wheel.
+            # Changing an empty inventory after that point leaves its cached
+            # command disabled; this is setup, not a menu-state override.
+            inventory()
+            spend_turn()
+            wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+        cmd('call ttyd64_mode_select_file(0)')
+    if 'bp' in phases:
+        cmd('call ttyd64_mode_select_file(1)')
+        for field,size in (('badges',128),('equippedBadges',64)):
+            for i in range(size):
+                put(f'gPlayerData.{field}[{i}]',val('ITEM_DOUBLE_DIP') if i < 2 else (val('ITEM_LAST_STAND') if field == 'badges' and i == 2 else 0))
+        put('gPlayerData.maxBP',3)
+        key('space')
+        wait('gGameStatusPtr->context == CONTEXT_PAUSE && StepPauseDelay < -10')
+        for _ in range(8):
+            if val('gPauseTabsCurrentTab') == 1: break
+            key('d')
+        tick(50)
+        key('x')
+        wait('gPauseMenuCurrentTab == 2')
+        tick(20)
+        numbers, orbs = [], []
+        budget_line = next(i for i,line in enumerate(source_path("src/pause/pause_badges.c").read_text().splitlines(),1) if "maxBP = playerData->maxBP;" in line)
+        class DrawTrace(gdb.Breakpoint):
+            def __init__(self, name):
+                super().__init__(name,internal=True)
+                self.silent = True
+                self.function = name
+            def stop(self):
+                frame = gdb.newest_frame()
+                caller = frame.older()
+                if caller.name() == 'pause_badges_draw_contents':
+                    if self.function == 'draw_number':
+                        numbers.append(int(frame.read_var('value')))
+                    elif caller.find_sal().line >= budget_line:
+                        orbs.append(int(caller.read_var('orbIndex')))
+                return False
+        points = [DrawTrace('draw_number'),DrawTrace('pause_badges_draw_bp_orbs')]
+        try: tick(6)
+        finally:
+            for point in points: point.delete()
+        print('BP_RENDER_TRACE=' + json.dumps({'numbers':numbers,'summary_orb_indices':orbs}))
+        before = os.environ.get('PARTNER_BP_BASELINE') == '1'
+        check('bp-native-render-available-number',(-3 in numbers) if before else (numbers and min(numbers) >= 0 and 0 in numbers))
+        check('bp-native-render-orbs-nonnegative',bool(orbs) and min(orbs) >= 0 and max(orbs) < 3)
+        team_trace.append({'event':'bp-render','draw_number_values':numbers,'orb_indices':orbs,
+                           'setup':'Injected two equipped Double Dips, maxBP3; real keyboard pause/badges input, native renderer observed, no forced draw returns.'})
+        key('space')
+        wait('gGameStatusPtr->context == CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
     if playtest:
         # Seed only this newly-created isolated session, after native load.
         # A new session is allocated by the launcher; real saves are not used.
@@ -1631,7 +1749,7 @@ def run():
         cmd('call ttyd64_mode_select_file(0)')
     assert save.read_bytes() == original
     Path(required_env('PARTNER_SLICE_RESULT')).write_text(json.dumps({'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
-        'limits':'Recovery-hook matrix injects identity/rank/wounds, item touch and reward substate/timer and calls native callbacks, not a naturally earned level-up. Level-up phase grants a disposable heart and initial99 star points; pickup, encounter, attacks, native rewards/level-up/stat-choice/world return/save use real keyboard. Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
+        'limits':'Dip phase injects owned/equipped badges, budget, stock, wounds and FP; native pause-equip API followed by real keyboard battle menus, cancel, recipients, item scripts/payment and turn scheduling. No forced menu/guard/RNG returns in dip phase; common startup/file-select return is forced. BP phase injects an over-budget loadout and observes native rendering after keyboard pause input. Recovery-hook matrix injects identity/rank/wounds, item touch and reward substate/timer and calls native callbacks, not a naturally earned level-up. Level-up phase grants a disposable heart and initial99 star points; pickup, encounter, attacks, native rewards/level-up/stat-choice/world return/save use real keyboard. Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
     print('PARTNER_SLICE_PHASES_PASSED=' + ','.join(phases) + ':' + str(len(checks)))
     cmd('kill')
 

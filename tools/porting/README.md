@@ -61,6 +61,31 @@ level-up state are not forced in these three scenarios.
 executable; use it only for bug reproduction, never fixed-game acceptance. Both
 modes and the baseline flag appear in each result's configuration/full log.
 
+## Double Dip and BP-budget checks
+
+In TTYD64 files Double Dip costs3 BP per copy: one copy offers Double Dip,
+two offer one Double Dip and one Triple Dip, and extra copies add no menu rows.
+A standalone Triple Dip shares its row. FP costs remain4/8 before Flower Saver;
+the native item scripts pay once per sequence. Vanilla retains single-equip and
+its original menu/cost behavior. Loading an over-budget TTYD64 file unequips from
+the end until affordable, preserving owned badges and the original file until
+its next normal save. Invalid equipped item IDs are cleared in that mode only.
+No legacy save structs or JSON fields change. A running injected over-budget
+state displays zero available BP and a bounded budget-orb loop.
+
+`--only dip-menu,bp-render,dip-native,flower-saver-writer,flower-saver,flower-saver-vanilla`
+uses existing shared badge and partner drivers. `dip-menu` injects inventory /
+budget and calls native pause/FIO/menu APIs, including forced demo/menu returns;
+it covers copy rows, save migration, both modes, mixed standalone Triple Dip and
+64 injected copies. `bp-render` injects an over-budget world loadout, uses keyboard
+pause input, and observes native numeric/budget-orb calls. `dip-native` controls
+stock/wounds/FP and equips through the native pause API, then uses real keyboard
+contact, Double/Triple Dip menus, cancellations, Mario/partner recipients, item
+scripts/payment, stock exhaustion and turn scheduling. Common startup uses a
+forced file-select return; Dip selections, guards, RNG and outcomes are not
+forced. Only selected IDs run. `PORTING_DIP_BASELINE=1` expects the old defects
+for pinned pre-fix reproduction; never use that setting as fix acceptance.
+
 ## Windows playtest and native startup checks
 
 The Windows CI ZIP now includes an explicit isolated developer-session launcher.

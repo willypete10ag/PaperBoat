@@ -151,18 +151,38 @@ int main() {
     ship["ttyd64PartnerHP"]["partners"] = entries;
     ttyd64_read_health(loaded, ranks, ship);
     CHECK(loaded[11].curHP == 0);
-    const int allowed[] = { ITEM_LAST_STAND,    ITEM_PITY_FLOWER,    ITEM_JUMPMAN,        ITEM_HAMMERMAN,
-                            ITEM_FP_DRAIN,      ITEM_FLOWER_SAVER_A, ITEM_FLOWER_SAVER_B, ITEM_DEFEND_PLUS_A,
-                            ITEM_DEFEND_PLUS_X, ITEM_DEFEND_PLUS_Y };
+    const int allowed[] = { ITEM_DOUBLE_DIP,    ITEM_LAST_STAND,     ITEM_PITY_FLOWER,    ITEM_JUMPMAN,
+                            ITEM_HAMMERMAN,     ITEM_FP_DRAIN,       ITEM_FLOWER_SAVER_A, ITEM_FLOWER_SAVER_B,
+                            ITEM_DEFEND_PLUS_A, ITEM_DEFEND_PLUS_X,  ITEM_DEFEND_PLUS_Y };
     for (int id = 0; id < 0x180; ++id) {
         bool expected = false;
         for (auto a : allowed)
             expected |= a == id;
         CHECK(bool(ttyd64_badge_can_stack(id)) == expected);
     }
-    // Known partial port: costs were translated; Double Dip stacking is not enabled.
-    CHECK(!ttyd64_badge_can_stack(ITEM_DOUBLE_DIP));
+    CHECK(ttyd64_badge_can_stack(ITEM_DOUBLE_DIP));
     CHECK(!ttyd64_badge_can_stack(ITEM_TRIPLE_DIP));
+    CHECK(ttyd64_dip_menu_badge(ITEM_DOUBLE_DIP, 0, 0) == ITEM_DOUBLE_DIP);
+    CHECK(ttyd64_dip_menu_badge(ITEM_DOUBLE_DIP, 1, 0) == ITEM_TRIPLE_DIP);
+    CHECK(ttyd64_dip_menu_badge(ITEM_DOUBLE_DIP, 1, 1) == ITEM_NONE);
+    CHECK(ttyd64_dip_menu_badge(ITEM_DOUBLE_DIP, 0, 1) == ITEM_DOUBLE_DIP);
+    CHECK(ttyd64_dip_menu_badge(ITEM_TRIPLE_DIP, 0, 0) == ITEM_TRIPLE_DIP);
+    CHECK(ttyd64_dip_menu_badge(ITEM_TRIPLE_DIP, 1, 1) == ITEM_NONE);
+    CHECK(ttyd64_dip_menu_badge(ITEM_NONE, 1, 1) == ITEM_NONE);
+    int16_t loadout[] = { ITEM_DOUBLE_DIP, 0, ITEM_DOUBLE_DIP, ITEM_LAST_STAND };
+    int loadoutCosts[] = { 3, 0, 3, 1 };
+    CHECK(ttyd64_trim_bp_loadout(loadout, loadoutCosts, 4, 7) == 0);
+    CHECK(ttyd64_trim_bp_loadout(loadout, loadoutCosts, 4, 3) == 2);
+    CHECK(loadout[0] == ITEM_DOUBLE_DIP && loadout[1] == 0 && loadout[2] == 0 && loadout[3] == 0);
+    CHECK(ttyd64_trim_bp_loadout(loadout, loadoutCosts, 0, 0) == 0);
+    int16_t signedLoadout[] = { ITEM_DOUBLE_DIP, ITEM_TRIPLE_DIP, ITEM_LAST_STAND };
+    int signedCosts[] = { 3, 3, -2 };
+    CHECK(ttyd64_trim_bp_loadout(signedLoadout, signedCosts, 3, 3) == 2);
+    CHECK(signedLoadout[0] == ITEM_DOUBLE_DIP && !signedLoadout[1] && !signedLoadout[2]);
+    int16_t noBudget[] = { ITEM_DOUBLE_DIP };
+    int noBudgetCosts[] = { 3 };
+    CHECK(ttyd64_trim_bp_loadout(noBudget, noBudgetCosts, 1, -1) == 1 && !noBudget[0]);
+
     CHECK(TTYD64_BP_DOUBLE_DIP == 3 && TTYD64_FP_DOUBLE_DIP == 4);
     CHECK(TTYD64_BP_TRIPLE_DIP == 3 && TTYD64_FP_TRIPLE_DIP == 8);
     CHECK(TTYD64_BP_LAST_STAND == 1 && TTYD64_BP_DEFEND_PLUS == 5 && TTYD64_BP_FLOWER_SAVER == 4);

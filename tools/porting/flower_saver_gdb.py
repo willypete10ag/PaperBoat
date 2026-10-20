@@ -45,7 +45,9 @@ class ChooseItems(gdb.Breakpoint):
 
 def run_checks():
     runtime = Path(required_env('SHIP_HOME')).resolve()
-    assert runtime == fixture_path('flower-saver/' + ('vanilla-runtime' if os.environ.get('FLOWER_SAVER_BASELINE') == '1' else 'runtime'))
+    dip = os.environ.get('FLOWER_SAVER_DIP') == '1'
+    dip_baseline = os.environ.get('FLOWER_SAVER_DIP_BASELINE') == '1'
+    assert runtime == fixture_path('flower-saver/' + ('dip-runtime' if dip else ('vanilla-runtime' if os.environ.get('FLOWER_SAVER_BASELINE') == '1' else 'runtime')))
     baseline = os.environ.get("FLOWER_SAVER_BASELINE", "0") == "1"
     load_only = os.environ.get("FLOWER_SAVER_LOAD_ONLY", "0") == "1"
     assert not (baseline and load_only)
@@ -96,6 +98,83 @@ def run_checks():
         assign("gPausePressedButtons", value("BUTTON_A"))
         command("call pause_badges_handle_input(&gPausePanelBadges)")
         assign("gPausePressedButtons", 0)
+
+    if dip:
+        dd, td = dip_items
+        write_slots("badges", [dd] * 3)
+        write_slots("equippedBadges", [])
+        assign("gPlayerData.maxBP", 9)
+        attempts = [value(f"pause_badges_try_equip({dd})") for _ in range(3)]
+        check("dip-three-owned-equips", attempts == ([3, 0, 0] if dip_baseline else [3, 3, 3]))
+        if not dip_baseline:
+            check("dip-no-unowned-fourth", value(f"pause_badges_try_equip({dd})") == 4)
+            check("dip-independent-owned-rows", menu() == [True, True, True])
+            press(1)
+            check("dip-row-removes-one", rows() == [True, False, True] and value("pause_get_total_equipped_bp_cost()") == 6)
+        # Deliberately malformed experimental loadout; no actual save is modified.
+        write_slots("equippedBadges", [dd, dd])
+        assign("gPlayerData.maxBP", 3)
+        command("call fio_save_game(3)")
+        assert value("fio_load_game(3)") == 1
+        check("dip-overbudget-native-load", value("pause_get_total_equipped_bp_cost()") == (6 if dip_baseline else 3))
+        check("dip-migration-preserves-owned-copies", sum(value(f"gPlayerData.badges[{i}]") == dd for i in range(128)) == 3)
+        if not dip_baseline:
+            command("call fio_save_game(3)")
+            saved = json.loads(fixture_save().read_text())["player"]
+            check("dip-native-resave-migrated-equipment", saved["equippedBadges"].count(dd) == 1 and saved["badges"].count(dd) == 3)
+        if not dip_baseline:
+            write_slots("equippedBadges", [dd, 32767, -1, value("ITEM_MUSHROOM")])
+            command("call fio_save_game(3)")
+            assert value("fio_load_game(3)") == 1
+            check("dip-migration-clears-invalid-equipment", value("gPlayerData.equippedBadges[0]") == dd and all(value(f"gPlayerData.equippedBadges[{i}]") == 0 for i in range(1,64)))
+        command("call ttyd64_mode_select_file(0)")
+        write_slots("equippedBadges", [dd, dd])
+        assign("gPlayerData.maxBP", 1)
+        command("call fio_save_game(3)")
+        assert value("fio_load_game(3)") == 1
+        check("dip-vanilla-load-keeps-legacy-equipment", value("ttyd64_mode_enabled()") == 0 and value("pause_get_total_equipped_bp_cost()") == 2)
+        command("call load_demo_battle(0)")
+        command("return")
+        stop_at("calc_player_damage_enemy")
+        command("continue")
+        command("set scheduler-locking off")
+        choose = ChooseItems()
+        observations = []
+        for mode in (0, 1):
+            command(f"call ttyd64_mode_select_file({mode})")
+            cases = [[], [dd], [dd, dd], [dd, dd, dd], [dd, td], [td, dd, dd]]
+            if mode and not dip_baseline: cases.append([dd] * 64)
+            for entries in cases:
+                write_slots("equippedBadges", entries)
+                assign("gPlayerData.curFP", 20)
+                assign("gBattleSubState", 1)
+                assign("BattleMenu_ChooseDelay", 0)
+                assign("BattleMenu_SwapDelay", 0)
+                assign("WheelOptionSubmenu[0]", value("BTL_MENU_TYPE_ITEMS"))
+                assign("gGameStatusPtr->pressedButtons[0]", 0)
+                command("call btl_state_update_player_menu()")
+                moves = [value(f"gBattleStatus.submenuMoves[{i}]") for i in range(value("gBattleStatus.submenuMoveCount"))]
+                effective = entries
+                if mode and not dip_baseline:
+                    effective = []
+                    for item in entries:
+                        item = td if item == dd and dd in effective else item
+                        if item not in effective:
+                            effective.append(item)
+                expected = [value("MOVE_ITEMS")] + [value(f"gItemTable[{item}].moveID") for item in effective] if entries else []
+                check(f"dip-native-submenu-mode-{mode}-badges-{entries}", moves == expected)
+                if mode and not dip_baseline and entries:
+                    icons = [value(f"gBattleStatus.submenuIcons[{i}]") for i in range(1,len(moves))]
+                    check(f"dip-icons-and-costs-{len(entries)}-{entries[0]}",icons == effective
+                          and all(value(f"MovesOptionDisplayCosts[{i}]") == (4 if badge == dd else 8) for i,badge in enumerate(effective,1)))
+                observations.append({"mode":mode,"equipped":entries,"submenu_moves":moves})
+        choose.delete()
+        report = {"checks_passed":len(checks),"checks":checks,"pre_fix_reproduction":dip_baseline,
+                  "observations":observations,"limits":"Debugger-injected inventory/budget and native pause/FIO/menu API calls; forced demo/menu returns. No keyboard dip sequence or UI rendering claim."}
+        Path(required_env('FLOWER_SAVER_RESULT')).write_text(json.dumps(report,indent=2)+"\n")
+        print("FLOWER_SAVER_PASSED=" + str(len(checks)))
+        command("kill")
+        return
 
     expected_bp = 6 if baseline else 4
     check("flower-saver-table-bp", value("get_move_bp_cost(MOVE_FLOWER_SAVER)") == expected_bp)

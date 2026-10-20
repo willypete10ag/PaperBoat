@@ -175,6 +175,21 @@ s32 get_move_bp_cost(s32 moveID) {
     return ttyd64_mode_bp_cost(ttyd64_mode_enabled(), moveID, gMoveTable[moveID].costBP);
 }
 
+void ttyd64_normalize_badge_budget(void) {
+    if (ttyd64_mode_enabled()) {
+        s32 costs[ARRAY_COUNT(gPlayerData.equippedBadges)];
+        for (s32 i = 0; i < ARRAY_COUNT(costs); i++) {
+            s32 badge = gPlayerData.equippedBadges[i];
+            if (badge < ITEM_NONE || badge >= NUM_ITEMS
+                || (badge != ITEM_NONE && !(gItemTable[badge].typeFlags & ITEM_TYPE_FLAG_BADGE))) {
+                gPlayerData.equippedBadges[i] = badge = ITEM_NONE;
+            }
+            costs[i] = badge == ITEM_NONE ? 0 : get_move_bp_cost(gItemTable[badge].moveID);
+        }
+        ttyd64_trim_bp_loadout(gPlayerData.equippedBadges, costs, ARRAY_COUNT(costs), gPlayerData.maxBP);
+    }
+}
+
 s32 add_item(s32 itemID) {
     s32 idx;
 

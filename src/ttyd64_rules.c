@@ -53,6 +53,7 @@ void ttyd64_health_normalize(Ttyd64PartnerHP* health, const int* ranks) {
 }
 int ttyd64_badge_can_stack(int badge) {
     switch (badge) {
+        case ITEM_DOUBLE_DIP:
         case ITEM_LAST_STAND:
         case ITEM_PITY_FLOWER:
         case ITEM_JUMPMAN:
@@ -67,6 +68,30 @@ int ttyd64_badge_can_stack(int badge) {
         default:
             return 0;
     }
+}
+// Active TTYD_BadgeSystem.patch hooks802A63D0/802A6414: the first
+// Double Dip adds Double Dip, the second adds Triple Dip, further copies add
+// nothing. A standalone Triple Dip shares that row, irrespective of order.
+int ttyd64_dip_menu_badge(int badge, int hasDoubleDip, int hasTripleDip) {
+    if (badge == ITEM_DOUBLE_DIP && hasDoubleDip)
+        badge = ITEM_TRIPLE_DIP;
+    return badge == ITEM_TRIPLE_DIP && hasTripleDip ? ITEM_NONE : badge;
+}
+// Experimental TTYD64 files can predate a BP-cost correction. Drop equipped
+// slots from the end until affordable; owned inventory and its order are intact.
+int ttyd64_trim_bp_loadout(int16_t* badges, const int* costs, int count, int budget) {
+    int total = ttyd64_total_bp_cost(costs, count);
+    int removed = 0;
+    if (budget < 0)
+        budget = 0;
+    for (int i = count - 1; i >= 0 && total > budget; --i) {
+        if (badges[i]) {
+            badges[i] = 0;
+            total -= costs[i];
+            ++removed;
+        }
+    }
+    return removed;
 }
 int ttyd64_total_bp_cost(const int* costs, int count) {
     int total = 0;

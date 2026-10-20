@@ -583,14 +583,25 @@ void btl_state_update_player_menu(void) {
                         create_current_pos_target_list(playerActor);
                     }
                     entryIdx = 1;
+                    b32 hasDoubleDip = false;
+                    b32 hasTripleDip = false;
                     for (i = 0; i < ARRAY_COUNT(playerData->equippedBadges); i++) {
-                        if (playerData->equippedBadges[i] != 0) {
-                            s32 moveID = gItemTable[playerData->equippedBadges[i]].moveID;
+                        s32 badge = playerData->equippedBadges[i];
+                        if (ttyd64_mode_enabled()) {
+                            badge = ttyd64_dip_menu_badge(badge, hasDoubleDip, hasTripleDip);
+                        }
+                        if (badge != ITEM_NONE) {
+                            s32 moveID = gItemTable[badge].moveID;
                             moveData = &gMoveTable[moveID];
                             if (moveData->category == BattleMenu_CategoryForSubmenu[battleStatus->curSubmenu]) {
+                                if (entryIdx >= ARRAY_COUNT(battleStatus->submenuMoves)) {
+                                    break;
+                                }
                                 s32 cost = get_move_fp_cost(moveData - gMoveTable);
+                                hasDoubleDip |= badge == ITEM_DOUBLE_DIP;
+                                hasTripleDip |= badge == ITEM_TRIPLE_DIP;
                                 battleStatus->submenuMoves[entryIdx] = moveID;
-                                battleStatus->submenuIcons[entryIdx] = playerData->equippedBadges[i];
+                                battleStatus->submenuIcons[entryIdx] = badge;
                                 battleStatus->submenuStatus[entryIdx] = 1;
 
                                 // TTYD64 Fix_DoubleDip_FlowerSavers.patch: match
