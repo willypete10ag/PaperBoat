@@ -3,7 +3,8 @@
 Restart/legacy then compare Heart Blocks with explicitly injected setup.
 
 Lifecycle uses native CLI setup, explicit harmless JSON probes/native I/O APIs,
-then injected route/1 HP/empty items with real encounter/Do Nothing/native death,
+then injected route/1 HP/empty items and native Last Stand unequip (the newer
+developer preset equips it) with real encounter/Do Nothing/native death,
 game-over/title/keyboard continue. No forced guard, RNG or reset/game-over API.
 """
 import hashlib
@@ -209,6 +210,13 @@ def observe():
         for _ in range(100): until('step_game_mode')
         wait('!(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         cmd('set variable gGameStatus.debugEnemyContact = DEBUG_CONTACT_NONE')
+        # The richer PR13 preset now equips Last Stand. Its source-accurate
+        # integer division can reduce a 1-point hit to zero indefinitely;
+        # this lifecycle fixture needs a naturally lethal unguarded hit.
+        while val('is_ability_active(ABILITY_LAST_STAND)'):
+            assert val('pause_badges_try_remove(ITEM_LAST_STAND)') > 0
+        check('fatal-route-setup-unequips-Last-Stand', val('is_ability_active(ABILITY_LAST_STAND)') == 0,
+              'controlled native unequip API; ownership retained; no damage/RNG return forced')
         cmd('set variable gPlayerData.curHP = 1')
         for i in range(10): cmd(f'set variable gPlayerData.invItems[{i}] = 0')
         for _ in range(40):
@@ -234,6 +242,9 @@ def observe():
             key('x')
             wait(f'gBattleState != {state}')
             wait('gGameStatus.context != CONTEXT_BATTLE || ((gBattleState == BATTLE_STATE_PLAYER_MENU || gBattleState == BATTLE_STATE_PARTNER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING)')
+            print('SAVE_MODE_TURN=' + json.dumps({s: val(s) for s in
+                  ('gGameStatus.context', 'gBattleState', 'gBattleSubState', 'gPlayerData.curHP')}), flush=True)
+        assert val('gPlayerData.curHP') == 0, 'No natural fatal hit within four turns'
         until('state_step_game_over')
         check('native fatal attack reaches game over', val('gPlayerData.curHP') == 0,
               'keyboard Do Nothing; native enemy damage/defeat, no forced guard/RNG')
@@ -311,8 +322,10 @@ def main():
                 if case == 'lifecycle': command += ['--ttyd64-playtest', str(session), str(package), str(archive), 'healing']
                 with (out / (case + '.log')).open('w') as log:
                     process = subprocess.Popen(command, cwd=package if case == 'lifecycle' else session, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-                    try: code = process.wait(timeout=360)
+                    timed_out = False
+                    try: code = process.wait(timeout=600)
                     except subprocess.TimeoutExpired:
+                        timed_out = True
                         os.killpg(process.pid, signal.SIGTERM)
                         code = process.wait(timeout=20)
                 payload = out / (case + '-checks.json')
@@ -326,6 +339,7 @@ def main():
                             rom_archive_sha256=digest(archive), port_archive_sha256=digest(package / 'paperboat.o2r'), loaded_archives=sorted(str(path) for path in loaded),
                             started_utc=started, ended_utc=utc(), command=command, exit_code=code, full_log=(out / (case + '.log')).read_text(),
                             skipped=['build performed separately', 'ROM extraction; supplied verified archive reused', 'Windows/macOS gameplay', 'unselected fixtures', 'hardware graphics/audio', 'full campaign'])
+                if timed_out: data.update(status='fail', error='External 600-second deadline', timed_out=True)
                 if code: data['status'] = 'fail'
                 (out / (case + '-result.json')).write_text(json.dumps(data, indent=2) + '\n')
                 print(case, data['status'], data.get('error', ''), flush=True)
