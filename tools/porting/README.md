@@ -27,7 +27,11 @@ flee. Native enemy scripts choose attacks/RNG/status/damage; no status, cure,
 immunity, attack branch or result is injected. This tests real enemy scripts,
 not their natural Jungle/Snow map acquisition. Partner-front attacks, poison
 HP ticks, native durations, freeze turn blocking/expiry, same-battle Vanilla and
-dead-partner fallback boundaries are observed. Mode/dead boundaries and refills
+dead-partner fallback boundaries are observed. The status fixture grants Mario
+a99-HP cap/refills so repeated no-action/frozen comparisons cannot consume its
+small original health budget; partner ranks/max HP stay native. This is explicit
+test setup, not normal progression or invulnerability. Native failed escapes
+are retried with keyboard input, without forcing the outcome. Mode/dead boundaries and refills
 are explicit injected comparisons. `PORTING_STATUS_BASELINE=1` expects the old
 Mario-only target and is pre-fix reproduction only. Baseline and failed attempts
 retain their own game/fixture identities. Captures remain private for inspection.

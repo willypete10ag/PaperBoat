@@ -100,6 +100,11 @@ def run():
                 return
             tick()
         print('PARTNER_PAUSE_TIMEOUT=' + json.dumps({k:val(k) for k in ('gGameStatusPtr->context','StepPauseState','StepPauseDelay','WorldMenuState','gPauseMenuCurrentTab','gPauseTabsCurrentTab','gPausePanelTabs.col','gPlayerStatus.flags','gPlayerStatus.actionState','gBattleState','gBattleSubState','BattleMenuState','gPopupState','StratsCursorPos','gBattleStatus.inputBitmask','BattleMenu_ChooseDelay','gBattleStatus.curButtonsPressed')}))
+        (root/'failed-wait.json').write_text(json.dumps({'waiting_for':expression,
+            'player_hp':val('gPlayerData.curHP'),'player_max_hp':val('gPlayerData.curMaxHP'),
+            'context':val('gGameStatusPtr->context'),'area':val('gGameStatusPtr->areaID'),
+            'map':val('gGameStatusPtr->mapID'),'battle_state':val('gBattleState'),
+            'battle_substate':val('gBattleSubState'),'team_trace':team_trace},indent=2)+'\n')
         raise AssertionError('Native frame budget: ' + expression)
     def focus():
         window = subprocess.check_output(['xdotool','search','--onlyvisible','--pid',str(gdb.selected_inferior().pid)],text=True,env=runtime_env).splitlines()[0]
@@ -211,7 +216,7 @@ def run():
         cmd('call ttyd64_reset_partner_hp($slicePartner)')
         assert val('ttyd64_set_partner_hp($slicePartner,3)') == 3
         for field in ('curHP','curMaxHP','hardMaxHP'):
-            put('gPlayerData.' + field,20)
+            put('gPlayerData.' + field,99 if formation is not None else 20)
         put('gPlayerData.hasActionCommands',1)
         for i in range(64):
             put(f'gPlayerData.equippedBadges[{i}]',0)
@@ -299,7 +304,7 @@ def run():
         wait('(gBattleState == BATTLE_STATE_PLAYER_MENU || gBattleState == BATTLE_STATE_PARTNER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
     def flee_battle(retries=1):
         for attempt in range(retries):
-            if retries > 1: put('gPlayerData.curHP',20)
+            if retries > 1: put('gPlayerData.curHP',99)
             strategies()
             strategy('BTL_MENU_TYPE_RUN_AWAY')
             wait('gBattleState == BATTLE_STATE_RUN_AWAY',480)
@@ -407,7 +412,7 @@ def run():
             wait('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK')
             start=len(team_trace)
             for _ in range(24):
-                put('gPlayerData.curHP',20)
+                put('gPlayerData.curHP',99)
                 cmd('call ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))')
                 spend_turn()
                 rows=[r for r in team_trace[start:] if r['event']=='native-status-hit']
@@ -424,7 +429,7 @@ def run():
                 # Native duration/poison/turn machinery advances; do not inject
                 # status, cure, immunity, RNG, or enemy attack selection.
                 for _ in range(6):
-                    put('gPlayerData.curHP',20)
+                    put('gPlayerData.curHP',99)
                     cmd('call ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))')
                     spend_turn()
                 check(name+'-native-rounds-continue',val('gBattleState') in (val('BATTLE_STATE_PLAYER_MENU'),val('BATTLE_STATE_PARTNER_MENU')))
@@ -438,21 +443,21 @@ def run():
                 cmd('call ttyd64_mode_select_file(0)')
                 start_vanilla=len(team_trace)
                 for _ in range(4):
-                    put('gPlayerData.curHP',20); spend_turn()
+                    put('gPlayerData.curHP',99); spend_turn()
                 vanilla=[r for r in team_trace[start_vanilla:] if r['event']=='native-status-hit']
                 check(name+'-vanilla-still-targets-mario',bool(vanilla) and all(r['target']==val('ACTOR_PLAYER') for r in vanilla))
                 cmd('call ttyd64_mode_select_file(1)')
                 cmd('call ttyd64_set_partner_hp($slicePartner,0)')
                 start_dead=len(team_trace)
                 for _ in range(3):
-                    put('gPlayerData.curHP',20); spend_turn()
+                    put('gPlayerData.curHP',99); spend_turn()
                 dead=[r for r in team_trace[start_dead:] if r['event']=='native-status-hit']
                 check(name+'-dead-partner-falls-back',bool(dead) and all(r['target']==val('ACTOR_PLAYER') for r in dead))
             # Run Away belongs to Mario's menu. Let a frozen Mario recover
             # and spend intervening partner turns through native input.
             for _ in range(12):
                 if val('gBattleState') == val('BATTLE_STATE_PLAYER_MENU'): break
-                put('gPlayerData.curHP',20)
+                put('gPlayerData.curHP',99)
                 cmd('call ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))')
                 spend_turn()
             flee_battle(retries=6)
@@ -460,7 +465,7 @@ def run():
                   val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
         trace.delete(); timer.delete(); poison.delete()
         team_trace.append({'event':'native-status-method','baseline':baseline,
-          'method':'Controlled Road map/recruitment/rank/initial stats, real formation IDs1501/1d06 assigned to disposable world encounters and HP refills. Real keyboard contact/Z front order/Do Nothing/flee; actual native Putrid/Frost Piranha attack selection/RNG/status application/damage/turns. Same-battle mode/dead boundaries are injected. No forced attack/status/guard/RNG/damage, actor-type substitution or status cure. Common file-select return forced. This is not natural campaign acquisition or a new map-route acceptance.'})
+          'method':'Controlled Road map/recruitment/rank/initial stats (Mario cap99, native partner caps), real formation IDs1501/1d06 assigned to disposable world encounters and HP refills. Real keyboard contact/Z front order/Do Nothing/flee; actual native Putrid/Frost Piranha attack selection/RNG/status application/damage/turns. Same-battle mode/dead boundaries are injected. No forced attack/status/guard/RNG/damage, actor-type substitution or status cure. Common file-select return forced. This is not natural campaign acquisition or a new map-route acceptance.'})
     if 'native-guard' in phases:
         # Observe real Goomba scripts and schedule X through SDL keyboard input.
         # Never write the action-command ring, block result, damage or RNG.
