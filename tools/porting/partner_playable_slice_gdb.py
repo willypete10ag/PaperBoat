@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -205,7 +205,7 @@ def run():
         key('x')
         wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         tick(30)
-    def enter_road_battle(family=None):
+    def enter_road_battle(family=None, formation=None):
         cmd('call ttyd64_mode_select_file(1)')
         put('gPlayerData.partners[$slicePartner].level',0)
         cmd('call ttyd64_reset_partner_hp($slicePartner)')
@@ -234,6 +234,13 @@ def run():
         tick(100)
         wait('gGameStatusPtr->context == CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         check('battle-route-native-road-ready',(family is not None or val('gGameStatusPtr->mapID') == 7) and val('WorldPartnerID') == partner_id and hp() == 3)
+        if formation is not None:
+            # Controlled real formation selection; native world collision still
+            # initiates the battle. No actor-type replacement or script forcing.
+            for i in range(val('gCurrentEncounter.numEncounters')):
+                if val(f'gCurrentEncounter.encounterList[{i}]'):
+                    put(f'gCurrentEncounter.encounterList[{i}]->battle', formation)
+                    put(f'gCurrentEncounter.encounterList[{i}]->stage', -1)
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_NONE'))
         walk_inputs = 0
         for _ in range(40):
@@ -334,6 +341,80 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'native-status' in phases:
+        baseline = os.environ.get('PARTNER_STATUS_BASELINE') == '1'
+        class StatusFinish(gdb.FinishBreakpoint):
+            def __init__(self, attacker):
+                super().__init__(internal=True); self.silent=True
+                self.target=val(f'((Actor*){attacker})->targetActorID')
+                self.row={'event':'native-status-hit','type':val(f'((Actor*){attacker})->actorType'),
+                          'target':self.target,'mode':val('ttyd64_mode_enabled()'),
+                          'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK')),
+                          'attack_status':val('gBattleStatus.curAttackStatus'),
+                          'partner_before':hp(),'player_before':val('gPlayerData.curHP')}
+            def stop(self):
+                self.row.update(partner_after=hp(),player_after=val('gPlayerData.curHP'),
+                                target_debuff=val(f'get_actor({self.target})->debuff'),
+                                target_duration=val(f'get_actor({self.target})->debuffDuration'),
+                                partner_debuff=val('gBattleStatus.partnerActor->debuff'),
+                                blocked=bool(val('gBattleStatus.flags1 & BS_FLAGS1_ATK_BLOCKED')),
+                                damage=val('gBattleStatus.lastAttackDamage'))
+                team_trace.append(self.row)
+                return False
+        class StatusHit(gdb.Breakpoint):
+            def stop(self):
+                StatusFinish(val('attacker')); return False
+        trace=StatusHit('calc_enemy_damage_target',internal=True); trace.silent=True
+        # IDs are native BattleNames entries, not raw ROM offsets.
+        for name,formation,actor_type,status in [('poison',0x1501,'ACTOR_TYPE_PUTRID_PIRANHA','STATUS_KEY_POISON'),
+                                                   ('frozen',0x1d07,'ACTOR_TYPE_FROST_PIRANHA','STATUS_KEY_FROZEN')]:
+            enter_road_battle(formation=formation)
+            check(name+'-real-native-formation',all(val(f'gBattleStatus.enemyActors[{i}]->actorType')==val(actor_type)
+                  for i in range(24) if val(f'gBattleStatus.enemyActors[{i}]')))
+            key('z')
+            wait('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK')
+            start=len(team_trace)
+            for _ in range(24):
+                put('gPlayerData.curHP',20)
+                cmd('call ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))')
+                spend_turn()
+                rows=[r for r in team_trace[start:] if r['event']=='native-status-hit']
+                if any(r['target_debuff']==val(status) and r['target_duration']>0 for r in rows): break
+            rows=[r for r in team_trace[start:] if r['event']=='native-status-hit']
+            print('NATIVE_STATUS_ROWS='+json.dumps(rows),flush=True)
+            check(name+'-native-front-target',bool(rows) and all(r['target']==val('ACTOR_PLAYER' if baseline else 'ACTOR_PARTNER') for r in rows))
+            check(name+'-native-enemy-applies-status',any(r['target_debuff']==val(status) and r['target_duration']>0 and not r['blocked'] for r in rows))
+            if baseline:
+                check(name+'-baseline-partner-never-receives-status',all(r['partner_debuff']==0 for r in rows))
+            else:
+                check(name+'-front-partner-receives-native-status',any(r['partner_debuff']==val(status) for r in rows))
+                capture('native-'+name+'-enemy-status')
+                # Native duration/poison/turn machinery advances; do not inject
+                # status, cure, immunity, RNG, or enemy attack selection.
+                for _ in range(6):
+                    put('gPlayerData.curHP',20)
+                    cmd('call ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))')
+                    spend_turn()
+                check(name+'-native-rounds-continue',val('gBattleState') in (val('BATTLE_STATE_PLAYER_MENU'),val('BATTLE_STATE_PARTNER_MENU')))
+                cmd('call ttyd64_mode_select_file(0)')
+                start_vanilla=len(team_trace)
+                for _ in range(4):
+                    put('gPlayerData.curHP',20); spend_turn()
+                vanilla=[r for r in team_trace[start_vanilla:] if r['event']=='native-status-hit']
+                check(name+'-vanilla-still-targets-mario',bool(vanilla) and all(r['target']==val('ACTOR_PLAYER') for r in vanilla))
+                cmd('call ttyd64_mode_select_file(1)')
+                cmd('call ttyd64_set_partner_hp($slicePartner,0)')
+                start_dead=len(team_trace)
+                for _ in range(3):
+                    put('gPlayerData.curHP',20); spend_turn()
+                dead=[r for r in team_trace[start_dead:] if r['event']=='native-status-hit']
+                check(name+'-dead-partner-falls-back',bool(dead) and all(r['target']==val('ACTOR_PLAYER') for r in dead))
+            flee_battle()
+            check(name+'-native-flee-world-cleanup',val('WorldPartnerID')==partner_id and
+                  val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
+        trace.delete()
+        team_trace.append({'event':'native-status-method','baseline':baseline,
+          'method':'Controlled Road map/recruitment/rank/initial stats, real formation IDs1501/1d07 assigned to disposable world encounters and HP refills. Real keyboard contact/Z front order/Do Nothing/flee; actual native Putrid/Frost Piranha attack selection/RNG/status application/damage/turns. Same-battle mode/dead boundaries are injected. No forced attack/status/guard/RNG/damage, actor-type substitution or status cure. Common file-select return forced. This is not natural campaign acquisition or a new map-route acceptance.'})
     if 'native-guard' in phases:
         # Observe real Goomba scripts and schedule X through SDL keyboard input.
         # Never write the action-command ring, block result, damage or RNG.

@@ -421,6 +421,10 @@ def main():
     for pid in (1,2,3):
         add("native-guard-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"native-guard"})
+    for pid in (1,2,3):
+        add("native-status-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
+            {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"native-status",
+             "PARTNER_STATUS_BASELINE":os.environ.get("PORTING_STATUS_BASELINE","0")})
     add("goomba-family", "partner_playable_slice_gdb.py", "partner-playable-slice",
         {"PARTNER_SLICE_PARTNER": "1", "PARTNER_SLICE_PHASES": "family",
          "PARTNER_FAMILY_BASELINE": os.environ.get("PORTING_FAMILY_BASELINE", "0")})
