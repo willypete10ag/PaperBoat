@@ -1,5 +1,6 @@
 
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 
 enum {
@@ -200,6 +201,9 @@ void btl_state_update_player_move(void) {
                 break;
             }
 
+            if (ttyd64_partner_combat_begin_defeat()) {
+                return;
+            }
             decrement_status_bar_disabled();
             gBattleStatus.flags1 |= BS_FLAGS1_SHOW_PLAYER_DECORATIONS;
             gBattleStatus.flags2 &= ~BS_FLAGS2_OVERRIDE_INACTIVE_PLAYER;

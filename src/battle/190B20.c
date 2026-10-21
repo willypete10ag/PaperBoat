@@ -683,7 +683,7 @@ s32 btl_check_enemies_defeated(void) {
 
 s32 btl_check_player_defeated(void) {
     if (gPlayerData.curHP > 0) {
-        return ttyd64_partner_combat_check_defeat();
+        return false;
     }
     gDefeatedBattleState = gBattleState;
     gDefeatedBattleSubstate = gBattleSubState;

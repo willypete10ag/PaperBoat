@@ -291,7 +291,7 @@ def run():
     capture('death-no-shroom')
     check('death-finished-flat-idle-disabled', float(gdb.parse_and_eval(f'{actor}->rot.x')) == 86 and val(f'{actor}->flags & ACTOR_FLAG_USING_IDLE_ANIM') == 0)
     check('death-clears-status-boosts-and-charge', val(f'{actor}->debuff') == 0 and val(f'{actor}->debuffDuration') == 0 and val(f'{actor}->attackBoost') == 0 and val(f'{actor}->defenseBoost') == 0 and val(f'{actor}->isGlowing') == 0 and val('gBattleStatus.flags1 & BS_FLAGS1_GOOMBARIO_CHARGED') == 0)
-    check('death-no-repeat-and-mario-can-act', val('ttyd64_partner_combat_check_defeat()') == 0 and val('btl_player_can_act()') != 0)
+    check('death-no-repeat-and-mario-can-act', val('ttyd64_partner_combat_begin_defeat()') == 0 and val('btl_player_can_act()') != 0)
     cmd('set variable gBattleStatus.flags2 &= ~BS_FLAGS2_PARTNER_TURN_USED')
     for status in ('STATUS_KEY_NORMAL','STATUS_KEY_POISON','STATUS_KEY_SHRINK'):
         put(f'{actor}->debuff', val(status))
@@ -339,7 +339,7 @@ def run():
     print('GOOMBARIO_CLEANUP=' + json.dumps({'shroud':val('ShroudTintAmt'), 'remaining_items':sum(val(f'BattleItemEntities[{i}]') != 0 for i in range(256))}))
     check('revival-shroud-and-item-cleaned', val('ShroudTintAmt') == 0 and all(val(f'BattleItemEntities[{i}]') == 0 for i in range(256)))
     check('revival-energy-effect-freed', not any(val(f'gEffectInstances[{i}] != 0 && gEffectInstances[{i}]->effectID == 0x6B') for i in range(96)))  # effect_defs.h
-    check('revival-defeat-wait-finishes', val('ttyd64_partner_combat_check_defeat()') == 0)
+    check('revival-defeat-wait-finishes', val('ttyd64_partner_combat_begin_defeat()') == 0)
     # Rank-zero repeat exercises the cap and secondary dispatcher's tracking.
     put('gPlayerData.partners[1].level', 0)
     health(1)

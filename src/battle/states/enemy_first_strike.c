@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 
 enum {
     // BTL_SUBSTATE_INIT            = 0,
@@ -170,7 +171,7 @@ void btl_state_update_enemy_striking_first(void) {
             }
 
             if (battleStatus->stateFreezeCount == 0) {
-                if (btl_check_player_defeated() || btl_check_enemies_defeated()) {
+                if (btl_check_player_defeated() || ttyd64_partner_combat_begin_defeat() || btl_check_enemies_defeated()) {
                     return;
                 }
                 btl_set_state(BATTLE_STATE_BEGIN_TURN);

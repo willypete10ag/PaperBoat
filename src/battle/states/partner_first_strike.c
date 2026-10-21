@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "battle/battle.h"
 
 enum {
@@ -135,6 +136,9 @@ void btl_state_update_partner_striking_first(void) {
             }
 
             if (battleStatus->stateFreezeCount == 0) {
+                if (ttyd64_partner_combat_begin_defeat()) {
+                    return;
+                }
                 decrement_status_bar_disabled();
                 if (btl_check_player_defeated() || btl_check_enemies_defeated()) {
                     return;
