@@ -385,6 +385,25 @@ def run():
                 check('ttyd64-active-empty-after-row-removed',val('gPauseBadgesItemIds[0]')==0x7FFE)
                 capture('orphan-baseline' if baseline else 'orphan-fixed')
             key('space');wait('gGameStatusPtr->context==CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)');tick(20)
+        if not baseline:
+            cmd('call ttyd64_mode_select_file(1)')
+            for i in range(128):put(f'gPlayerData.badges[{i}]',val('ITEM_LAST_STAND') if i<2 else 0)
+            for i in range(64):put(f'gPlayerData.equippedBadges[{i}]',val('ITEM_LAST_STAND') if i<2 else 0)
+            cost=val('pause_get_total_equipped_bp_cost()')
+            key('space');wait('gGameStatusPtr->context==CONTEXT_PAUSE && StepPauseDelay < -10')
+            for _ in range(8):
+                if val('gPauseTabsCurrentTab')==1:break
+                key('d')
+            tick(50);key('x');wait('gPauseMenuCurrentTab==2');tick(20)
+            check('valid-owned-duplicates-and-bp-retained',equipped('ITEM_LAST_STAND')==2 and val('pause_get_total_equipped_bp_cost()')==cost)
+            key('s');wait('gPauseBadgesCurrentTab==1')
+            check('valid-active-duplicates-have-two-rows',val('gPauseBadgesNumItems')==2 and all(val(f'gPauseBadgesItemIds[{i}]')==val('ITEM_LAST_STAND') for i in range(2)))
+            key('x');wait('gPauseBadgesLevel==1');key('x');key('c');tick(20)
+            check('valid-native-unequip-one-copy',equipped('ITEM_LAST_STAND')==1 and val('gPauseBadgesNumItems')==1 and val('pause_get_total_equipped_bp_cost()')*2==cost)
+            key('x');wait('gPauseBadgesLevel==1');key('x');key('c');tick(20)
+            check('valid-native-unequip-last-copy',equipped('ITEM_LAST_STAND')==0 and val('pause_get_total_equipped_bp_cost()')==0 and val('gPauseBadgesItemIds[0]')==0x7FFE)
+            check('valid-owned-copies-remain-after-unequip',sum(val(f'gPlayerData.badges[{i}]')==val('ITEM_LAST_STAND') for i in range(128))==2)
+            key('space');wait('gGameStatusPtr->context==CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         team_trace.append({'event':'orphan-method','method':'Malformed owned/equipped arrays and BP are injected into strict disposable runtime, not an actual Save Editor or disk-edit workflow. Keyboard pause/badges/Active/unequip/close, native menu projection/counter/effects observed. Mode comparison injected; common file-select return forced. Capture requires separate inspection.'})
     if 'hammer-shrink' in phases:
         baseline = os.environ.get('MENU_SHRINK_BASELINE') == '1'

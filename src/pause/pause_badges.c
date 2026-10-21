@@ -186,12 +186,15 @@ s32 pause_badges_count_equipped(void) {
 
 static void pause_badges_init_equipped_copies(void) {
     s32 i, j;
+    s32 retained = 0;
+    b32 repairCopies = ttyd64_mode_enabled();
 
     for (i = 0; i < ARRAY_COUNT(gPauseBadgesInventoryEquipped); i++) {
         gPauseBadgesInventoryEquipped[i] = false;
     }
     for (i = 0; i < ARRAY_COUNT(gPlayerData.equippedBadges); i++) {
         s16 badgeID = gPlayerData.equippedBadges[i];
+        b32 found = false;
 
         if (badgeID == ITEM_NONE) {
             continue;
@@ -199,8 +202,21 @@ static void pause_badges_init_equipped_copies(void) {
         for (j = 0; j < ARRAY_COUNT(gPlayerData.badges); j++) {
             if (gPlayerData.badges[j] == badgeID && !gPauseBadgesInventoryEquipped[j]) {
                 gPauseBadgesInventoryEquipped[j] = true;
+                found = true;
                 break;
             }
+        }
+        // Edited saves can equip an unowned ID or more copies than owned.
+        // Keep exactly the copies represented by menu rows, so no invisible
+        // equipment continues spending BP or applying an effect. Ownership is
+        // unchanged; valid loadouts and the Vanilla equipped array stay intact.
+        if (repairCopies && found) {
+            gPlayerData.equippedBadges[retained++] = badgeID;
+        }
+    }
+    if (repairCopies) {
+        while (retained < ARRAY_COUNT(gPlayerData.equippedBadges)) {
+            gPlayerData.equippedBadges[retained++] = ITEM_NONE;
         }
     }
 }

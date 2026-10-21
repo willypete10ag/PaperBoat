@@ -43,7 +43,8 @@ Paragoomba/Spiky targeting. Targeted native acceptance is published: actual
 game3d1f, CLI20/19, Goombario126, family17, status21, Dip28 and Vanilla96 across
 batches. Original failed attempts/manifests remain preserved. Tutorials have
 compile/static source coverage, not independent native encounter acceptance.
-R1-M5 timed-input guard / actual status-enemy coverage remains open. Price
+R1-M5 is narrowly fixed by PR15 (native timed guards/Putrid/Frost scripts);
+R1-M2/R2-L3 by PR16 (explicit partner defeat state/HUD/null-handler fallback). Price
 parity does not establish move mechanics or source distribution; Flower Saver X
 remains single-equip with its documented native Dip-discount deviation.
 
@@ -51,7 +52,7 @@ The final PR head still requires exact-head Linux/Windows/macOS/format green
 and published CI evidence before merge only into fork ttyd64/main. Preserve the
 saved-mode guard and Vanilla RNG path; normal saves receive no developer grants.
 See the current shared Codex/Claude handoff and findings register:
-https://github.com/willypete10ag/ttyd64-port/blob/main/docs/handoffs/2026-10-19-combat-playtest.md
+https://github.com/willypete10ag/ttyd64-port/blob/main/NEXT_CHAT.md
 https://github.com/willypete10ag/ttyd64-port/blob/main/docs/reviews/FINDINGS.md
 
 The owner explicitly asks to STOP at this milestone, publish all results and a
@@ -59,3 +60,10 @@ Windows playtest brief, and prepare NEXT_CHAT.md for a fresh Codex chat. Do not
 start charge or another subsystem after the checkpoint without a new continue.
 Do not announce a new Windows playtest before the final gates pass. At the pause,
 state that work has stopped and the handoff is ready; no implied background work.
+
+R1-L5/R2-N1 are the current bounded review batch: reproduce edited equipped-copy
+menu behavior and actual Hammer Bros Shrink before fixes. Native source mode,
+Vanilla/save ABI and exact-head gate remain authoritative; see coordination
+WORKING/NEXT_CHAT for original runtime identities and final status. The owner
+confirmed an existing partner Life Shroom test and cleared continuation; do not
+request a repeat merely for this batch. No exact human build receipt was supplied.

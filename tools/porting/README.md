@@ -9,6 +9,33 @@ records and complete logs identify those cases. Capturing a frame does not
 prove anyone inspected it. Software rendering and dummy audio do not validate
 hardware rendering or audible output.
 
+## Edited badge copies and Hammer Bros Shrink (R1-L5 / R2-N1)
+
+`--only orphan-badges,hammer-shrink` groups the two review reproductions.
+`PORTING_MENU_SHRINK_BASELINE=1` expects the pre-fix hidden BP and three-turn
+source-mode Hammer Shrink; a baseline pass means the concern was reproduced.
+Each run records the actual game/driver, binary/helper hashes, methods and logs.
+
+In TTYD64 mode, initializing the pause badge panel now drops equipped copies
+that have no matching owned slot. This repairs edited runtime/save loadouts
+without granting or deleting owned badges. Valid duplicates retain one menu row
+per owned equipped copy; Vanilla keeps its original equipped-array projection.
+The fixture injects malformed arrays/BP, then uses real keyboard pause, Active,
+unequip and close. The fixed run also checks normal two-copy removal. This is
+not an independent Save Editor or external-file editing workflow acceptance.
+
+The shared Hammer Bros throw/surge scripts now request four-turn source Shrink
+for targets with the guarded TTYD64 modifier contract, matching active
+Battle_NewStatuses.patch AddAttackBoost(-1,4). Vanilla/excluded targets request
+three as before. Other Shrink callers retain their configured durations. Native
+attack damage, status chance/RNG and Mario-only targeting are retained; this
+is not full Hammer AI/target/source-value parity. The fixture assigns native
+formation220f to disposable Road encounters, uses keyboard collision/Do Nothing/
+flee, and passively records real Shrink applications in both mode contexts.
+Mario99HP/refills and mode comparison are controlled; no status/RNG/guard result
+is forced. Natural Castle acquisition, all shared variants/attack branches and
+independent expiry timing are outside this focused application-duration check.
+
 ## Partner defeat state (R1-M2 / R2-L3)
 
 `--only defeat-review-1,defeat-review-2,defeat-review-3` exercises the shared

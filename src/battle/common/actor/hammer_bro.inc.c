@@ -1,8 +1,18 @@
+#include "ttyd64_actor_modifiers.h"
 #include "battle/battle.h"
 #include "script_api/battle.h"
 #include "sprite/npc/HammerBros.h"
 
 #define NAMESPACE A(hammer_bro)
+
+// Battle_NewStatuses.patch $Script_TryToShrinkTarget explicitly applies
+// AddAttackBoost(-1, 4). Scope this to these attacks; other Shrink sources keep
+// their configured duration and excluded/Vanilla targets keep native rules.
+API_CALLABLE(N(UseSourceShrink)) {
+    Actor* attacker = get_actor(script->owner1.actorID);
+    script->varTable[0] = ttyd64_actor_modifiers_active(get_actor(attacker->targetActorID));
+    return ApiStatus_DONE2;
+}
 
 extern EvtScript N(EVS_Init);
 extern EvtScript N(EVS_Idle);
@@ -395,7 +405,12 @@ EvtScript N(EVS_Attack_HammerThrow) = {
     Call(SetPartJumpGravity, ACTOR_SELF, PRT_HAMMER_1, Float(1.3))
     Call(JumpPartTo, ACTOR_SELF, PRT_HAMMER_1, LVar0, LVar1, LVar2, 15, true)
     Wait(2)
-    Call(EnemyDamageTarget, ACTOR_SELF, LVar0, DAMAGE_TYPE_NO_CONTACT, 0, DMG_STATUS_KEY(STATUS_FLAG_SHRINK, 3, 50), DMG_HAMMER_THROW, BS_FLAGS1_TRIGGER_EVENTS)
+    Call(N(UseSourceShrink))
+    IfEq(LVar0, true)
+        Call(EnemyDamageTarget, ACTOR_SELF, LVar0, DAMAGE_TYPE_NO_CONTACT, 0, DMG_STATUS_KEY(STATUS_FLAG_SHRINK, 4, 50), DMG_HAMMER_THROW, BS_FLAGS1_TRIGGER_EVENTS)
+    Else
+        Call(EnemyDamageTarget, ACTOR_SELF, LVar0, DAMAGE_TYPE_NO_CONTACT, 0, DMG_STATUS_KEY(STATUS_FLAG_SHRINK, 3, 50), DMG_HAMMER_THROW, BS_FLAGS1_TRIGGER_EVENTS)
+    EndIf
     Switch(LVar0)
         CaseOrEq(HIT_RESULT_HIT)
         CaseOrEq(HIT_RESULT_NO_DAMAGE)
@@ -577,7 +592,12 @@ EvtScript N(EVS_Attack_HammerSurge) = {
     Call(EnemyDamageTarget, ACTOR_SELF, LVar0, DAMAGE_TYPE_NO_CONTACT, 0, 0, DMG_HAMMER_SURGE, BS_FLAGS1_NICE_HIT)
     Wait(5)
     Wait(2)
-    Call(EnemyDamageTarget, ACTOR_SELF, LVar0, DAMAGE_TYPE_NO_CONTACT, 0, DMG_STATUS_KEY(STATUS_FLAG_SHRINK, 3, 50), DMG_HAMMER_SURGE, BS_FLAGS1_TRIGGER_EVENTS)
+    Call(N(UseSourceShrink))
+    IfEq(LVar0, true)
+        Call(EnemyDamageTarget, ACTOR_SELF, LVar0, DAMAGE_TYPE_NO_CONTACT, 0, DMG_STATUS_KEY(STATUS_FLAG_SHRINK, 4, 50), DMG_HAMMER_SURGE, BS_FLAGS1_TRIGGER_EVENTS)
+    Else
+        Call(EnemyDamageTarget, ACTOR_SELF, LVar0, DAMAGE_TYPE_NO_CONTACT, 0, DMG_STATUS_KEY(STATUS_FLAG_SHRINK, 3, 50), DMG_HAMMER_SURGE, BS_FLAGS1_TRIGGER_EVENTS)
+    EndIf
     Switch(LVar0)
         CaseOrEq(HIT_RESULT_HIT)
         CaseOrEq(HIT_RESULT_NO_DAMAGE)
