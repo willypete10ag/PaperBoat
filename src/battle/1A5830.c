@@ -2639,6 +2639,20 @@ API_CALLABLE(Ttyd64GoombaChooseTarget) {
     return ApiStatus_DONE2;
 }
 
+// Active Putrid/Frost Piranha scripts use SetTargetActorInFront from
+// Battle_PlayerTeam_DontSwapPositions.patch. No RNG is consumed in either mode.
+API_CALLABLE(Ttyd64EnemyTargetFront) {
+    s32 actorID = evt_get_variable(script, *script->ptrReadPos);
+    if (actorID == ACTOR_SELF) {
+        actorID = script->owner1.actorID;
+    }
+    Actor* actor = get_actor(actorID);
+    actor->targetActorID = (actorID & ACTOR_CLASS_MASK) == ACTOR_CLASS_ENEMY
+        ? ttyd64_partner_team_target(false) : ACTOR_PLAYER;
+    actor->targetPartID = 1;
+    return ApiStatus_DONE2;
+}
+
 API_CALLABLE(SetTargetActor) {
     Bytecode* args = script->ptrReadPos;
     s32 actorID = evt_get_variable(script, *args++);

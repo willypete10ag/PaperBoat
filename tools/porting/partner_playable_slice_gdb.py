@@ -365,6 +365,31 @@ def run():
             def stop(self):
                 StatusFinish(val('attacker')); return False
         trace=StatusHit('calc_enemy_damage_target',internal=True); trace.silent=True
+        class StatusTimerFinish(gdb.FinishBreakpoint):
+            def __init__(self):
+                super().__init__(internal=True); self.silent=True
+                self.row={'event':'native-status-timer','before':val('gBattleStatus.partnerActor->debuff'),
+                          'duration_before':val('gBattleStatus.partnerActor->debuffDuration')}
+            def stop(self):
+                self.row.update(after=val('gBattleStatus.partnerActor->debuff'),
+                                duration_after=val('gBattleStatus.partnerActor->debuffDuration'),
+                                blocks_turn=bool(val('ttyd64_partner_status_blocks_turn(gBattleStatus.partnerActor)')))
+                team_trace.append(self.row); return False
+        class StatusTimer(gdb.Breakpoint):
+            def stop(self):
+                StatusTimerFinish(); return False
+        class PoisonFinish(gdb.FinishBreakpoint):
+            def __init__(self):
+                super().__init__(internal=True); self.silent=True
+                self.before=hp()
+            def stop(self):
+                team_trace.append({'event':'native-poison-tick','before':self.before,'after':hp()})
+                return False
+        class PoisonTick(gdb.Breakpoint):
+            def stop(self):
+                PoisonFinish(); return False
+        timer=StatusTimer('ttyd64_partner_status_update',internal=True); timer.silent=True
+        poison=PoisonTick('ttyd64_partner_status_poison',internal=True); poison.silent=True
         # IDs are native BattleNames entries, not raw ROM offsets.
         for name,formation,actor_type,status in [('poison',0x1501,'ACTOR_TYPE_PUTRID_PIRANHA','STATUS_KEY_POISON'),
                                                    ('frozen',0x1d07,'ACTOR_TYPE_FROST_PIRANHA','STATUS_KEY_FROZEN')]:
@@ -396,6 +421,13 @@ def run():
                     cmd('call ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))')
                     spend_turn()
                 check(name+'-native-rounds-continue',val('gBattleState') in (val('BATTLE_STATE_PLAYER_MENU'),val('BATTLE_STATE_PARTNER_MENU')))
+                timers=[r for r in team_trace[start:] if r['event']=='native-status-timer' and r['before']==val(status)]
+                check(name+'-native-duration-advances',bool(timers) and all(r['duration_after']==max(0,r['duration_before']-1) for r in timers))
+                if name=='poison':
+                    check('native-enemy-poison-ticks-partner-hp',any(r['event']=='native-poison-tick' and r['before']>1 and r['after']==r['before']-1 for r in team_trace[start:]))
+                else:
+                    check('native-enemy-freeze-blocks-turn-and-expires',any(r['blocks_turn'] for r in timers) and any(r['after']==0 and r['duration_after']==0 for r in timers))
+
                 cmd('call ttyd64_mode_select_file(0)')
                 start_vanilla=len(team_trace)
                 for _ in range(4):
@@ -419,7 +451,7 @@ def run():
             flee_battle()
             check(name+'-native-flee-world-cleanup',val('WorldPartnerID')==partner_id and
                   val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
-        trace.delete()
+        trace.delete(); timer.delete(); poison.delete()
         team_trace.append({'event':'native-status-method','baseline':baseline,
           'method':'Controlled Road map/recruitment/rank/initial stats, real formation IDs1501/1d07 assigned to disposable world encounters and HP refills. Real keyboard contact/Z front order/Do Nothing/flee; actual native Putrid/Frost Piranha attack selection/RNG/status application/damage/turns. Same-battle mode/dead boundaries are injected. No forced attack/status/guard/RNG/damage, actor-type substitution or status cure. Common file-select return forced. This is not natural campaign acquisition or a new map-route acceptance.'})
     if 'native-guard' in phases:

@@ -9,6 +9,35 @@ records and complete logs identify those cases. Capturing a frame does not
 prove anyone inspected it. Software rendering and dummy audio do not validate
 hardware rendering or audible output.
 
+## Native guard input and Piranha status attacks (R1-M5)
+
+`--only native-guard-1,native-guard-2,native-guard-3` runs ordinary Road Goomba
+attacks on each supported ground partner and Mario. X is scheduled through
+xdotool/SDL during the native attack; the fixture never overwrites the input
+ring, block result, damage or RNG. Timed taps require successful guards on both
+teammates; every attempted tap/hit remains in the trace. Early and no-input
+controls check native EARLY/FAIL results and unguarded damage. A brief real-time
+hold allows SDL polling; this is instrument-timed keyboard input, not a human
+reaction-time test. Initial map/recruitment/rank/stats/stock and between-turn HP
+refills are controlled, as is the shared file-select startup return.
+
+`native-status-1/2/3` selects actual Putrid/Frost Piranha formations1501/1d07 in
+disposable Road encounters, then uses keyboard contact, Z order, Do Nothing and
+flee. Native enemy scripts choose attacks/RNG/status/damage; no status, cure,
+immunity, attack branch or result is injected. This tests real enemy scripts,
+not their natural Jungle/Snow map acquisition. Partner-front attacks, poison
+HP ticks, native durations, freeze turn blocking/expiry, same-battle Vanilla and
+dead-partner fallback boundaries are observed. Mode/dead boundaries and refills
+are explicit injected comparisons. `PORTING_STATUS_BASELINE=1` expects the old
+Mario-only target and is pre-fix reproduction only. Baseline and failed attempts
+retain their own game/fixture identities. Captures remain private for inspection.
+
+Putrid/Frost Piranhas now use the source SetTargetActorInFront rule; Frost reads
+its selected target's frozen state. First-strike camera positions also use that
+target. Vanilla and unsupported partners retain Mario targeting without extra
+RNG. Native attack damage/chances/durations are retained; this does not port all
+source move values, status enemies, flying partners, or campaign content.
+
 ## World item-description layout (PT-UI-001)
 
 The eight appended status/regeneration descriptions use one newline between

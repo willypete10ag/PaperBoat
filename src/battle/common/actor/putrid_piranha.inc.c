@@ -253,7 +253,7 @@ EvtScript N(EVS_TakeTurn) = {
 EvtScript N(EVS_Attack_Bite) = {
     Call(UseIdleAnimation, ACTOR_SELF, false)
     Call(EnableIdleScript, ACTOR_SELF, IDLE_SCRIPT_DISABLE)
-    Call(SetTargetActor, ACTOR_SELF, ACTOR_PLAYER)
+    Call(Ttyd64EnemyTargetFront, ACTOR_SELF)
     Call(GetBattlePhase, LVar0)
     IfEq(LVar0, PHASE_FIRST_STRIKE)
         Call(SetAnimation, ACTOR_SELF, PRT_MAIN, ANIM_LargePiranha_Putrid_Anim18)
@@ -266,7 +266,8 @@ EvtScript N(EVS_Attack_Bite) = {
         Set(LVar3, LVar0)
         Set(LVar4, LVar1)
         Set(LVar5, LVar2)
-        Call(GetActorPos, ACTOR_PLAYER, LVar6, LVar7, LVar8)
+        Call(GetOwnerTarget, LVar9, LVarA)
+        Call(GetActorPos, LVar9, LVar6, LVar7, LVar8)
         Add(LVar3, LVar6)
         Add(LVar4, LVar7)
         Add(LVar5, LVar8)
@@ -398,7 +399,7 @@ EvtScript N(EVS_Attack_Bite) = {
 EvtScript N(EVS_Attack_BadBreath) = {
     Call(UseIdleAnimation, ACTOR_SELF, false)
     Call(EnableIdleScript, ACTOR_SELF, IDLE_SCRIPT_DISABLE)
-    Call(SetTargetActor, ACTOR_SELF, ACTOR_PLAYER)
+    Call(Ttyd64EnemyTargetFront, ACTOR_SELF)
     Call(UseBattleCamPreset, BTL_CAM_ENEMY_APPROACH)
     Call(BattleCamTargetActor, ACTOR_SELF)
     Call(SetBattleCamTargetingModes, BTL_CAM_YADJ_TARGET, BTL_CAM_XADJ_AVG, false)
