@@ -67,6 +67,22 @@ def observe():
                 key(('w' if selected // 2 > target // 2 else 's') if selected // 2 != target // 2
                     else ('a' if selected % 2 > target % 2 else 'd'))
             raise AssertionError('Slot navigation')
+        def continue_existing_file():
+            wait('filemenu_currentMenu == FILE_MENU_CONFIRM && filemenu_menus[1]->state == FM_CONFIRM_START')
+            wait('!(gWindows[WIN_FILES_CONFIRM_OPTIONS].flags & WINDOW_FLAG_INITIAL_ANIMATION)')
+            tick(10)
+            # Short render-pass taps can miss a native input poll. Retry only
+            # while the real confirmation panel still owns input.
+            for attempt in range(3):
+                key('space', 16)
+                if val('CurGameModeID') != val('GAME_MODE_FILE_SELECT'):
+                    break
+                assert val('filemenu_currentMenu') == val('FILE_MENU_CONFIRM')
+                print('SAVE_MODE_CONFIRM_RETRY=' + str(attempt + 1), flush=True)
+            else:
+                raise AssertionError('Start confirmation did not consume real keyboard input')
+            wait('CurGameModeID == GAME_MODE_WORLD', 1200)
+            until('state_step_world')
         def enter_files():
             for _ in range(40):
                 if val('CurGameModeID == GAME_MODE_TITLE_SCREEN'): break
@@ -118,9 +134,7 @@ def observe():
                 slot = 3 if scenario == 'restart' else 1
                 choose_slot(slot)
                 key('space')
-                wait('filemenu_currentMenu == FILE_MENU_CONFIRM')
-                key('space')
-                until('state_step_world')
+                continue_existing_file()
                 wait('!(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
                 tick(60)
                 expected = 1 if scenario == 'restart' else 0
@@ -259,9 +273,7 @@ def observe():
         for _ in range(35): until('step_game_mode')
         choose_slot(3)
         key('space')
-        wait('filemenu_currentMenu == FILE_MENU_CONFIRM')
-        key('space')
-        until('state_step_world')
+        continue_existing_file()
         wait('!(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         check('native game-over/title/keyboard continue restores HP and saved mode', val('ttyd64_mode_enabled()') == 1 and
               val('ttyd64_get_partner_hp(1)') == 3,
@@ -269,7 +281,7 @@ def observe():
         result['status'] = 'pass'
     except Exception as e:
         result['error'] = str(e)
-        result['state'] = {s: val(s) for s in ('gGameStatus.context', 'gBattleState', 'gBattleSubState', 'gGameStatus.startupState', 'filemenu_currentMenu')}
+        result['state'] = {s: val(s) for s in ('CurGameModeID', 'gGameStatus.context', 'gBattleState', 'gBattleSubState', 'gGameStatus.startupState', 'filemenu_currentMenu', 'D_800A0931')}
         raise
     finally:
         Path(os.environ['SAVE_MODE_PAYLOAD']).write_text(json.dumps(result, indent=2) + '\n')
