@@ -15,6 +15,10 @@ s32 ttyd64_partner_base_max_hp(s32 partnerID, s32 rank);
 void ttyd64_partner_hp_init(Ttyd64PartnerHP* health, const PlayerData* player);
 void ttyd64_partner_hp_normalize(Ttyd64PartnerHP* health, const PlayerData* player);
 void ttyd64_partner_hp_new_game(void);
+// Explicit file boundaries: import a loaded snapshot; export live HP to a save.
+// Neither getter writes live state or the save-I/O buffer.
+void ttyd64_partner_hp_load(const Ttyd64PartnerHP* health);
+void ttyd64_partner_hp_snapshot(Ttyd64PartnerHP* health);
 s32 ttyd64_get_partner_hp(s32 partnerID);
 s32 ttyd64_get_partner_max_hp(s32 partnerID);
 s32 ttyd64_set_partner_hp(s32 partnerID, s32 amount);

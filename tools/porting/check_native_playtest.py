@@ -108,8 +108,8 @@ def observe():
               val('is_ability_active(ABILITY_FP_DRAIN)') == 0)
         for partner, maximum in ((1, 10), (2, 10), (3, 15)):
             check('native ground partner ' + str(partner), val(f'gPlayerData.partners[{partner}].enabled') == 1 and
-                  val(f'gCurrentSaveFile.shipSaveData.partnerHP[{partner}].curHP') == 3 and
-                  val(f'gCurrentSaveFile.shipSaveData.partnerHP[{partner}].maxHP') == maximum)
+                  val(f'ttyd64_get_partner_hp({partner})') == 3 and
+                  val(f'ttyd64_get_partner_max_hp({partner})') == maximum)
         check('native world partner bound', val('wCurrentPartnerId') == 1 and val('WorldPartnerID') == 1)
         save = Path(os.environ['NATIVE_PLAYTEST_SESSION']) / 'saves/file3.json'
         check('native save generated with TTYD64 mode, without a seed', save.is_file() and
@@ -188,7 +188,7 @@ def observe():
         neutral()
         wait('wCurrentPartnerId == PARTNER_KOOPER')
         check('keyboard swap binds wounded Kooper', val('WorldPartnerID') == 2 and
-              val('gCurrentSaveFile.shipSaveData.partnerHP[2].curHP') == 3, 'real keyboard input after native CLI setup')
+              val('ttyd64_get_partner_hp(2)') == 3, 'real keyboard input after native CLI setup')
         if profile == 'healing':
             open_items()
             # Native add_item compacts toward the end and inserts at the front;
@@ -207,7 +207,7 @@ def observe():
             neutral()
             for _ in range(30):
                 until('step_game_mode')
-            check('keyboard Mushroom heals chosen partner', val('gCurrentSaveFile.shipSaveData.partnerHP[2].curHP') == 8,
+            check('keyboard Mushroom heals chosen partner', val('ttyd64_get_partner_hp(2)') == 8,
                   'real keyboard input after native CLI setup')
         key('space')
         wait('gGameStatus.context == CONTEXT_PAUSE && StepPauseDelay < -10')
@@ -240,7 +240,7 @@ def observe():
         result['status'] = 'pass'
     except Exception as error:
         result['error'] = str(error)
-        result['failure_health'] = {str(i): val(f'gCurrentSaveFile.shipSaveData.partnerHP[{i}].curHP') for i in (1, 2, 3)}
+        result['failure_health'] = {str(i): val(f'ttyd64_get_partner_hp({i})') for i in (1, 2, 3)}
         raise
     finally:
         Path(os.environ['NATIVE_PLAYTEST_PAYLOAD']).write_text(json.dumps(result, indent=2) + '\n')

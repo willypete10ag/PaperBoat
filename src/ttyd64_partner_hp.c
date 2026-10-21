@@ -2,6 +2,10 @@
 #include "ttyd64_partner_status.h"
 #include "ttyd64_partner_hp.h"
 #include "dx/versioning.h"
+#include <string.h>
+
+// Live file state belongs to gameplay, never to the shared save-I/O buffer.
+static Ttyd64PartnerHP RuntimePartnerHP[TTYD64_PARTNER_HP_COUNT];
 
 static Actor* BoundPartnerActor;
 static s32 BoundPartnerID = PARTNER_NONE;
@@ -62,28 +66,48 @@ void ttyd64_partner_hp_begin_battle(void) {
 }
 
 void ttyd64_partner_hp_new_game(void) {
-    ttyd64_partner_hp_init(gCurrentSaveFile.shipSaveData.partnerHP, &gPlayerData);
+    ttyd64_partner_hp_init(RuntimePartnerHP, &gPlayerData);
     ttyd64_mode_select_file(TTYD64_MODE_VANILLA);
     WorldPartnerID = PARTNER_NONE;
     ttyd64_partner_hp_begin_battle();
+}
+
+void ttyd64_partner_hp_load(const Ttyd64PartnerHP* health) {
+    memcpy(RuntimePartnerHP, health, sizeof(RuntimePartnerHP));
+    ttyd64_partner_hp_normalize(RuntimePartnerHP, &gPlayerData);
+}
+
+void ttyd64_partner_hp_snapshot(Ttyd64PartnerHP* health) {
+    memcpy(health, RuntimePartnerHP, sizeof(RuntimePartnerHP));
+    ttyd64_partner_hp_normalize(health, &gPlayerData);
 }
 
 static Ttyd64PartnerHP* get_health(s32 partnerID) {
     if (ttyd64_partner_base_max_hp(partnerID, PARTNER_RANK_NORMAL) < 0) {
         return nullptr;
     }
-    ttyd64_partner_hp_normalize(gCurrentSaveFile.shipSaveData.partnerHP, &gPlayerData);
-    return &gCurrentSaveFile.shipSaveData.partnerHP[partnerID];
-}
-
-s32 ttyd64_get_partner_hp(s32 partnerID) {
-    Ttyd64PartnerHP* health = get_health(partnerID);
-    return health == nullptr ? -1 : health->curHP;
+    return &RuntimePartnerHP[partnerID];
 }
 
 s32 ttyd64_get_partner_max_hp(s32 partnerID) {
-    Ttyd64PartnerHP* health = get_health(partnerID);
-    return health == nullptr ? -1 : health->maxHP;
+    if (get_health(partnerID) == nullptr) {
+        return -1;
+    }
+    return ttyd64_partner_base_max_hp(partnerID, gPlayerData.partners[partnerID].level);
+}
+
+s32 ttyd64_get_partner_hp(s32 partnerID) {
+    const Ttyd64PartnerHP* health = get_health(partnerID);
+    s32 maximum = ttyd64_get_partner_max_hp(partnerID);
+    if (health == nullptr) {
+        return -1;
+    }
+    // Rank/debug edits are reflected in the view, without repairing unrelated
+    // records or mutating either the live model or a save snapshot on reads.
+    if (health->maxHP <= 0 || health->curHP > maximum) {
+        return maximum;
+    }
+    return health->curHP < 0 ? 0 : health->curHP;
 }
 
 b32 ttyd64_partner_hp_supported(s32 partnerID) {
@@ -119,6 +143,7 @@ s32 ttyd64_set_partner_hp(s32 partnerID, s32 amount) {
     if (health == nullptr) {
         return -1;
     }
+    ttyd64_partner_hp_normalize(RuntimePartnerHP, &gPlayerData);
     if (amount < 0) {
         amount = 0;
     }
@@ -136,6 +161,7 @@ s32 ttyd64_set_partner_hp(s32 partnerID, s32 amount) {
 void ttyd64_reset_partner_hp(s32 partnerID) {
     Ttyd64PartnerHP* health = get_health(partnerID);
     if (health != nullptr) {
+        ttyd64_partner_hp_normalize(RuntimePartnerHP, &gPlayerData);
         DeathHandledMask &= ~(1 << partnerID);
         health->curHP = health->maxHP;
         sync_bound_actor(partnerID, health);
@@ -201,6 +227,7 @@ void ttyd64_partner_hp_bind_actor(Actor* actor) {
     if (actor == nullptr || actor != gBattleStatus.partnerActor || !can_bind_actor()) {
         return;
     }
+    ttyd64_partner_hp_normalize(RuntimePartnerHP, &gPlayerData);
     Ttyd64PartnerHP* health = get_health(gPlayerData.curPartner);
     if (health != nullptr) {
         BoundPartnerID = gPlayerData.curPartner;

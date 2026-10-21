@@ -537,3 +537,12 @@ frames read while debugger-paused; no duration/return/RNG override.
 `PORTING_ITEM_MESSAGES_BASELINE=1` is only for the committed pre-fix game and
 requires no emitted result popup. Table/script/text source comparisons are
 independent pinned-source static checks; broad callsite parity remains open.
+
+### HP ownership review (R1-L4)
+
+`hp-ownership` uses controlled native APIs to check pure getter behavior, separate
+live state/save snapshots, rank views, explicit zero, preview/failed-load isolation
+and save/load/new-game boundaries in both modes. `HP_OWNERSHIP_BASELINE=1`
+reproduces the old getter mutation and shared-buffer aliasing; it does not claim
+a natural preview-corruption symptom. Runtime probes use getters (or raw live
+state inside stopped damage callbacks); JSON and snapshot probes remain distinct.

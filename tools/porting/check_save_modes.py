@@ -169,7 +169,7 @@ def observe():
         legacy['ship']['ttyd64PartnerHP']['partners'][1]['curHP'] = 2
         (save.parent / 'file1.json').write_text(json.dumps(legacy))
         check('native preview keeps running mode and HP', val('fio_load_summary(1)') == 1
-              and val('ttyd64_mode_enabled()') == 1 and val('gCurrentSaveFile.shipSaveData.partnerHP[1].curHP') == 3,
+              and val('ttyd64_mode_enabled()') == 1 and val('ttyd64_get_partner_hp(1)') == 3,
               'debugger creates mode-less legacy save; calls native summary API, observes ownership')
         check('native copy succeeds', val('fio_copy_game(3, 0)') == 1, 'controlled native copy API')
         copy = json.loads((save.parent / 'file0.json').read_text())
@@ -183,7 +183,7 @@ def observe():
         check('mode-less legacy load uses Vanilla', val('fio_load_game(1)') == 1 and val('ttyd64_mode_enabled()') == 0,
               'controlled native load API after explicit missing-mode JSON setup')
         check('TTYD64 preview cannot activate a Vanilla runtime', val('fio_load_summary(3)') == 1
-              and val('ttyd64_mode_enabled()') == 0 and val('gCurrentSaveFile.shipSaveData.partnerHP[1].curHP') == 2,
+              and val('ttyd64_mode_enabled()') == 0 and val('ttyd64_get_partner_hp(1)') == 2,
               'controlled native summary API; no runtime mode/state setter')
         check('explicit file load restores TTYD64', val('fio_load_game(3)') == 1 and val('ttyd64_mode_enabled()') == 1,
               'controlled native load API')
@@ -253,7 +253,7 @@ def observe():
         until('state_step_world')
         wait('!(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         check('native game-over/title/keyboard continue restores HP and saved mode', val('ttyd64_mode_enabled()') == 1 and
-              val('gCurrentSaveFile.shipSaveData.partnerHP[1].curHP') == 3,
+              val('ttyd64_get_partner_hp(1)') == 3,
               'real title Start, slot navigation and Start confirmation; observed')
         result['status'] = 'pass'
     except Exception as e:
