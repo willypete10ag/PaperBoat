@@ -409,6 +409,13 @@ def run():
                     put('gPlayerData.curHP',20); spend_turn()
                 dead=[r for r in team_trace[start_dead:] if r['event']=='native-status-hit']
                 check(name+'-dead-partner-falls-back',bool(dead) and all(r['target']==val('ACTOR_PLAYER') for r in dead))
+            # Run Away belongs to Mario's menu. Let a frozen Mario recover
+            # and spend intervening partner turns through native input.
+            for _ in range(12):
+                if val('gBattleState') == val('BATTLE_STATE_PLAYER_MENU'): break
+                put('gPlayerData.curHP',20)
+                cmd('call ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))')
+                spend_turn()
             flee_battle()
             check(name+'-native-flee-world-cleanup',val('WorldPartnerID')==partner_id and
                   val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
@@ -482,6 +489,8 @@ def run():
             check('native-'+guard_mode+'-both-team-targets',{r['target'] for r in rows} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')})
             check('native-'+guard_mode+'-block-result',
                   {r['target'] for r in rows if r['blocked'] == (guard_mode=='timed')} == {val('ACTOR_PLAYER'),val('ACTOR_PARTNER')})
+            if guard_mode != 'timed':
+                check('native-'+guard_mode+'-action-command-result',all(r['block_result']==val('BLOCK_RESULT_EARLY' if guard_mode=='early' else 'BLOCK_RESULT_FAIL') for r in rows))
             # Goomba1; Kooper DEF1. Native guard saves one damage, floored at0.
             for target in ('ACTOR_PLAYER','ACTOR_PARTNER'):
                 expected = max(0,1-int(target=='ACTOR_PARTNER' and partner_id==2)-int(guard_mode=='timed'))
