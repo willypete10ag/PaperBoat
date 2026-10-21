@@ -380,7 +380,7 @@ def run():
             cmd('set variable gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS')
             actor = player if target == 'ACTOR_PLAYER' else partner
             for axis in ('x','y','z'):
-                put('gBattleStatus.enemyActors[0]->state.goalPos.'+axis,val(actor+'->curPos.'+axis))
+                put('gBattleStatus.enemyActors[0]->state.goalPos.'+axis,val(actor+'->curPos.'+axis)+(25 if axis == 'y' else 0))
             val('calc_enemy_damage_target(gBattleStatus.enemyActors[0])')
         for mode in (1,0):
             cmd(f'call ttyd64_mode_select_file({mode})')
@@ -402,7 +402,16 @@ def run():
                                'owned_slots':len(owned),'first_time_left':lifetime,
                                'driver':'injected native enemy-damage API twice between ticks; no natural team attack claim'})
             # Let ordinary event scripts finish, then inspect a rendered frame.
-            capture('popup-'+str(mode)+'-team-hit')
+            # Capture while only the game tick is paused. The generic running
+            # capture can outlive these short-lived numbers on a fast renderer.
+            for _ in range(10): until('render_game_mode_backUI')
+            name='popup-'+str(mode)+'-team-hit'
+            if partner_id != 1: name=str(partner_id)+'-'+name
+            focus()
+            subprocess.run(['import','-window','root',str(root/(name+'.png'))],check=True,env=runtime_env)
+            captures.append({'capture':name,'captured_with_game_tick_paused':True,
+                             'render_threads_free':True,'owned_popup_slots':len(slots()),
+                             'effect_lifetimes':[val(f'((EffectInstance*){e})->data.damageIndicator->lifetime') for e in slots()]})
             clear_popups()
             damage('ACTOR_PLAYER',0)
             check('popup-'+str(mode)+'-zero-no-damage-number',not slots())
@@ -410,8 +419,8 @@ def run():
         clear_popups()
         cmd('call ttyd64_set_partner_hp($slicePartner,10)')
         tick(90)
-        flee_battle(8)
-        team_trace.append({'event':'popup-review-method','setup':'Injected mode, health, target, elemental flags and damage; real keyboard encounter/flee; native damage/effects/events. No source-wide team-AI reach or hardware/audio claim.'})
+        check('popup-native-command-menu-remains-available',val('gBattleState') == val('BATTLE_STATE_PLAYER_MENU') and val('BattleMenuState') == val('BTL_MENU_STATE_CHOOSING'))
+        team_trace.append({'event':'popup-review-method','setup':'Injected mode, health, target, elemental flags and damage; real keyboard encounter; native damage/effects/events and stable command menu. No natural team-AI reach, flee/turn progression or hardware/audio claim.'})
     if 'orphan-badges' in phases:
         baseline = os.environ.get('MENU_SHRINK_BASELINE') == '1'
         def equipped(item):
