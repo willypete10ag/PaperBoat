@@ -21,7 +21,7 @@ hold allows SDL polling; this is instrument-timed keyboard input, not a human
 reaction-time test. Initial map/recruitment/rank/stats/stock and between-turn HP
 refills are controlled, as is the shared file-select startup return.
 
-`native-status-1/2/3` selects actual Putrid/Frost Piranha formations1501/1d07 in
+`native-status-1/2/3` selects actual Putrid/Frost Piranha formations1501/1d06 in
 disposable Road encounters, then uses keyboard contact, Z order, Do Nothing and
 flee. Native enemy scripts choose attacks/RNG/status/damage; no status, cure,
 immunity, attack branch or result is injected. This tests real enemy scripts,

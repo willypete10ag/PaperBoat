@@ -392,9 +392,9 @@ def run():
         poison=PoisonTick('ttyd64_partner_status_poison',internal=True); poison.silent=True
         # IDs are native BattleNames entries, not raw ROM offsets.
         for name,formation,actor_type,status in [('poison',0x1501,'ACTOR_TYPE_PUTRID_PIRANHA','STATUS_KEY_POISON'),
-                                                   ('frozen',0x1d07,'ACTOR_TYPE_FROST_PIRANHA','STATUS_KEY_FROZEN')]:
+                                                   ('frozen',0x1d06,'ACTOR_TYPE_FROST_PIRANHA','STATUS_KEY_FROZEN')]:
             enter_road_battle(formation=formation)
-            check(name+'-real-native-formation',all(val(f'gBattleStatus.enemyActors[{i}]->actorType')==val(actor_type)
+            check(name+'-real-native-formation',sum(bool(val(f'gBattleStatus.enemyActors[{i}]')) for i in range(24)) == 2 and all(val(f'gBattleStatus.enemyActors[{i}]->actorType')==val(actor_type)
                   for i in range(24) if val(f'gBattleStatus.enemyActors[{i}]')))
             key('z')
             wait('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK')
@@ -453,7 +453,7 @@ def run():
                   val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
         trace.delete(); timer.delete(); poison.delete()
         team_trace.append({'event':'native-status-method','baseline':baseline,
-          'method':'Controlled Road map/recruitment/rank/initial stats, real formation IDs1501/1d07 assigned to disposable world encounters and HP refills. Real keyboard contact/Z front order/Do Nothing/flee; actual native Putrid/Frost Piranha attack selection/RNG/status application/damage/turns. Same-battle mode/dead boundaries are injected. No forced attack/status/guard/RNG/damage, actor-type substitution or status cure. Common file-select return forced. This is not natural campaign acquisition or a new map-route acceptance.'})
+          'method':'Controlled Road map/recruitment/rank/initial stats, real formation IDs1501/1d06 assigned to disposable world encounters and HP refills. Real keyboard contact/Z front order/Do Nothing/flee; actual native Putrid/Frost Piranha attack selection/RNG/status application/damage/turns. Same-battle mode/dead boundaries are injected. No forced attack/status/guard/RNG/damage, actor-type substitution or status cure. Common file-select return forced. This is not natural campaign acquisition or a new map-route acceptance.'})
     if 'native-guard' in phases:
         # Observe real Goomba scripts and schedule X through SDL keyboard input.
         # Never write the action-command ring, block result, damage or RNG.
