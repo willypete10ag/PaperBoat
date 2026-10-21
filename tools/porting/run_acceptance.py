@@ -419,6 +419,10 @@ def main():
             {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": phases},
         )
     for pid in (1,2,3):
+        add("defeat-review-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
+            {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"defeat-review",
+             "PARTNER_DEFEAT_BASELINE":os.environ.get("PORTING_DEFEAT_BASELINE","0")})
+    for pid in (1,2,3):
         add("native-guard-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"native-guard"})
     for pid in (1,2,3):

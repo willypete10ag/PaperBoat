@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -353,6 +353,71 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'defeat-review' in phases:
+        baseline = os.environ.get('PARTNER_DEFEAT_BASELINE') == '1'
+        # Native frames and scripts after explicit fault/post-move setup. These
+        # injected zero-HP/null-handler states are not naturally reachable input.
+        for label, state_name, substate, missing, revive in (
+            ('player-death','BATTLE_STATE_PLAYER_MOVE',4,False,False),
+            ('partner-death','BATTLE_STATE_PARTNER_MOVE',3,False,False),
+            ('player-null','BATTLE_STATE_PLAYER_MOVE',4,True,False),
+            ('partner-null','BATTLE_STATE_PARTNER_MOVE',3,True,False),
+            ('partner-life','BATTLE_STATE_PARTNER_MOVE',3,False,True),
+        ):
+            enter_road_battle()
+            for field in ('curHP','curMaxHP','hardMaxHP'): put('gPlayerData.'+field,99)
+            inventory('ITEM_LIFE_SHROOM' if revive else 'ITEM_MUSHROOM')
+            if revive: put('gPlayerData.invItems[1]',0)
+            before_items = val('find_item(ITEM_LIFE_SHROOM)')
+            source = val('(uintptr_t)gBattleStatus.partnerActor->handleEventSource')
+            assert source and not val('gBattleStatus.partnerActor->takeTurnScript')
+            assert not val('gBattleStatus.partnerActor->handleEventScript')
+            assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
+            put('gStatusBar.disabled',3)
+            put('gBattleState',val(state_name)); put('gBattleSubState',substate)
+            if missing: put('gBattleStatus.partnerActor->handleEventSource',0)
+            trace = []
+            class Decrement(gdb.Breakpoint):
+                def stop(self):
+                    trace.append({'event':'decrement','frame':val('gGameStatusPtr->frameCounter'),
+                        'state':val('gBattleState'),'substate':val('gBattleSubState'),
+                        'disabled_before':val('gStatusBar.disabled')})
+                    return False
+            dec = Decrement('decrement_status_bar_disabled',internal=True); dec.silent=True
+            samples=[]
+            for frame in range(180 if not revive else 600):
+                samples.append({'frame':val('gGameStatusPtr->frameCounter'),'state':val('gBattleState'),
+                    'substate':val('gBattleSubState'),'disabled':val('gStatusBar.disabled'),
+                    'death_script':val('DeathScriptID'),'handled':val('DeathHandledMask'),'hp':hp()})
+                tick()
+            dec.delete()
+            team_trace.append({'event':'defeat-review','case':label,'baseline':baseline,
+                'injected_state':state_name,'missing_handler':missing,'life_shroom':revive,
+                'decrements':trace,'samples':samples})
+            if missing and baseline:
+                check(label+'-reproduces-bounded-stall',val('gBattleState')==val(state_name) and val('gBattleSubState')==substate and hp()==0 and val('DeathScriptID')==0)
+                check(label+'-reproduces-counter-drain',len(trace)>=120 and val('gStatusBar.disabled')==0)
+                # Restore only the injected fault so native death/turn flow can
+                # continue; retain all pre-restoration samples above.
+                put('gBattleStatus.partnerActor->handleEventSource',source)
+                tick(240)
+            else:
+                check(label+'-bounded-native-continuation',val('gBattleState')!=val(state_name) and bool(val('DeathHandledMask') & (1<<partner_id)) != revive)
+                check(label+'-counter-release-count',len(trace)==(2 if baseline else 1))
+                check(label+'-independent-status-bar-holds',val('gStatusBar.disabled')==(1 if baseline else 2))
+                if revive:
+                    check(label+'-native-life-shroom-consumed',before_items>=0 and val('find_item(ITEM_LIFE_SHROOM)')<0 and hp()==10)
+                else:
+                    check(label+'-native-dead-partner',hp()==0 and val('(int)gBattleStatus.partnerActor->rot.x')==86)
+            if missing: put('gBattleStatus.partnerActor->handleEventSource',source)
+            wait('(gBattleState==BATTLE_STATE_PLAYER_MENU || gBattleState==BATTLE_STATE_PARTNER_MENU) && gBattleSubState<4 && BattleMenuState==BTL_MENU_STATE_CHOOSING',1800)
+            if val('gBattleState')==val('BATTLE_STATE_PARTNER_MENU'): spend_turn()
+            # These are the two independent injected holds, removed by setup
+            # cleanup, not by the post-move lifecycle under observation.
+            put('gStatusBar.disabled',0)
+            flee_battle(retries=6)
+            check(label+'-keyboard-flee-world',val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
+        team_trace.append({'event':'defeat-review-method','method':'Controlled shared startup/progression/recruitment/rank/HP/inventory/map; real keyboard collision. Injected zero HP, exact post-move state/substate, independent status-bar holds, optional null handler and Life Shroom. Native frame updates/death/revival scripts and passive decrement trace; no forced returns/guard/RNG. Baseline fault restored after bounded180-frame observation. Real keyboard continuation/flee with HP refills. Not natural null-handler reach or campaign acceptance.'})
     if 'native-status' in phases:
         baseline = os.environ.get('PARTNER_STATUS_BASELINE') == '1'
         class StatusFinish(gdb.FinishBreakpoint):
