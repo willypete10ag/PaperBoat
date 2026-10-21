@@ -1392,8 +1392,44 @@ def run():
                         break
                     key('d')
                 assert val(player+'->targetData['+player+'->targetIndexList['+player+'->selectedTargetIndex]].actorID') == val(recipient)
+        message_trace = []
+        class ItemMessageObserver(gdb.Breakpoint):
+            def stop(self):
+                message_trace.append({'item':val('gBattleStatus.moveArgument'),
+                                      'message':val('messageIndex'),'duration':val('duration')})
+                return False
+        observer = ItemMessageObserver('btl_show_battle_message', internal=True)
+        observer.silent = True
+        baseline = os.environ.get('ITEM_MESSAGES_BASELINE') == '1'
+        captured_messages = set()
         def finish_item():
+            item = val('gBattleStatus.moveArgument')
+            # moveArgument is set by target confirmation, so read pending menu ID.
+            item = val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') if val('gPopupMenu') else item
+            previous = len(message_trace)
             key('x')
+            item = val('gBattleStatus.moveArgument')
+            if not baseline:
+                wait('bPopupMessage != 0 && bPopupMessage->messageIndex >= 0x55',900)
+                tick(8)
+                if item not in captured_messages:
+                    # Native rendered frame, read while debugger-paused; no
+                    # extension of the popup duration or forced script return.
+                    for _ in range(4):until('render_game_mode_backUI')
+                    name = 'item-result-' + str(item)
+                    subprocess.run(['import','-window','root',str(root/(name+'.png'))],check=True,env=runtime_env)
+                    captures.append({'capture':name,'captured_while_running':False,
+                                     'native_rendered_frame':True,'item':item,
+                                     'message':val('bPopupMessage->messageIndex')})
+                    captured_messages.add(item)
+            wait('gBattleState == BATTLE_STATE_PARTNER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING && gBattleSubState < 4',1800)
+            observed = message_trace[previous:]
+            check('items-result-message-' + str(item) + '-' + str(previous),
+                  observed == ([] if baseline else [{'item':item,
+                      'message':{val('ITEM_COURAGE_SHELL'):0x55,val('ITEM_POWER_PUNCH'):0x56,
+                                 val('ITEM_MR_SOFTENER'):0x57,val('ITEM_MINI_MR_MINI'):0x58}[item],
+                      'duration':60}]))
+            (root/'item-message-trace.json').write_text(json.dumps(message_trace,indent=2)+'\n')
             wait('gBattleState == BATTLE_STATE_PARTNER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING && gBattleSubState < 4',1800)
             assert item_count() == 1
             assert val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')
@@ -1464,6 +1500,7 @@ def run():
         spend_turn()
         flee_battle()
         wait('WorldPartnerID == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)',600)
+        observer.delete()
         check('items-flee-clears-timed-power-and-world-owner',val('ModifierActors[0].state.attack.turns') == 0 and val('PartnerModifiers[$slicePartner].attack.turns') == 0 and val('WorldPartnerID') == partner_id)
         for i,item in enumerate(items):
             put(f'gPlayerData.invItems[{i}]',val(item))
