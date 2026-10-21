@@ -133,7 +133,7 @@ API_CALLABLE(N(SpawnFlowerRecoverFX)) {
 
 API_CALLABLE(N(RecoverPartner)) {
     Actor* partner = gBattleStatus.partnerActor;
-    script->varTable[0] = ttyd64_partner_combat_can_heal_with_item(ITEM_MUSHROOM);
+    script->varTable[0] = ttyd64_partner_combat_alive();
     if (script->varTable[0]) {
         // 01 Refresh.bpat: living partner only, HP +5 capped and debuff cure.
         ttyd64_partner_combat_heal(partner, 5);

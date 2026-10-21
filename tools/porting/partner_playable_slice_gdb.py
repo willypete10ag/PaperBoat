@@ -380,7 +380,7 @@ def run():
             cmd('set variable gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS')
             actor = player if target == 'ACTOR_PLAYER' else partner
             for axis in ('x','y','z'):
-                put('gBattleStatus.enemyActors[0]->state.goalPos.'+axis,val(actor+'->curPos.'+axis)+(25 if axis == 'y' else 0))
+                put('gBattleStatus.enemyActors[0]->state.goalPos.'+axis,val(actor+'->curPos.'+axis)+(25 if axis == 'y' else 45 if axis == 'x' else 0))
             val('calc_enemy_damage_target(gBattleStatus.enemyActors[0])')
         for mode in (1,0):
             cmd(f'call ttyd64_mode_select_file({mode})')
@@ -399,7 +399,7 @@ def run():
             if mode:
                 check('popup-ttyd64-partner-hp-synchronized',hp()==7 and val(partner+'->curHP')==7)
             team_trace.append({'event':'popup-controlled-team-hit','mode':mode,'baseline':baseline,
-                               'owned_slots':len(owned),'first_time_left':lifetime,
+                               'owned_slots':len(owned),'first_time_left':lifetime,'controlled_goal_offset':{'x':45,'y':25},
                                'driver':'injected native enemy-damage API twice between ticks; no natural team attack claim'})
             # Let ordinary event scripts finish, then inspect a rendered frame.
             # Capture while only the game tick is paused. The generic running

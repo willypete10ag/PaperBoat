@@ -56,7 +56,7 @@ static void dismiss_ice(Actor* actor) {
 // Tasty Tonic / Super Soda / Refresh clear debuffs, not beneficial statuses.
 b32 ttyd64_partner_status_can_target_item(s32 itemID) {
     return (itemID == ITEM_TASTY_TONIC || itemID == ITEM_SUPER_SODA)
-        && ttyd64_partner_combat_can_heal_with_item(ITEM_MUSHROOM);
+        && ttyd64_partner_combat_alive();
 }
 
 void ttyd64_partner_status_cure_debuff(Actor* actor) {

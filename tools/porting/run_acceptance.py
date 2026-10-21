@@ -419,6 +419,9 @@ def main():
             {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": phases},
         )
     for pid in (1,2,3):
+        add("partner-recovery-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
+            {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"recovery"})
+    for pid in (1,2,3):
         add("popup-review-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"popup-review",
              "PARTNER_POPUP_BASELINE":os.environ.get("PORTING_POPUP_BASELINE","0")})
