@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -353,6 +353,96 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'orphan-badges' in phases:
+        baseline = os.environ.get('MENU_SHRINK_BASELINE') == '1'
+        def equipped(item):
+            return sum(val(f'gPlayerData.equippedBadges[{i}]')==val(item) for i in range(64))
+        for mode in (1,0):
+            cmd(f'call ttyd64_mode_select_file({mode})')
+            for i in range(128): put(f'gPlayerData.badges[{i}]',val('ITEM_LAST_STAND') if i==0 else val('ITEM_POWER_JUMP') if i==1 else 0)
+            for i in range(64): put(f'gPlayerData.equippedBadges[{i}]',val('ITEM_LAST_STAND') if i<2 else val('ITEM_JUMPMAN') if i==2 else 0)
+            put('gPlayerData.maxBP',30)
+            before_cost=val('pause_get_total_equipped_bp_cost()')
+            check('orphan-setup-costs-bp-mode-'+str(mode),before_cost>0 and equipped('ITEM_JUMPMAN')==1)
+            key('space'); wait('gGameStatusPtr->context==CONTEXT_PAUSE && StepPauseDelay < -10')
+            for _ in range(8):
+                if val('gPauseTabsCurrentTab')==1: break
+                key('d')
+            tick(50); key('x'); wait('gPauseMenuCurrentTab==2');tick(20)
+            check('orphan-owned-inventory-preserved-mode-'+str(mode),sum(val(f'gPlayerData.badges[{i}]')!=0 for i in range(128))==2)
+            key('s'); wait('gPauseBadgesCurrentTab==1')
+            rows=[val(f'gPauseBadgesItemIds[{i}]') for i in range(val('gPauseBadgesNumItems'))]
+            team_trace.append({'event':'orphan-menu','mode':mode,'baseline':baseline,'rows':rows,'equipped_last_stand':equipped('ITEM_LAST_STAND'),'equipped_jumpman':equipped('ITEM_JUMPMAN'),'bp':val('pause_get_total_equipped_bp_cost()')})
+            if mode==0:
+                check('vanilla-orphan-equipped-copies-retained',equipped('ITEM_LAST_STAND')==2 and equipped('ITEM_JUMPMAN')==1 and val('pause_get_total_equipped_bp_cost()')==before_cost)
+                check('vanilla-active-menu-shows-equipped-array',rows.count(val('ITEM_LAST_STAND'))==2 and rows.count(val('ITEM_JUMPMAN'))==1)
+            else:
+                check('ttyd64-orphan-active-menu-one-owned-copy',rows==[val('ITEM_LAST_STAND')])
+                check('ttyd64-orphan-copy-policy',equipped('ITEM_LAST_STAND')==(2 if baseline else 1) and equipped('ITEM_JUMPMAN')==(1 if baseline else 0))
+                key('x');wait('gPauseBadgesLevel==1');key('x');key('c');tick(20)
+                check('ttyd64-keyboard-unequip-owned-row',equipped('ITEM_LAST_STAND')==(1 if baseline else 0))
+                check('ttyd64-orphan-hidden-cost-reproduced' if baseline else 'ttyd64-orphan-cost-and-effects-cleared',val('pause_get_total_equipped_bp_cost()')>0 if baseline else val('pause_get_total_equipped_bp_cost()')==0 and equipped('ITEM_JUMPMAN')==0)
+                check('ttyd64-active-empty-after-row-removed',val('gPauseBadgesItemIds[0]')==0x7FFE)
+                capture('orphan-baseline' if baseline else 'orphan-fixed')
+            key('space');wait('gGameStatusPtr->context==CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)');tick(20)
+        if not baseline:
+            cmd('call ttyd64_mode_select_file(1)')
+            for i in range(128):put(f'gPlayerData.badges[{i}]',val('ITEM_LAST_STAND') if i<2 else 0)
+            for i in range(64):put(f'gPlayerData.equippedBadges[{i}]',val('ITEM_LAST_STAND') if i<2 else 0)
+            cost=val('pause_get_total_equipped_bp_cost()')
+            key('space');wait('gGameStatusPtr->context==CONTEXT_PAUSE && StepPauseDelay < -10')
+            for _ in range(8):
+                if val('gPauseTabsCurrentTab')==1:break
+                key('d')
+            tick(50);key('x');wait('gPauseMenuCurrentTab==2');tick(20)
+            check('valid-owned-duplicates-and-bp-retained',equipped('ITEM_LAST_STAND')==2 and val('pause_get_total_equipped_bp_cost()')==cost)
+            key('s');wait('gPauseBadgesCurrentTab==1')
+            check('valid-active-duplicates-have-two-rows',val('gPauseBadgesNumItems')==2 and all(val(f'gPauseBadgesItemIds[{i}]')==val('ITEM_LAST_STAND') for i in range(2)))
+            key('x');wait('gPauseBadgesLevel==1');key('x');key('c');tick(20)
+            check('valid-native-unequip-one-copy',equipped('ITEM_LAST_STAND')==1 and val('gPauseBadgesNumItems')==1 and val('pause_get_total_equipped_bp_cost()')*2==cost)
+            key('x');wait('gPauseBadgesLevel==1');key('x');key('c');tick(20)
+            check('valid-native-unequip-last-copy',equipped('ITEM_LAST_STAND')==0 and val('pause_get_total_equipped_bp_cost()')==0 and val('gPauseBadgesItemIds[0]')==0x7FFE)
+            check('valid-owned-copies-remain-after-unequip',sum(val(f'gPlayerData.badges[{i}]')==val('ITEM_LAST_STAND') for i in range(128))==2)
+            key('space');wait('gGameStatusPtr->context==CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+        team_trace.append({'event':'orphan-method','method':'Malformed owned/equipped arrays and BP are injected into strict disposable runtime, not an actual Save Editor or disk-edit workflow. Keyboard pause/badges/Active/unequip/close, native menu projection/counter/effects observed. Mode comparison injected; common file-select return forced. Capture requires separate inspection.'})
+    if 'hammer-shrink' in phases:
+        baseline = os.environ.get('MENU_SHRINK_BASELINE') == '1'
+        rows=[]
+        class ShrinkFinish(gdb.FinishBreakpoint):
+            def __init__(self,target,duration):
+                super().__init__(internal=True);self.silent=True;self.target=target;self.duration=duration
+            def stop(self):
+                row={'event':'hammer-shrink-apply','frame':val('gGameStatusPtr->frameCounter'),'mode':val('ttyd64_mode_enabled()'),'target':val(f'((Actor*){self.target})->actorID'),'requested_duration':self.duration,'returned':int(self.return_value),'attack_amount':val('ModifierActors[0].state.attack.amount'),'attack_turns':val('ModifierActors[0].state.attack.turns'),'size':val('ModifierActors[0].state.size'),'vanilla_debuff':val(f'((Actor*){self.target})->debuff'),'vanilla_duration':val(f'((Actor*){self.target})->debuffDuration')}
+                rows.append(row);team_trace.append(row);return False
+        class ShrinkStart(gdb.Breakpoint):
+            def stop(self):
+                if val('statusTypeKey')==val('STATUS_KEY_SHRINK'): ShrinkFinish(val('(uintptr_t)target'),val('duration'))
+                return False
+        trace=ShrinkStart('inflict_status',internal=True);trace.silent=True
+        for mode in (1,0):
+            enter_road_battle(formation=0x220f)
+            check('hammer-real-native-formation-mode-'+str(mode),sum(bool(val(f'gBattleStatus.enemyActors[{i}]')) for i in range(24))==2 and all(val(f'gBattleStatus.enemyActors[{i}]->actorType')==val('ACTOR_TYPE_HAMMER_BROS') for i in range(24) if val(f'gBattleStatus.enemyActors[{i}]')))
+            cmd(f'call ttyd64_mode_select_file({mode})')
+            start=len(rows)
+            for _ in range(24):
+                put('gPlayerData.curHP',99);spend_turn()
+                if any(x['returned'] and x['target']==val('ACTOR_PLAYER') for x in rows[start:]): break
+            hits=[x for x in rows[start:] if x['returned'] and x['target']==val('ACTOR_PLAYER')]
+            check('hammer-native-script-inflicts-shrink-mode-'+str(mode),bool(hits))
+            expected=3 if baseline or mode==0 else 4
+            check('hammer-native-requested-duration-mode-'+str(mode),all(x['requested_duration']==expected for x in hits))
+            if mode:
+                check('hammer-source-attack-minus-one',all(x['attack_amount']==-1 for x in hits))
+                check('hammer-source-duration-and-tiny',all(x['attack_turns']==expected and x['size']==-1 for x in hits))
+                capture('hammer-baseline' if baseline else 'hammer-fixed')
+            else:
+                check('hammer-vanilla-exclusive-shrink-preserved',all(x['vanilla_debuff']==val('STATUS_KEY_SHRINK') and x['vanilla_duration']==3 for x in hits))
+            wait('(gBattleState==BATTLE_STATE_PLAYER_MENU || gBattleState==BATTLE_STATE_PARTNER_MENU) && gBattleSubState<4 && BattleMenuState==BTL_MENU_STATE_CHOOSING',1800)
+            if val('gBattleState')==val('BATTLE_STATE_PARTNER_MENU'):spend_turn()
+            flee_battle(retries=6)
+            check('hammer-keyboard-flee-world-mode-'+str(mode),val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
+        trace.delete()
+        team_trace.append({'event':'hammer-method','method':'Controlled shared startup/progression/recruitment/rank/stats/inventory and real native220f Hammer Bros formation assigned to disposable Road encounters; keyboard collision/Do Nothing/flee, real native attacks/RNG/status application. Mario99HP/refills and same-battle mode are injected. No actor substitution, forced guard/RNG/status/damage/result. Not natural Bowser Castle route, partner targeting or exhaustive Hammer variants/attacks/lifecycle acceptance.'})
     if 'defeat-review' in phases:
         baseline = os.environ.get('PARTNER_DEFEAT_BASELINE') == '1'
         # Native frames and scripts after explicit fault/post-move setup. These

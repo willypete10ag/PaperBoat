@@ -418,6 +418,10 @@ def main():
             "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": phases},
         )
+    for name in ("orphan-badges","hammer-shrink"):
+        add(name, "partner_playable_slice_gdb.py", "partner-playable-slice",
+            {"PARTNER_SLICE_PARTNER":"1","PARTNER_SLICE_PHASES":name,
+             "MENU_SHRINK_BASELINE":os.environ.get("PORTING_MENU_SHRINK_BASELINE","0")})
     for pid in (1,2,3):
         add("defeat-review-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"defeat-review",
