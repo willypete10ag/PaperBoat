@@ -81,7 +81,7 @@ void btl_state_update_begin_partner_turn(void) {
             }
 
             gBattleStatus.flags2 &= ~BS_FLAGS2_OVERRIDE_INACTIVE_PLAYER;
-            if (btl_check_player_defeated() || btl_check_enemies_defeated()) {
+            if (btl_check_player_defeated() || ttyd64_partner_combat_begin_defeat() || btl_check_enemies_defeated()) {
                 return;
             }
             gBattleSubState = BTL_SUBSTATE_EXEC_TURN_SCRIPT;

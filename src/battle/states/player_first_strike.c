@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 
 enum {
@@ -177,6 +178,10 @@ void btl_state_update_first_strike(void) {
             }
 
             if (battleStatus->stateFreezeCount == 0) {
+                if (!(gGameStatusPtr->demoBattleFlags & DEMO_BTL_FLAG_ENABLED)
+                    && ttyd64_partner_combat_begin_defeat()) {
+                    return;
+                }
                 decrement_status_bar_disabled();
                 if (!(gGameStatusPtr->demoBattleFlags & DEMO_BTL_FLAG_ENABLED)) {
                     Actor* target;

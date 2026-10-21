@@ -184,7 +184,7 @@ void update_status_damage(void) {
     if (gBattleSubState == BTL_SUBSTATE_TRY_STATUS_RECOVER) {
         if (player->handleEventScript == nullptr || !does_script_exist(player->handleEventScriptID)) {
             player->handleEventScript = nullptr;
-            if (btl_check_player_defeated()) {
+            if (btl_check_player_defeated() || ttyd64_partner_combat_begin_defeat()) {
                 return;
             }
 
@@ -416,7 +416,7 @@ void btl_state_update_begin_player_turn(void) {
         if (player->handleEventScript == nullptr || !does_script_exist(player->handleEventScriptID)) {
             player->handleEventScript = nullptr;
 
-            if (btl_check_player_defeated() || btl_check_enemies_defeated()) {
+            if (btl_check_player_defeated() || ttyd64_partner_combat_begin_defeat() || btl_check_enemies_defeated()) {
                 return;
             }
 

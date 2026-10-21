@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 
 enum {
     // BTL_SUBSTATE_INIT                        = 0,
@@ -136,6 +137,9 @@ void btl_state_update_partner_move(void) {
             if (gGameStatusPtr->demoBattleFlags & DEMO_BTL_FLAG_ENABLED) {
                 btl_set_state(BATTLE_STATE_END_DEMO_BATTLE);
                 break;
+            }
+            if (ttyd64_partner_combat_begin_defeat()) {
+                return;
             }
             decrement_status_bar_disabled();
             if (playerData->curPartner == PARTNER_GOOMBARIO

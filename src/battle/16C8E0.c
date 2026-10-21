@@ -335,7 +335,9 @@ void btl_update(void) {
                 btl_state_update_defend();
                 break;
             case BATTLE_STATE_DEFEAT:
-                btl_state_update_defeat();
+                if (!ttyd64_partner_combat_update_defeat()) {
+                    btl_state_update_defeat();
+                }
                 break;
             case BATTLE_STATE_END_TRAINING_BATTLE:
                 btl_state_update_end_training_battle();

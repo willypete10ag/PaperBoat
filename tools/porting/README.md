@@ -9,6 +9,28 @@ records and complete logs identify those cases. Capturing a frame does not
 prove anyone inspected it. Software rendering and dummy audio do not validate
 hardware rendering or audible output.
 
+## Partner defeat state (R1-M2 / R2-L3)
+
+`--only defeat-review-1,defeat-review-2,defeat-review-3` exercises the shared
+post-player/partner-move death state, Life Shroom, missing-handler fallback and
+Vanilla/Mario predicate boundaries. Keyboard collision enters ordinary Road
+battles; the reviewed zero HP, exact post-move state/substate, three HUD holds,
+optional null event source and inventory are explicitly injected. Native frame
+updates run the actual death/revival scripts. A passive breakpoint records every
+HUD-counter release. Continuation/flee uses keyboard input with explicit refills.
+These are controlled fault/state tests, not natural missing-handler reach,
+naturally lethal player moves, Mario game-over playback or campaign acceptance.
+Mario's zero-HP transition is checked by API and restored before a frame runs.
+`PORTING_DEFEAT_BASELINE=1` expects the old duplicate releases and bounded
+null-handler stall; its passing result means the defect was reproduced. Never
+re-label a bounded observation as a naturally occurring infinite gameplay hang.
+
+Partner death now suspends its caller in the native DEFEAT state and restores
+the saved state/substate after the event. Mario keeps priority. The existing
+shared ground death/revival script handles a missing event source; Vanilla and
+unsupported partners keep their original path. HUD release happens once after
+partner continuation. This state is transient and does not change save layouts.
+
 ## Native guard input and Piranha status attacks (R1-M5)
 
 `--only native-guard-1,native-guard-2,native-guard-3` runs ordinary Road Goomba

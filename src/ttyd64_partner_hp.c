@@ -7,6 +7,10 @@ static Actor* BoundPartnerActor;
 static s32 BoundPartnerID = PARTNER_NONE;
 static u16 DeathHandledMask;
 static s32 DeathScriptID;
+// Transient native state, never serialized or stored in legacy actor bytes.
+static b32 PartnerDefeatPending;
+static s32 PartnerDefeatState;
+static s32 PartnerDefeatSubstate;
 static b32 TeamSwapRequested;
 static s32 WorldPartnerID = PARTNER_NONE;
 static Actor* DisplayPartnerActor;
@@ -40,6 +44,7 @@ static void clear_binding(void) {
     BoundPartnerActor = nullptr;
     BoundPartnerID = PARTNER_NONE;
     DeathScriptID = 0;
+    PartnerDefeatPending = false;
     TeamSwapRequested = false;
     DisplayPartnerActor = nullptr;
     DisplayPartnerInWorld = false;
@@ -373,26 +378,74 @@ void ttyd64_partner_combat_event_started(Actor* actor, s32 event, s32 scriptID) 
     }
 }
 
-b32 ttyd64_partner_combat_check_defeat(void) {
+// PartnersHP.patch $CheckPartnerDefeated/$btl_state_update_defeat_partner:
+// suspend the caller in DEFEAT instead of re-running it while scripts yield.
+// The saved substate resumes after the event, before its one-time side effects.
+b32 ttyd64_partner_combat_begin_defeat(void) {
     Actor* partner = gBattleStatus.partnerActor;
-    if (!ttyd64_partner_combat_active(partner)) {
+    if (gPlayerData.curHP <= 0 || !ttyd64_partner_combat_active(partner)) {
         return false;
     }
-    if (DeathScriptID != 0 && does_script_exist(DeathScriptID)) {
-        return true;
-    }
-    DeathScriptID = 0;
-    if (ttyd64_get_partner_hp(BoundPartnerID) > 0 || ttyd64_partner_combat_death_handled(partner)) {
+    b32 deathRunning = DeathScriptID != 0 && does_script_exist(DeathScriptID);
+    if (!deathRunning && (ttyd64_get_partner_hp(BoundPartnerID) > 0
+        || ttyd64_partner_combat_death_handled(partner))) {
+        DeathScriptID = 0;
         return false;
     }
-    // Let the previous hit animation finish before the source-style death event.
-    if (partner->handleEventScript != nullptr && does_script_exist(partner->handleEventScriptID)) {
-        return true;
+    PartnerDefeatState = gBattleState;
+    PartnerDefeatSubstate = gBattleSubState;
+    PartnerDefeatPending = true;
+    btl_set_state(BATTLE_STATE_DEFEAT);
+    return true;
+}
+
+b32 ttyd64_partner_combat_update_defeat(void) {
+    Actor* partner = gBattleStatus.partnerActor;
+    if (!PartnerDefeatPending) {
+        return false;
     }
-    if (partner->handleEventSource == nullptr) {
-        return true;
+    // Mario keeps priority if he dies while a partner event is completing.
+    if (gPlayerData.curHP <= 0) {
+        PartnerDefeatPending = false;
+        gDefeatedBattleState = PartnerDefeatState;
+        gDefeatedBattleSubstate = PartnerDefeatSubstate;
+        gBattleSubState = 0;
+        return false;
     }
-    dispatch_event_partner(EVENT_DEATH);
+    if (ttyd64_partner_combat_active(partner)) {
+        if (DeathScriptID != 0 && does_script_exist(DeathScriptID)) {
+            return true;
+        }
+        DeathScriptID = 0;
+        // Let an earlier hit event finish; death/revival itself is never
+        // restarted just because HP became positive during the Life Shroom.
+        if (partner->handleEventScript != nullptr && does_script_exist(partner->handleEventScriptID)) {
+            return true;
+        }
+        if (ttyd64_get_partner_hp(BoundPartnerID) == 0 && !ttyd64_partner_combat_death_handled(partner)) {
+            if (partner->handleEventSource != nullptr) {
+                dispatch_event_partner(EVENT_DEATH);
+            } else {
+                // Supported actors normally bind their own event source. A
+                // missing source must still complete death/revival, not wait
+                // forever or call start_script with a null bytecode pointer.
+                Evt* script = start_script(EVS_Ttyd64PartnerDeath, EVT_PRIORITY_A, 0);
+                script->owner1.actorID = ACTOR_PARTNER;
+                partner->lastEventType = EVENT_DEATH;
+                partner->handleEventScript = script;
+                partner->handleEventScriptID = script->id;
+                ttyd64_partner_combat_event_started(partner, EVENT_DEATH, script->id);
+                if (partner->takeTurnScript != nullptr) {
+                    kill_script_by_ID(partner->takeTurnScriptID);
+                    partner->takeTurnScript = nullptr;
+                }
+            }
+            return true;
+        }
+    }
+    PartnerDefeatPending = false;
+    gBattleState = PartnerDefeatState;
+    gBattleSubState = PartnerDefeatSubstate;
     return true;
 }
 

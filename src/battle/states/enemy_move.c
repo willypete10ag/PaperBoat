@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 
 enum {
     BTL_SUBSTATE_EXECUTE                        = 0,
@@ -107,7 +108,7 @@ void btl_state_update_enemy_move(void) {
                 break;
             }
 
-            if (btl_check_player_defeated()) {
+            if (btl_check_player_defeated() || ttyd64_partner_combat_begin_defeat()) {
                 return;
             }
 

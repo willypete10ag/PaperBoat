@@ -184,7 +184,7 @@ void btl_state_update_transfer_turn(void) {
             return;
         }
 
-        if (btl_check_player_defeated() || btl_check_enemies_defeated()) {
+        if (btl_check_player_defeated() || ttyd64_partner_combat_begin_defeat() || btl_check_enemies_defeated()) {
             return;
         }
 

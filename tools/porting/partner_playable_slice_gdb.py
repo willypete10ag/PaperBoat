@@ -363,6 +363,7 @@ def run():
             ('player-null','BATTLE_STATE_PLAYER_MOVE',4,True,False),
             ('partner-null','BATTLE_STATE_PARTNER_MOVE',3,True,False),
             ('partner-life','BATTLE_STATE_PARTNER_MOVE',3,False,True),
+            ('partner-null-life','BATTLE_STATE_PARTNER_MOVE',3,True,True),
         ):
             enter_road_battle()
             for field in ('curHP','curMaxHP','hardMaxHP'): put('gPlayerData.'+field,99)
@@ -417,6 +418,29 @@ def run():
             put('gStatusBar.disabled',0)
             flee_battle(retries=6)
             check(label+'-keyboard-flee-world',val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
+        if not baseline:
+            enter_road_battle()
+            saved_state, saved_substate = val('gBattleState'), val('gBattleSubState')
+            assert val('ttyd64_set_partner_hp($slicePartner,0)') == 0
+            check('mario-alive-predicate-does-not-dispatch-partner-death',val('btl_check_player_defeated()')==0 and val('gBattleState')==saved_state and val('gBattleSubState')==saved_substate and val('DeathScriptID')==0)
+            cmd('call ttyd64_mode_select_file(0)')
+            check('vanilla-does-not-enter-partner-defeat',val('ttyd64_partner_combat_begin_defeat()')==0 and val('gBattleState')==saved_state)
+            put('gStatusBar.disabled',3)
+            put('gBattleState',val('BATTLE_STATE_PLAYER_MOVE')); put('gBattleSubState',4)
+            tick(180)
+            check('vanilla-post-move-releases-one-hold',val('gStatusBar.disabled')==2 and val('DeathScriptID')==0 and val('DeathHandledMask')==0)
+            # API transition check only; restore injected death before any frame
+            # runs. This does not claim Mario game-over or Life Shroom playback.
+            before_state, before_substate = val('gBattleState'), val('gBattleSubState')
+            put('gPlayerData.curHP',0)
+            check('mario-zero-hp-keeps-native-defeat-transition',val('btl_check_player_defeated()')==1 and val('gBattleState')==val('BATTLE_STATE_DEFEAT') and val('gDefeatedBattleState')==before_state and val('gDefeatedBattleSubstate')==before_substate)
+            check('mario-zero-hp-prevents-partner-defeat',val('ttyd64_partner_combat_begin_defeat()')==0)
+            put('gPlayerData.curHP',99); put('gBattleState',before_state); put('gBattleSubState',before_substate)
+            put('gStatusBar.disabled',0)
+            wait('(gBattleState==BATTLE_STATE_PLAYER_MENU || gBattleState==BATTLE_STATE_PARTNER_MENU) && gBattleSubState<4 && BattleMenuState==BTL_MENU_STATE_CHOOSING')
+            if val('gBattleState')==val('BATTLE_STATE_PARTNER_MENU'): spend_turn()
+            flee_battle(retries=6)
+            check('vanilla-keyboard-flee-world',val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
         team_trace.append({'event':'defeat-review-method','method':'Controlled shared startup/progression/recruitment/rank/HP/inventory/map; real keyboard collision. Injected zero HP, exact post-move state/substate, independent status-bar holds, optional null handler and Life Shroom. Native frame updates/death/revival scripts and passive decrement trace; no forced returns/guard/RNG. Baseline fault restored after bounded180-frame observation. Real keyboard continuation/flee with HP refills. Not natural null-handler reach or campaign acceptance.'})
     if 'native-status' in phases:
         baseline = os.environ.get('PARTNER_STATUS_BASELINE') == '1'
