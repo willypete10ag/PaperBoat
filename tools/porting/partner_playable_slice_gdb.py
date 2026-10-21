@@ -382,7 +382,7 @@ def run():
                 key('x');wait('gPauseBadgesLevel==1');key('x');key('c');tick(20)
                 check('ttyd64-keyboard-unequip-owned-row',equipped('ITEM_LAST_STAND')==(1 if baseline else 0))
                 check('ttyd64-orphan-hidden-cost-reproduced' if baseline else 'ttyd64-orphan-cost-and-effects-cleared',val('pause_get_total_equipped_bp_cost()')>0 if baseline else val('pause_get_total_equipped_bp_cost()')==0 and equipped('ITEM_JUMPMAN')==0)
-                check('ttyd64-active-empty-after-row-removed',val('gPauseBadgesItemIds[0]')==val('BADGE_NONE_STANDIN'))
+                check('ttyd64-active-empty-after-row-removed',val('gPauseBadgesItemIds[0]')==0x7FFE)
                 capture('orphan-baseline' if baseline else 'orphan-fixed')
             key('space');wait('gGameStatusPtr->context==CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)');tick(20)
         team_trace.append({'event':'orphan-method','method':'Malformed owned/equipped arrays and BP are injected into strict disposable runtime, not an actual Save Editor or disk-edit workflow. Keyboard pause/badges/Active/unequip/close, native menu projection/counter/effects observed. Mode comparison injected; common file-select return forced. Capture requires separate inspection.'})
