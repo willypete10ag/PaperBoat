@@ -297,16 +297,23 @@ def run():
         strategy('BTL_MENU_TYPE_DO_NOTHING')
         wait(f'gBattleState != {state}',600)
         wait('(gBattleState == BATTLE_STATE_PLAYER_MENU || gBattleState == BATTLE_STATE_PARTNER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
-    def flee_battle():
-        strategies()
-        strategy('BTL_MENU_TYPE_RUN_AWAY')
-        wait('gBattleState == BATTLE_STATE_RUN_AWAY',480)
-        wait('gActionCommandStatus.state == 11',480)
-        for _ in range(30):
-            if val('gActionCommandStatus.state') != 11:
-                break
-            key('x',1)
-        wait('gGameStatusPtr->context == CONTEXT_WORLD && gEncounterState == ENCOUNTER_STATE_NEUTRAL',1200)
+    def flee_battle(retries=1):
+        for attempt in range(retries):
+            if retries > 1: put('gPlayerData.curHP',20)
+            strategies()
+            strategy('BTL_MENU_TYPE_RUN_AWAY')
+            wait('gBattleState == BATTLE_STATE_RUN_AWAY',480)
+            wait('gActionCommandStatus.state == 11',480)
+            for _ in range(30):
+                if val('gActionCommandStatus.state') != 11:
+                    break
+                key('x',1)
+            wait('(gGameStatusPtr->context == CONTEXT_WORLD && gEncounterState == ENCOUNTER_STATE_NEUTRAL) || '
+                 '(gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING)',1800)
+            if val('gGameStatusPtr->context') == val('CONTEXT_WORLD'): return
+            team_trace.append({'event':'native-flee-failed','attempt':attempt+1,'player_hp':val('gPlayerData.curHP')})
+            print('NATIVE_FLEE_FAILED_RETRY='+str(attempt+1),flush=True)
+        raise AssertionError('Native escape did not succeed within input attempts')
     for setting in ('non-stop on','pagination off','confirm off','print thread-events off'):
         cmd('set ' + setting)
     gdb.Breakpoint('state_step_startup',temporary=True,internal=True)
@@ -448,7 +455,7 @@ def run():
                 put('gPlayerData.curHP',20)
                 cmd('call ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))')
                 spend_turn()
-            flee_battle()
+            flee_battle(retries=6)
             check(name+'-native-flee-world-cleanup',val('WorldPartnerID')==partner_id and
                   val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
         trace.delete(); timer.delete(); poison.delete()
