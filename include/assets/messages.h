@@ -16238,6 +16238,10 @@ static const char* const gMsgPaths_sec2F[] = {
     "__OTR__messages/ttyd64/ModeVanillaDesc",
     "__OTR__messages/ttyd64/ModeTTYD64",
     "__OTR__messages/ttyd64/ModeTTYD64Desc",
+    "__OTR__messages/ttyd64/DefenseBoost",
+    "__OTR__messages/ttyd64/AttackBoost",
+    "__OTR__messages/ttyd64/DefenseDrop",
+    "__OTR__messages/ttyd64/AttackDrop",
 };
 
 static const char* const* const gMsgSectionPaths[] = {

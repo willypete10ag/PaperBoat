@@ -1,4 +1,6 @@
 #include "common.h"
+#include "ttyd64_assets.h"
+#include "ttyd64_status_items.h"
 #include "effects.h"
 #include "entity.h"
 #include "battle/battle.h"
@@ -40,6 +42,10 @@ s8 D_8028374C_1BA13C[][4] = {
     { 248, 0, 0, 0 }, { 248, 0, 0, 0 }, { 248, 0, 0, 0 }, { 248, 0, 0, 0 }, { 248, 0, 0, 0 },
     { 248, 0, 0, 0 }, { 248, 0, 0, 0 }, { 248, 0, 0, 0 }, { 248, 0, 0, 0 }, { 248, 0, 0, 0 },
     { 248, 0, 0, 0 }, { 248, 0, 0, 0 }, { 248, 0, 0, 0 }, { 248, 0, 0, 0 }, { 248, 0, 0, 0 },
+    [BTL_MSG_TTYD64_DEFENSE_BOOST] { 0, 0, 0, 0 },
+    [BTL_MSG_TTYD64_ATTACK_BOOST] { 0, 0, 0, 0 },
+    [BTL_MSG_TTYD64_DEFENSE_DROP] { 0, 0, 0, 0 },
+    [BTL_MSG_TTYD64_ATTACK_DROP] { 0, 0, 0, 0 },
 };
 #else
  // all keyed by number of lines in the message (1 or 2)
@@ -93,6 +99,11 @@ EntityModelScript* BonkModelScripts[] = {
 };
 
 s32 BattleMessages[] = {
+    [BTL_MSG_TTYD64_DEFENSE_BOOST] MSG_TTYD64_DefenseBoost,
+    [BTL_MSG_TTYD64_ATTACK_BOOST] MSG_TTYD64_AttackBoost,
+    [BTL_MSG_TTYD64_DEFENSE_DROP] MSG_TTYD64_DefenseDrop,
+    [BTL_MSG_TTYD64_ATTACK_DROP] MSG_TTYD64_AttackDrop,
+
     [BTL_MSG_MERLEE_ATK_UP]         MSG_Menus_Merlee_IncreaseAttack,
     [BTL_MSG_MERLEE_DEF_UP]         MSG_Menus_Merlee_DecreaseDamage,
     [BTL_MSG_MERLEE_EXP_UP]         MSG_Menus_Merlee_IncreaseStarPoints,
@@ -660,6 +671,10 @@ void btl_update_message_popup(void* data) {
         case BTL_MSG_MERLEE_DEF_UP:
         case BTL_MSG_MERLEE_EXP_UP:
         case BTL_MSG_MERLEE_DONE:
+        case BTL_MSG_TTYD64_DEFENSE_BOOST:
+        case BTL_MSG_TTYD64_ATTACK_BOOST:
+        case BTL_MSG_TTYD64_DEFENSE_DROP:
+        case BTL_MSG_TTYD64_ATTACK_DROP:
         case BTL_MSG_CHARGE_HAMMER:
         case BTL_MSG_CHARGE_HAMMER_MORE:
         case BTL_MSG_CHARGE_JUMP:
@@ -1291,6 +1306,10 @@ void btl_message_popup_draw_content(void* data, s32 x, s32 y) {
         case BTL_MSG_MERLEE_DEF_UP:
         case BTL_MSG_MERLEE_EXP_UP:
         case BTL_MSG_MERLEE_DONE:
+        case BTL_MSG_TTYD64_DEFENSE_BOOST:
+        case BTL_MSG_TTYD64_ATTACK_BOOST:
+        case BTL_MSG_TTYD64_DEFENSE_DROP:
+        case BTL_MSG_TTYD64_ATTACK_DROP:
         case BTL_MSG_CANT_CHARGE:
         case BTL_MSG_ENEMY_MISSED:
         case BTL_MSG_PLAYER_DAZED:
@@ -1633,6 +1652,10 @@ void btl_show_message_popup(void* data) {
 #if VERSION_JP
     switch (popup->messageIndex) {
         case BTL_MSG_MERLEE_DONE:
+        case BTL_MSG_TTYD64_DEFENSE_BOOST:
+        case BTL_MSG_TTYD64_ATTACK_BOOST:
+        case BTL_MSG_TTYD64_DEFENSE_DROP:
+        case BTL_MSG_TTYD64_ATTACK_DROP:
         case BTL_MSG_CANT_CHARGE:
         case BTL_MSG_ENEMY_MISSED:
         case BTL_MSG_STAR_POWER_RECHARGED:
@@ -1833,6 +1856,10 @@ void btl_show_message_popup(void* data) {
         case BTL_MSG_MERLEE_DEF_UP:
         case BTL_MSG_MERLEE_EXP_UP:
         case BTL_MSG_MERLEE_DONE:
+        case BTL_MSG_TTYD64_DEFENSE_BOOST:
+        case BTL_MSG_TTYD64_ATTACK_BOOST:
+        case BTL_MSG_TTYD64_DEFENSE_DROP:
+        case BTL_MSG_TTYD64_ATTACK_DROP:
         case BTL_MSG_CANT_CHARGE:
         case BTL_MSG_ENEMY_MISSED:
         case BTL_MSG_PLAYER_DAZED:

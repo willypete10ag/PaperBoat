@@ -13,6 +13,62 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def check_item_source(source, reference, provenance):
+    """Compare original item powers/text and source script consumers independently."""
+    originals = {}
+    for name in ('Items.xml', 'item-scripts.patch', 'item-messages.patch'):
+        path = reference / ('ttyd64-b8d2058-' + name)
+        assert sha(path) == provenance[name + '_sha256'], 'Pinned item source changed: ' + name
+        originals[name] = path.read_text()
+    # These are semantic identity translations, not copied expected powers/text.
+    identities = {'CourageShell':'COURAGE_SHELL', 'PowerPunch':'POWER_PUNCH',
+                  'MiniMrMini':'MINI_MR_MINI', 'MrSoftener':'MR_SOFTENER'}
+    items = {row.attrib['name']:row.attrib for row in ET.fromstring(originals['Items.xml'])}
+    native_items = dict(re.findall(r'\{\s*//\s*0x[0-9A-Fa-f]+:\s*(\w+) \(TTYD64\)(.*?)\n    \},',
+                                   (source / 'src/item_data.inc.c').read_text(), re.S))
+    script = originals['item-scripts.patch']
+    native_script = (source / 'src/battle/move/item/ttyd64_status.c').read_text()
+    popup = (source / 'src/battle/popup_messages.c').read_text()
+    text = json.loads((source / 'port/ttyd64/messages.json').read_text())
+    header = (source / 'include/ttyd64_assets.h').read_text()
+    paths = re.search(r'gMsgPaths_sec2F\[\] = \{(.*?)\};',
+                      (source / 'include/assets/messages.h').read_text(), re.S)[1]
+    paths = re.findall(r'"__OTR__messages/ttyd64/(\w+)"', paths)
+    source_table = re.search(r'\$StringTable_BattlePopUp_NewStrings\s*\{(.*?)\}',
+                             originals['item-messages.patch'], re.S)[1]
+    table = re.findall(r'^\s*\$(\w+)\s*%', source_table, re.M)
+    for name, native_id in identities.items():
+        row = items[name]
+        for key, field in [('powA','potencyA'), ('powB','potencyB'), ('sellValue','sellValue')]:
+            expected = int(row.get(key, '0'), 16)
+            actual = int(re.search(r'\.' + field + r'\s*=\s*(\d+)', native_items[name])[1])
+            assert actual == expected, f'{name}.{field}: {actual} != source {expected}'
+        # Last case of each source item is its result-message switch branch.
+        branches = re.findall(r'Case == \.Item:' + name + r'\b(.*?)(?=\n\s*Case(?:OR)? == \.Item:|\n\})',
+                              script, re.S)
+        calls = [m for branch in branches for m in re.findall(
+            r'Call\s+ShowMessageBox\s*\(\s*([0-9A-F]+)\s+([0-9A-F]+)\s*\)', branch)]
+        assert len(calls) == 1, 'Ambiguous active source message: ' + name
+        index, duration = (int(x,16) for x in calls[0])
+        source_string = table[index - 0x100]
+        expected_text = re.search(r'#string \$' + source_string + r'[^\n]*\n\{\n(.*?)\[End\]',
+                                  originals['item-messages.patch'], re.S)[1]
+        native_key = re.search(r'case ITEM_' + native_id +
+                              r':\s*script->varTable\[6\] = (\w+);', native_script)[1]
+        native_text_key = re.search(r'\[' + native_key + r'\]\s+MSG_TTYD64_(\w+)', popup)[1]
+        assert text[native_text_key] == expected_text, 'Source result text differs: ' + name
+        section, offset = re.search(r'MSG_TTYD64_' + native_text_key +
+                                    r' MESSAGE_ID\((0x\w+), (\d+)\)', header).groups()
+        assert int(section,16) == 0x2f and paths[int(offset)] == native_text_key
+        assert f'Call(ShowMessageBox, LVar6, {duration})' in native_script
+        assert popup.count('case ' + native_key + ':') == 4, 'Missing popup lifecycle consumer'
+    assert native_script.index('Call(N(GetResultMessage))') > native_script.index('Call(ChooseNextTarget')
+    assert 'Call(WaitForMessageBoxDone)' in native_script
+    print('Independent item source:4 identities /12 power-price cells,4 source-script result texts, '
+          'native message resource mapping and popup lifecycle consumers match. '
+          'Static consumer checks do not establish all native callsite or item mechanics parity.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, required=True)
@@ -84,6 +140,7 @@ def main():
             rows.append(values if any(values) else [-1, -1, -1])
     assert len(rows) == 11, 'Source partner table changed'
     assert actual['health'] == rows, 'Compiled partner HP differs from source table'
+    check_item_source(source, reference, provenance)
     print(f'Source {provenance["ttyd64_commit"]}: {len(expected)} semantic FP/BP rows and33 HP cells match; '
           f'{len(vanilla)} Vanilla base rows preserved. Excluded IDs: '
           + ','.join(hex(index) for index in excluded))

@@ -497,3 +497,14 @@ panel. Its reset boundary remains an explicitly controlled API call. Private
 badge screenshots aid inspection and must not be committed. The Windows process
 preflight additionally exercises the launcher's default status profile; it does
 not run the Windows engine/input. See WINDOWS-PLAYTEST.md for the focused brief.
+
+### Modifier-item result messages (R2-L1/R2-L2)
+
+`status-items-1/2/3` also observe native popup creation, require one60-frame result
+per item use and wait for normal partner-menu return. The shared route includes
+Mario/partner Power Punch, opposite-sign cancellation, multi-target Mini and
+zero/positive-defense Softener. First instances preserve private native rendered
+frames read while debugger-paused; no duration/return/RNG override.
+`PORTING_ITEM_MESSAGES_BASELINE=1` is only for the committed pre-fix game and
+requires no emitted result popup. Table/script/text source comparisons are
+independent pinned-source static checks; broad callsite parity remains open.

@@ -463,7 +463,8 @@ def main():
             "status-items-" + str(pid),
             "partner_playable_slice_gdb.py",
             "partner-playable-slice",
-            {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": "status-items"},
+            {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": "status-items",
+             "ITEM_MESSAGES_BASELINE": os.environ.get("PORTING_ITEM_MESSAGES_BASELINE", "0")},
         )
     for pid in (1, 2, 3):
         add(

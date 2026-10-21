@@ -4,5 +4,8 @@
   "partners_patch_content_sha256": "40593d87c5bde748df385ebed673f25c0c6076bae4c38ada4c6e9f1d2599c9f3",
   "hp_excerpt_sha256": "9b6dba0291fb5dea9638dc30f4cc83c05789685f01a2d3ff4e229a93ce39e1e8",
   "paperboat_baseline_commit": "7f038b8552b1bf5c297a5fd06738d8f245851833",
-  "paperboat_move_source_content_sha256": "3cf7995321753ae5c72e725cc7dc94511e394a4bdb829fb30307613e036b8a76"
+  "paperboat_move_source_content_sha256": "3cf7995321753ae5c72e725cc7dc94511e394a4bdb829fb30307613e036b8a76",
+  "Items.xml_sha256": "fb255a1c52fe100c47e07c5e4d77372d2e059885df4a3c7e229624dac5919114",
+  "item-scripts.patch_sha256": "9fc01612d2b6db193b6e8e9de2a84c4dc7cb9451e94e86de0223f80569c2902e",
+  "item-messages.patch_sha256": "717c86ad8cd24d403312dafdfaba460cf7b1fd4873bf732337622268da8c7879"
 }
