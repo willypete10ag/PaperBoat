@@ -27,5 +27,9 @@
   "ModeVanilla": "Vanilla",
   "ModeVanillaDesc": "Original Paper Mario rules.",
   "ModeTTYD64": "TTYD64 (experimental)",
-  "ModeTTYD64Desc": "Partner HP and new battle rules."
+  "ModeTTYD64Desc": "Partner HP and new battle rules.",
+  "DefenseBoost": "Defense is boosted!",
+  "AttackBoost": "Attack is boosted!",
+  "DefenseDrop": "Defense has dropped!",
+  "AttackDrop": "Attack has dropped!"
 }

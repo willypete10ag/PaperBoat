@@ -61,8 +61,9 @@ start charge or another subsystem after the checkpoint without a new continue.
 Do not announce a new Windows playtest before the final gates pass. At the pause,
 state that work has stopped and the handoff is ready; no implied background work.
 
-R1-L5/R2-N1 are the current bounded review batch: reproduce edited equipped-copy
-menu behavior and actual Hammer Bros Shrink before fixes. Native source mode,
+R1-L5/R2-N1 merged in PR17 with pinned before/after evidence. Current bounded
+review batch is R2-L1 result messages and related R2-L2 independent item source
+checks; remaining item/native-callsite parity stays open. Native source mode,
 Vanilla/save ABI and exact-head gate remain authoritative; see coordination
 WORKING/NEXT_CHAT for original runtime identities and final status. The owner
 confirmed an existing partner Life Shroom test and cleared continuation; do not

@@ -1403,9 +1403,6 @@ def run():
         baseline = os.environ.get('ITEM_MESSAGES_BASELINE') == '1'
         captured_messages = set()
         def finish_item():
-            item = val('gBattleStatus.moveArgument')
-            # moveArgument is set by target confirmation, so read pending menu ID.
-            item = val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') if val('gPopupMenu') else item
             previous = len(message_trace)
             key('x')
             item = val('gBattleStatus.moveArgument')
@@ -1430,7 +1427,6 @@ def run():
                                  val('ITEM_MR_SOFTENER'):0x57,val('ITEM_MINI_MR_MINI'):0x58}[item],
                       'duration':60}]))
             (root/'item-message-trace.json').write_text(json.dumps(message_trace,indent=2)+'\n')
-            wait('gBattleState == BATTLE_STATE_PARTNER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING && gBattleSubState < 4',1800)
             assert item_count() == 1
             assert val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')
             assert not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED')

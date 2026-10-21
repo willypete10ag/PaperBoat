@@ -7,6 +7,11 @@
 #define MSG_TTYD64_ModeTTYD64 MESSAGE_ID(0x2F, 27)
 #define MSG_TTYD64_ModeTTYD64Desc MESSAGE_ID(0x2F, 28)
 
+#define MSG_TTYD64_DefenseBoost MESSAGE_ID(0x2F, 29)
+#define MSG_TTYD64_AttackBoost MESSAGE_ID(0x2F, 30)
+#define MSG_TTYD64_DefenseDrop MESSAGE_ID(0x2F, 31)
+#define MSG_TTYD64_AttackDrop MESSAGE_ID(0x2F, 32)
+
 // Native IDs are appended; Star Rod's item/move/message indices are not reused.
 #define MSG_TTYD64_PityFlowerName MESSAGE_ID(0x2F, 0)
 #define MSG_TTYD64_PityFlowerDesc MESSAGE_ID(0x2F, 1)

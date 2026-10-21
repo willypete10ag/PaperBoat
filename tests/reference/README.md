@@ -14,3 +14,11 @@ both modes' effective costs and all33 partner/rank HP cells. Seven reused or
 relocated source move IDs are excluded explicitly; matching costs do not prove
 move mechanics, stacking, availability, enemy AI, world distribution or campaign
 parity. Regenerating a reference requires reviewing a new pinned source commit.
+
+Original Items.xml, Battle_NewItems_BattleScripts.patch and
+Battle_MessageBox_NewIndexes.patch from the same pinned commit are now included.
+The item oracle parses four modifier-item identities' source powers/prices,
+active script result-message IDs and original strings independently. It compares
+12 native table cells and4 result texts/resource mappings/lifecycle consumers.
+This is a narrow static consumer oracle plus separate native keyboard acceptance;
+it does not close all item mechanics/native-callsite gaps (R2-L2).
