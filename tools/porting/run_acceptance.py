@@ -418,6 +418,10 @@ def main():
             "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": phases},
         )
+    for pid in (1,2,3):
+        add("popup-review-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
+            {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"popup-review",
+             "PARTNER_POPUP_BASELINE":os.environ.get("PORTING_POPUP_BASELINE","0")})
     for name in ("orphan-badges","hammer-shrink"):
         add(name, "partner_playable_slice_gdb.py", "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER":"1","PARTNER_SLICE_PHASES":name,
