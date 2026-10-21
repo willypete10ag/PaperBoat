@@ -461,10 +461,14 @@ s32 ttyd64_partner_combat_use_life_shroom(Actor* actor) {
     return hp;
 }
 
+b32 ttyd64_partner_combat_alive(void) {
+    return ttyd64_partner_combat_active(gBattleStatus.partnerActor)
+        && ttyd64_get_partner_hp(BoundPartnerID) > 0
+        && !(DeathScriptID != 0 && does_script_exist(DeathScriptID));
+}
+
 b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID) {
-    Actor* partner = gBattleStatus.partnerActor;
-    if (!ttyd64_partner_combat_active(partner) || ttyd64_get_partner_hp(BoundPartnerID) <= 0
-        || (DeathScriptID != 0 && does_script_exist(DeathScriptID))) {
+    if (!ttyd64_partner_combat_alive()) {
         return false;
     }
     switch (itemID) {

@@ -30,7 +30,7 @@ b32 ttyd64_world_item_can_target_partner(s32 itemID);
 b32 ttyd64_world_item_target_menu_active(void);
 s32 ttyd64_use_consumable_on_partner(s32 invSlot, s32 partnerID);
 
-// Only bind eligible normal battles while the prototype is explicitly enabled.
+// Bind eligible normal battles in the loaded TTYD64 file mode.
 void ttyd64_partner_hp_begin_battle(void);
 void ttyd64_partner_hp_bind_actor(Actor* actor);
 void ttyd64_partner_hp_unbind_actor(Actor* actor);
@@ -68,6 +68,10 @@ b32 ttyd64_partner_team_should_swap(b32 nativeSwap);
 void ttyd64_partner_team_swap_completed(b32 nativePlayerInBack);
 s32 ttyd64_partner_team_resolve_target(s32 targetActorID);
 s32 ttyd64_partner_team_target(b32 back);
+
+// Living, bound supported partner outside an active death/revival event.
+// Recovery consumers must not depend on an unrelated item's target rules.
+b32 ttyd64_partner_combat_alive(void);
 
 // First ordinary healing-item consumer. Dead partners require revival, not food.
 b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID);

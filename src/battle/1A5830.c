@@ -734,13 +734,17 @@ HitResult calc_enemy_damage_target(Actor* attacker) {
                     show_next_damage_popup(state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage, 1);
                     show_damage_fx(target, state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage);
                 } else {
-                    // The Star Rod hook is at this primary-popup call, after HP
-                    // application. Zero damage, suppressed and multiple popups
-                    // bypass it; preserve that placement for source parity.
+                    // TTYDBadges.patch 802781B4 rolls Pity Flower here, then
+                    // retains separate numbers for simultaneous team damage.
+                    // Keep the roll out of zero/suppressed/special-popup hits.
                     if (actorClass == ACTOR_CLASS_PLAYER) {
                         try_pity_flower(target);
                     }
-                    show_primary_damage_popup(state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage, 1);
+                    if (ttyd64_mode_enabled()) {
+                        show_next_damage_popup(state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage, 1);
+                    } else {
+                        show_primary_damage_popup(state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage, 1);
+                    }
                     show_damage_fx(target, state->goalPos.x, state->goalPos.y, state->goalPos.z, battleStatus->lastAttackDamage);
                     break;
                 }

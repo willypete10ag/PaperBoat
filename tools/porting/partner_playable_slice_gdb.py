@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -353,6 +353,74 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'popup-review' in phases:
+        # A controlled simultaneous team hit isolates native popup ownership.
+        # Damage APIs are called only between ticks; no enemy AI/guard/RNG
+        # result is forced, and this is not natural team-attack reach evidence.
+        baseline = os.environ.get('PARTNER_POPUP_BASELINE') == '1'
+        enter_road_battle()
+        player = 'gBattleStatus.playerActor'
+        partner = 'gBattleStatus.partnerActor'
+        def clear_popups():
+            for i in range(val('sizeof(gDamageCountEffects)/sizeof(gDamageCountEffects[0])')):
+                effect = val(f'gDamageCountEffects[{i}]')
+                if effect:
+                    put(f'((EffectInstance*){effect})->data.damageIndicator->timeLeft',5)
+                    put(f'gDamageCountEffects[{i}]',0)
+                    put(f'gDamageCountTimers[{i}]',0)
+        def slots():
+            return [val(f'gDamageCountEffects[{i}]') for i in range(val('sizeof(gDamageCountEffects)/sizeof(gDamageCountEffects[0])')) if val(f'gDamageCountEffects[{i}]')]
+        def damage(target, amount=3):
+            put('gBattleStatus.curTargetID',val(target))
+            put('gBattleStatus.curTargetPart',1)
+            put('gBattleStatus.curAttackDamage',amount)
+            put('gBattleStatus.curAttackElement',val('DAMAGE_TYPE_UNBLOCKABLE | DAMAGE_TYPE_IGNORE_DEFENSE'))
+            put('gBattleStatus.curAttackStatus',0)
+            put('gBattleStatus.curAttackEventSuppression',0)
+            cmd('set variable gBattleStatus.flags1 |= BS_FLAGS1_TRIGGER_EVENTS')
+            actor = player if target == 'ACTOR_PLAYER' else partner
+            for axis in ('x','y','z'):
+                put('gBattleStatus.enemyActors[0]->state.goalPos.'+axis,val(actor+'->curPos.'+axis)+(25 if axis == 'y' else 45 if axis == 'x' else 0))
+            val('calc_enemy_damage_target(gBattleStatus.enemyActors[0])')
+        for mode in (1,0):
+            cmd(f'call ttyd64_mode_select_file({mode})')
+            put('gPlayerData.curHP',20)
+            if mode: cmd('call ttyd64_set_partner_hp($slicePartner,10)')
+            clear_popups()
+            damage('ACTOR_PLAYER')
+            first=slots()[0]
+            damage('ACTOR_PARTNER')
+            owned=slots()
+            expect_two=mode and not baseline
+            check('popup-'+str(mode)+'-simultaneous-native-team-slots',len(owned)==(2 if expect_two else 1))
+            lifetime=val(f'((EffectInstance*){first})->data.damageIndicator->timeLeft')
+            check('popup-'+str(mode)+'-first-effect-lifetime',lifetime>5 if expect_two else lifetime==5)
+            check('popup-'+str(mode)+'-mario-damage-unchanged',val('gPlayerData.curHP')==17)
+            if mode:
+                check('popup-ttyd64-partner-hp-synchronized',hp()==7 and val(partner+'->curHP')==7)
+            team_trace.append({'event':'popup-controlled-team-hit','mode':mode,'baseline':baseline,
+                               'owned_slots':len(owned),'first_time_left':lifetime,'controlled_goal_offset':{'x':45,'y':25},
+                               'driver':'injected native enemy-damage API twice between ticks; no natural team attack claim'})
+            # Let ordinary event scripts finish, then inspect a rendered frame.
+            # Capture while only the game tick is paused. The generic running
+            # capture can outlive these short-lived numbers on a fast renderer.
+            for _ in range(10): until('render_game_mode_backUI')
+            name='popup-'+str(mode)+'-team-hit'
+            if partner_id != 1: name=str(partner_id)+'-'+name
+            focus()
+            subprocess.run(['import','-window','root',str(root/(name+'.png'))],check=True,env=runtime_env)
+            captures.append({'capture':name,'captured_with_game_tick_paused':True,
+                             'render_threads_free':True,'owned_popup_slots':len(slots()),
+                             'effect_lifetimes':[val(f'((EffectInstance*){e})->data.damageIndicator->lifetime') for e in slots()]})
+            clear_popups()
+            damage('ACTOR_PLAYER',0)
+            check('popup-'+str(mode)+'-zero-no-damage-number',not slots())
+        cmd('call ttyd64_mode_select_file(1)')
+        clear_popups()
+        cmd('call ttyd64_set_partner_hp($slicePartner,10)')
+        tick(90)
+        check('popup-native-command-menu-remains-available',val('gBattleState') == val('BATTLE_STATE_PLAYER_MENU') and val('BattleMenuState') == val('BTL_MENU_STATE_CHOOSING'))
+        team_trace.append({'event':'popup-review-method','setup':'Injected mode, health, target, elemental flags and damage; real keyboard encounter; native damage/effects/events and stable command menu. No natural team-AI reach, flee/turn progression or hardware/audio claim.'})
     if 'orphan-badges' in phases:
         baseline = os.environ.get('MENU_SHRINK_BASELINE') == '1'
         def equipped(item):

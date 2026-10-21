@@ -296,6 +296,11 @@ HudScript HES_HandPointLeftHeld = {
 
 #include "item_data.inc.c"
 
+// Keep the initializer-inferred extents: both missing and extra item rows
+// must fail compilation, including after regenerating item_data.inc.c.
+_Static_assert(ARRAY_COUNT(gItemIconRasterOffsets) == NUM_ITEMS, "item raster table must cover every item");
+_Static_assert(ARRAY_COUNT(gItemIconPaletteOffsets) == NUM_ITEMS, "item palette table must cover every item");
+
 //TODO split for partner popup menu data?
 
 // "change partner" menu position -> partnerID

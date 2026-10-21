@@ -9,6 +9,35 @@ records and complete logs identify those cases. Capturing a frame does not
 prove anyone inspected it. Software rendering and dummy audio do not validate
 hardware rendering or audible output.
 
+## Team damage numbers and living recovery (R1-L1 / R1-L3 / R1-L9)
+
+Ordinary TTYD64 enemy hits retain separate damage numbers through the native
+pooled popup function, matching TTYDBadges.patch hook802781B4. Pity Flower rolls
+at the same post-HP branch; zero, suppressed and special-popup exclusions remain.
+Vanilla keeps its primary-popup route. This does not add a new enemy attack.
+
+`--only popup-review-1,popup-review-2,popup-review-3` repeats a controlled paired
+hit in real keyboard-entered Road battles for the three supported ground partners.
+The fixture calls compiled enemy-damage APIs twice between ticks with injected
+mode, target, power, unblockable/ignore-defense flags and impact coordinates.
+It observes effect-slot ownership, lifetimes, HP, zero damage and the native
+command-menu state. Captures pause only the game tick after ten updates, leaving
+render threads free; impact offsets keep the transient numbers within view.
+No guard/RNG result or effect duration is forced. This is not natural team-wide
+AI reach, escape, turn progression or campaign acceptance. Set
+`PORTING_POPUP_BASELINE=1` only against the pre-fix game to reproduce replacement.
+
+Refresh and cure items use an explicit bound, living-partner predicate, including
+the existing active-death/revival exclusion. Mushroom eligibility remains an
+item-specific consumer of that predicate. `--only partner-recovery-1` runs the
+existing keyboard Tasty Tonic/Super Soda/Refresh route and dead/Vanilla boundaries;
+initial wounds/statuses/inventory/progression and contact APIs are controlled.
+HP getter/save-buffer ownership remains a separate review finding (R1-L4).
+
+The defining item-data translation unit asserts both initializer-inferred icon
+array lengths equal NUM_ITEMS. Missing and extra rows fail compilation even after
+regenerating the included data; no item values or asset identities change.
+
 ## Edited badge copies and Hammer Bros Shrink (R1-L5 / R2-N1)
 
 `--only orphan-badges,hammer-shrink` groups the two review reproductions.
