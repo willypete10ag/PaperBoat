@@ -355,8 +355,9 @@ def run():
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
     if 'star-recovery' in phases:
         baseline = os.environ.get('STAR_RECOVERY_BASELINE') == '1'
-        enter_road_battle()
         put('gPlayerData.maxStarPower',5)
+        put('gPlayerData.starPower',5*256)
+        enter_road_battle()
         for move in ('MOVE_SMOOCH','MOVE_REFRESH'):
             cmd('call ttyd64_set_partner_hp($slicePartner,3)')
             put('gPlayerData.curHP',1)
