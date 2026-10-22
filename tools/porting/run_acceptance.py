@@ -420,6 +420,10 @@ def main():
             {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": phases},
         )
     for pid in (1,2,3):
+        add("star-recovery-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
+            {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"star-recovery",
+             "STAR_RECOVERY_BASELINE":os.environ.get("PORTING_STAR_RECOVERY_BASELINE","0")})
+    for pid in (1,2,3):
         add("partner-recovery-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"recovery"})
     for pid in (1,2,3):

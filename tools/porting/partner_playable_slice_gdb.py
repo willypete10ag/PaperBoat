@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -353,6 +353,38 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'star-recovery' in phases:
+        baseline = os.environ.get('STAR_RECOVERY_BASELINE') == '1'
+        enter_road_battle()
+        put('gPlayerData.maxStarPower',5)
+        for move in ('MOVE_SMOOCH','MOVE_REFRESH'):
+            cmd('call ttyd64_set_partner_hp($slicePartner,3)')
+            put('gPlayerData.curHP',1)
+            put('gPlayerData.curFP',1)
+            put('gPlayerData.starPower',5*256)
+            wheel('BTL_MENU_TYPE_STAR_POWERS')
+            wait('gBattleSubState == 61')
+            tick(15)
+            index = next(i for i in range(val('MovesOptionCount')) if val(f'gBattleStatus.submenuMoves[MovesOptionIndices[MovesOptionIndexMap[{i}]]]') == val(move))
+            for _ in range(12):
+                current = val('MovesCursorPos')
+                if current == index: break
+                key('w' if index < current else 's')
+            key('x')
+            wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+            check(move+'-native-team-targets',val('gBattleStatus.playerActor->targetListLength') == (1 if baseline else 2) and not val('gBattleStatus.curTargetListFlags & TARGET_FLAG_SELECT_ONE'))
+            capture(move+'-target')
+            key('x')
+            wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING',2400)
+            amount = 20 if move == 'MOVE_SMOOCH' else 5
+            check(move+'-native-partner-heal',hp() == (3 if baseline and move == 'MOVE_SMOOCH' else min(3+amount,val('ttyd64_get_partner_max_hp($slicePartner)'))))
+            check(move+'-mario-heal',val('gPlayerData.curHP') == min(1+amount,20))
+            check(move+'-native-payment-and-turn',val('gPlayerData.starPower') == 5*256-(3*256 if move == 'MOVE_SMOOCH' else 256) and val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED') and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
+            check(move+'-partner-scale-restored',all(float(gdb.parse_and_eval('gBattleStatus.partnerActor->scale.'+axis)) == 1.0 for axis in ('x','y','z')))
+            capture(move+'-recovered')
+            spend_turn()
+        team_trace.append({'event':'star-recovery-method','baseline':baseline,'setup':'Injected recruitment/rank/wounds/star power/story/map; real keyboard collision, star menu, target confirmation, native scripts/payment/turns; common startup file-select return forced. No forced RNG or guard.'})
+        flee_battle()
     if 'popup-review' in phases:
         # A controlled simultaneous team hit isolates native popup ownership.
         # Damage APIs are called only between ticks; no enemy AI/guard/RNG
