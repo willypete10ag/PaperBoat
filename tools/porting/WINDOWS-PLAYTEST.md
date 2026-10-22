@@ -36,8 +36,8 @@ unequipped; equipping both Jumpman and Hammerman locks both attack commands.
 These are deliberate developer grants, not source world distribution.
 Both profiles also start with five Star Spirit powers and five bars, including
 Refresh and Smooch, for the team recovery test. In battle, both show “Mario &
-Partner” and two pointers when a supported partner is alive. Smooch heals20HP
-up to each maximum; Refresh heals5HP/sharedFP and cures debuffs.
+Partner” and two pointers when a supported partner is alive. Smooch heals 20 HP
+up to each maximum; Refresh heals 5 HP/shared FP and cures debuffs.
 
 Goombas, Paragoombas and Spiky Goombas use TTYD64 front/back target choice with
 supported partners. Z changes the front actor; a dead partner is not an enemy

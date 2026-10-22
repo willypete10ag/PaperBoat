@@ -22,3 +22,10 @@ active script result-message IDs and original strings independently. It compares
 12 native table cells and4 result texts/resource mappings/lifecycle consumers.
 This is a narrow static consumer oracle plus separate native keyboard acceptance;
 it does not close all item mechanics/native-callsite gaps (R2-L2).
+
+The active `battle/starpower/patch/05 Smooch.bpat` and the target-list/team-label
+excerpt of `globals/patch/PartnersHP.patch` from the same eldexterr commit are
+included as source text. Hashes are in provenance.json. The star oracle parses
+source partner heal power, semantic move IDs and exact team text independently;
+native input/visual checks remain separate. Broader foods/partner-owned items
+and full choreography/campaign parity are not established by this static check.

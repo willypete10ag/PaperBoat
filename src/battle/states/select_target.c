@@ -348,6 +348,8 @@ void btl_state_draw_select_target(void) {
         && battleStatus->moveCategory == BTL_MENU_TYPE_STAR_POWERS
         && ttyd64_partner_combat_recovers_team(battleStatus->selectedMoveID);
     if (teamRecovery) {
+        // The native partner HP row ends below the original target-name Y.
+        screenY = 90;
         dx_string_to_msg(teamName, "Mario & Partner");
     }
 

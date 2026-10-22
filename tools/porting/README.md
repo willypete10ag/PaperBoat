@@ -546,3 +546,21 @@ and save/load/new-game boundaries in both modes. `HP_OWNERSHIP_BASELINE=1`
 reproduces the old getter mutation and shared-buffer aliasing; it does not claim
 a natural preview-corruption symptom. Runtime probes use getters (or raw live
 state inside stopped damage callbacks); JSON and snapshot probes remain distinct.
+
+### Shared team Star Power recovery
+
+`star-recovery-1`, `star-recovery-2` and `star-recovery-3` reuse the shared Road
+route for Goombario, Kooper and Bombette. They exercise Smooch/Refresh in both
+modes, native label draw calls, cancellation, healing/payment/turns and scale
+cleanup. Setup injects recruitment, rank, wounds, story/map and Star Power; the
+initial file-menu return is forced. Collision/menus/scripts/escape use keyboard
+input; dead/unsupported/unbound cases are target-list API/predicate probes.
+
+```bash
+bash tools/porting/run_acceptance.sh --only star-recovery-1,star-recovery-2,star-recovery-3
+```
+
+Both native developer launch profiles grant five Star Spirits/five bars for
+this test. Normal files receive no grant. A readable settled-frame check is
+separate from observing the encoded draw text; the native partner HP strip
+requires the team target-name box below its original position.
