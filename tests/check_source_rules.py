@@ -69,6 +69,29 @@ def check_item_source(source, reference, provenance):
           'Static consumer checks do not establish all native callsite or item mechanics parity.')
 
 
+def check_star_source(source, reference, provenance):
+    originals = {}
+    for name in ('Smooch.bpat', 'team-targets.patch'):
+        path = reference / ('ttyd64-b8d2058-' + name)
+        assert sha(path) == provenance[name + '_sha256'], 'Pinned star source changed'
+        originals[name] = path.read_text()
+    active = originals['Smooch.bpat']
+    amount = int(re.search(r'Call\s+\$Heal_PlayerTeam\s*\(\s*\.Actor:Partner\s+(\d+)`', active)[1])
+    native = (source / 'src/battle/move/star_power/smooch.c').read_text()
+    actual = int(re.search(r'ttyd64_partner_combat_heal\(gBattleStatus.partnerActor, (\d+)\)', native)[1])
+    assert actual == amount, 'Smooch partner power differs from active source'
+    assert 'ttyd64_partner_combat_alive()' in native and 'ttyd64_partner_status_cure_debuff' not in native
+    targets = originals['team-targets.patch']
+    text = re.search(r'#string \$String_MarioAndPartner\s*\{\s*(.*?)\[End\]', targets, re.S)[1]
+    draw = (source / 'src/battle/states/select_target.c').read_text()
+    assert f'dx_string_to_msg(teamName, "{text}")' in draw, 'Team label differs from source'
+    source_ids = {int(v,16) for v in re.findall(r'ORI\s+A[13], R0, (007[8C])', targets)}
+    enums = (source / 'include/move_enum.h').read_text()
+    native_ids = {int(re.search(r'\b'+name+r'\s*=\s*(0x[0-9A-Fa-f]+)', enums)[1],16) for name in ('MOVE_REFRESH','MOVE_SMOOCH')}
+    assert native_ids == source_ids, 'Team move identity mapping differs'
+    print('Independent active star source: Smooch partner power/living admission/no cure, two team move identities and exact label; static consumers, not gameplay.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, required=True)
@@ -141,6 +164,7 @@ def main():
     assert len(rows) == 11, 'Source partner table changed'
     assert actual['health'] == rows, 'Compiled partner HP differs from source table'
     check_item_source(source, reference, provenance)
+    check_star_source(source, reference, provenance)
     print(f'Source {provenance["ttyd64_commit"]}: {len(expected)} semantic FP/BP rows and33 HP cells match; '
           f'{len(vanilla)} Vanilla base rows preserved. Excluded IDs: '
           + ','.join(hex(index) for index in excluded))

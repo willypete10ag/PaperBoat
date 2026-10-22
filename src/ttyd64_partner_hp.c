@@ -494,6 +494,11 @@ b32 ttyd64_partner_combat_alive(void) {
         && !(DeathScriptID != 0 && does_script_exist(DeathScriptID));
 }
 
+// PartnersHP.patch: only Refresh and Smooch include a living HP partner.
+b32 ttyd64_partner_combat_recovers_team(s32 moveID) {
+    return (moveID == MOVE_REFRESH || moveID == MOVE_SMOOCH) && ttyd64_partner_combat_alive();
+}
+
 b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID) {
     if (!ttyd64_partner_combat_alive()) {
         return false;

@@ -1,3 +1,5 @@
+#include "ttyd64_partner_hp.h"
+#include "dx/utils.h"
 #include "states.h"
 #include "battle/battle.h"
 #include "battle/battle_menu.h"
@@ -340,8 +342,19 @@ void btl_state_draw_select_target(void) {
         currentPartner = PARTNER_TWINK;
     }
 
+    // PartnersHP.patch labels both pointers as one team for Refresh/Smooch.
+    u8 teamName[16];
+    b32 teamRecovery = !(battleStatus->flags1 & BS_FLAGS1_PARTNER_ACTING)
+        && battleStatus->moveCategory == BTL_MENU_TYPE_STAR_POWERS
+        && ttyd64_partner_combat_recovers_team(battleStatus->selectedMoveID);
+    if (teamRecovery) {
+        dx_string_to_msg(teamName, "Mario & Partner");
+    }
+
     // get target name width
-    if ((battleStatus->curTargetListFlags & TARGET_FLAG_SELECT_ONE) || targetListLength == 1) {
+    if (teamRecovery) {
+        nameWidth = get_msg_width((intptr_t)teamName, 0) + 10;
+    } else if ((battleStatus->curTargetListFlags & TARGET_FLAG_SELECT_ONE) || targetListLength == 1) {
         actorID = target->actorID;
         if (actorID == ACTOR_PLAYER) {
             nameWidth = get_msg_width(MSG_Menus_Battle_TargetMario, 0) + 10;
@@ -375,7 +388,9 @@ void btl_state_draw_select_target(void) {
     // draw target name text
     screenX += 4;
     screenY += 2;
-    if ((battleStatus->curTargetListFlags & TARGET_FLAG_SELECT_ONE) || targetListLength == 1) {
+    if (teamRecovery) {
+        draw_msg((intptr_t)teamName, screenX + BattleMenu_TargetNameOffsetX, screenY, 255, MSG_PAL_36, 0);
+    } else if ((battleStatus->curTargetListFlags & TARGET_FLAG_SELECT_ONE) || targetListLength == 1) {
         actorID = target->actorID;
         if (actorID == ACTOR_PLAYER) {
             draw_msg(MSG_Menus_Battle_TargetMario, screenX + BattleMenu_TargetNameOffsetX, screenY, 255, MSG_PAL_36, 0);
