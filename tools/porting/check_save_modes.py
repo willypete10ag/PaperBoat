@@ -3,7 +3,8 @@
 Restart/legacy then compare Heart Blocks with explicitly injected setup.
 
 Lifecycle uses native CLI setup, explicit harmless JSON probes/native I/O APIs,
-then injected route/1 HP/empty items with real encounter/Do Nothing/native death,
+then injected route/1 HP/empty items and native Last Stand unequip (the newer
+developer preset equips it) with real encounter/Do Nothing/native death,
 game-over/title/keyboard continue. No forced guard, RNG or reset/game-over API.
 """
 import hashlib
@@ -66,6 +67,22 @@ def observe():
                 key(('w' if selected // 2 > target // 2 else 's') if selected // 2 != target // 2
                     else ('a' if selected % 2 > target % 2 else 'd'))
             raise AssertionError('Slot navigation')
+        def continue_existing_file():
+            wait('filemenu_currentMenu == FILE_MENU_CONFIRM && filemenu_menus[1]->state == FM_CONFIRM_START')
+            wait('!(gWindows[WIN_FILES_CONFIRM_OPTIONS].flags & WINDOW_FLAG_INITIAL_ANIMATION)')
+            tick(10)
+            # Short render-pass taps can miss a native input poll. Retry only
+            # while the real confirmation panel still owns input.
+            for attempt in range(3):
+                key('space', 16)
+                if val('CurGameModeID') != val('GAME_MODE_FILE_SELECT'):
+                    break
+                assert val('filemenu_currentMenu') == val('FILE_MENU_CONFIRM')
+                print('SAVE_MODE_CONFIRM_RETRY=' + str(attempt + 1), flush=True)
+            else:
+                raise AssertionError('Start confirmation did not consume real keyboard input')
+            wait('CurGameModeID == GAME_MODE_WORLD', 1200)
+            until('state_step_world')
         def enter_files():
             for _ in range(40):
                 if val('CurGameModeID == GAME_MODE_TITLE_SCREEN'): break
@@ -117,9 +134,7 @@ def observe():
                 slot = 3 if scenario == 'restart' else 1
                 choose_slot(slot)
                 key('space')
-                wait('filemenu_currentMenu == FILE_MENU_CONFIRM')
-                key('space')
-                until('state_step_world')
+                continue_existing_file()
                 wait('!(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
                 tick(60)
                 expected = 1 if scenario == 'restart' else 0
@@ -169,7 +184,7 @@ def observe():
         legacy['ship']['ttyd64PartnerHP']['partners'][1]['curHP'] = 2
         (save.parent / 'file1.json').write_text(json.dumps(legacy))
         check('native preview keeps running mode and HP', val('fio_load_summary(1)') == 1
-              and val('ttyd64_mode_enabled()') == 1 and val('gCurrentSaveFile.shipSaveData.partnerHP[1].curHP') == 3,
+              and val('ttyd64_mode_enabled()') == 1 and val('ttyd64_get_partner_hp(1)') == 3,
               'debugger creates mode-less legacy save; calls native summary API, observes ownership')
         check('native copy succeeds', val('fio_copy_game(3, 0)') == 1, 'controlled native copy API')
         copy = json.loads((save.parent / 'file0.json').read_text())
@@ -183,7 +198,7 @@ def observe():
         check('mode-less legacy load uses Vanilla', val('fio_load_game(1)') == 1 and val('ttyd64_mode_enabled()') == 0,
               'controlled native load API after explicit missing-mode JSON setup')
         check('TTYD64 preview cannot activate a Vanilla runtime', val('fio_load_summary(3)') == 1
-              and val('ttyd64_mode_enabled()') == 0 and val('gCurrentSaveFile.shipSaveData.partnerHP[1].curHP') == 2,
+              and val('ttyd64_mode_enabled()') == 0 and val('ttyd64_get_partner_hp(1)') == 2,
               'controlled native summary API; no runtime mode/state setter')
         check('explicit file load restores TTYD64', val('fio_load_game(3)') == 1 and val('ttyd64_mode_enabled()') == 1,
               'controlled native load API')
@@ -209,6 +224,13 @@ def observe():
         for _ in range(100): until('step_game_mode')
         wait('!(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         cmd('set variable gGameStatus.debugEnemyContact = DEBUG_CONTACT_NONE')
+        # The richer PR13 preset now equips Last Stand. Its source-accurate
+        # integer division can reduce a 1-point hit to zero indefinitely;
+        # this lifecycle fixture needs a naturally lethal unguarded hit.
+        while val('is_ability_active(ABILITY_LAST_STAND)'):
+            assert val('pause_badges_try_remove(ITEM_LAST_STAND)') > 0
+        check('fatal-route-setup-unequips-Last-Stand', val('is_ability_active(ABILITY_LAST_STAND)') == 0,
+              'controlled native unequip API; ownership retained; no damage/RNG return forced')
         cmd('set variable gPlayerData.curHP = 1')
         for i in range(10): cmd(f'set variable gPlayerData.invItems[{i}] = 0')
         for _ in range(40):
@@ -234,6 +256,9 @@ def observe():
             key('x')
             wait(f'gBattleState != {state}')
             wait('gGameStatus.context != CONTEXT_BATTLE || ((gBattleState == BATTLE_STATE_PLAYER_MENU || gBattleState == BATTLE_STATE_PARTNER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING)')
+            print('SAVE_MODE_TURN=' + json.dumps({s: val(s) for s in
+                  ('gGameStatus.context', 'gBattleState', 'gBattleSubState', 'gPlayerData.curHP')}), flush=True)
+        assert val('gPlayerData.curHP') == 0, 'No natural fatal hit within four turns'
         until('state_step_game_over')
         check('native fatal attack reaches game over', val('gPlayerData.curHP') == 0,
               'keyboard Do Nothing; native enemy damage/defeat, no forced guard/RNG')
@@ -248,17 +273,15 @@ def observe():
         for _ in range(35): until('step_game_mode')
         choose_slot(3)
         key('space')
-        wait('filemenu_currentMenu == FILE_MENU_CONFIRM')
-        key('space')
-        until('state_step_world')
+        continue_existing_file()
         wait('!(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         check('native game-over/title/keyboard continue restores HP and saved mode', val('ttyd64_mode_enabled()') == 1 and
-              val('gCurrentSaveFile.shipSaveData.partnerHP[1].curHP') == 3,
+              val('ttyd64_get_partner_hp(1)') == 3,
               'real title Start, slot navigation and Start confirmation; observed')
         result['status'] = 'pass'
     except Exception as e:
         result['error'] = str(e)
-        result['state'] = {s: val(s) for s in ('gGameStatus.context', 'gBattleState', 'gBattleSubState', 'gGameStatus.startupState', 'filemenu_currentMenu')}
+        result['state'] = {s: val(s) for s in ('CurGameModeID', 'gGameStatus.context', 'gBattleState', 'gBattleSubState', 'gGameStatus.startupState', 'filemenu_currentMenu', 'D_800A0931')}
         raise
     finally:
         Path(os.environ['SAVE_MODE_PAYLOAD']).write_text(json.dumps(result, indent=2) + '\n')
@@ -311,8 +334,10 @@ def main():
                 if case == 'lifecycle': command += ['--ttyd64-playtest', str(session), str(package), str(archive), 'healing']
                 with (out / (case + '.log')).open('w') as log:
                     process = subprocess.Popen(command, cwd=package if case == 'lifecycle' else session, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-                    try: code = process.wait(timeout=360)
+                    timed_out = False
+                    try: code = process.wait(timeout=600)
                     except subprocess.TimeoutExpired:
+                        timed_out = True
                         os.killpg(process.pid, signal.SIGTERM)
                         code = process.wait(timeout=20)
                 payload = out / (case + '-checks.json')
@@ -326,6 +351,7 @@ def main():
                             rom_archive_sha256=digest(archive), port_archive_sha256=digest(package / 'paperboat.o2r'), loaded_archives=sorted(str(path) for path in loaded),
                             started_utc=started, ended_utc=utc(), command=command, exit_code=code, full_log=(out / (case + '.log')).read_text(),
                             skipped=['build performed separately', 'ROM extraction; supplied verified archive reused', 'Windows/macOS gameplay', 'unselected fixtures', 'hardware graphics/audio', 'full campaign'])
+                if timed_out: data.update(status='fail', error='External 600-second deadline', timed_out=True)
                 if code: data['status'] = 'fail'
                 (out / (case + '-result.json')).write_text(json.dumps(data, indent=2) + '\n')
                 print(case, data['status'], data.get('error', ''), flush=True)

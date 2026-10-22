@@ -12,7 +12,7 @@ void fio_serialize_state() {
 
     saveData->player = gPlayerData;
     saveData->shipSaveData.ttyd64Mode = ttyd64_mode_enabled();
-    ttyd64_partner_hp_normalize(saveData->shipSaveData.partnerHP, &saveData->player);
+    ttyd64_partner_hp_snapshot(saveData->shipSaveData.partnerHP);
 
     saveData->areaID = gGameStatus.areaID;
     saveData->mapID = gGameStatus.mapID;
@@ -54,6 +54,7 @@ void fio_deserialize_state() {
         ver_deserialize_standard(saveData);
     }
 
+    ttyd64_partner_hp_load(saveData->shipSaveData.partnerHP);
     ttyd64_normalize_badge_budget();
 
     gGameStatus.debugEnemyContact = DEBUG_CONTACT_NONE;
@@ -70,7 +71,6 @@ void ver_deserialize_standard() {
 
     // simply copy the saved player data
     gPlayerData = saveData->player;
-    ttyd64_partner_hp_normalize(saveData->shipSaveData.partnerHP, &gPlayerData);
 
     // copy saved game status fields to GameStatus
     gGameStatus.areaID = saveData->areaID;

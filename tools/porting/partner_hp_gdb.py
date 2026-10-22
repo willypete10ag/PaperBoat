@@ -49,7 +49,7 @@ def run_checks():
     command("continue")
     command("set scheduler-locking off")
     checks, json_cases, swaps = [], [], []
-    health = "gCurrentSaveFile.shipSaveData.partnerHP"
+    health = "RuntimePartnerHP"
 
     def check(name, condition):
         assert condition, name

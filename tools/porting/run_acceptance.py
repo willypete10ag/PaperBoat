@@ -350,6 +350,7 @@ def main():
         "partner-combat",
         {"GOOMBARIO_LETHAL": "0", "GOOMBARIO_VISUAL": "1"},
     )
+    add("hp-ownership", "partner_hp_ownership_gdb.py", "hp-ownership", {"HP_OWNERSHIP_BASELINE": os.environ.get("HP_OWNERSHIP_BASELINE", "0")})
     add("foundation-writer", "partner_hp_gdb.py", "partner-hp", kind="empty")
     add("foundation", "partner_hp_gdb.py", "partner-hp", {"PARTNER_HP_LOAD_ONLY": "1"}, kind="existing")
     add("healing", "partner_healing_gdb.py", "partner-healing")

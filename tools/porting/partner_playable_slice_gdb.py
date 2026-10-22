@@ -2108,7 +2108,7 @@ def run():
         for i in range(10):
             put(f'gPlayerData.invItems[{i}]',val('ITEM_LIFE_SHROOM') if i < 2 else 0)
         def model_hp():
-            return val('gCurrentSaveFile.shipSaveData.partnerHP[$slicePartner].curHP')
+            return val('RuntimePartnerHP[$slicePartner].curHP')
         def life_count():
             return sum(val(f'gPlayerData.invItems[{i}]') == val('ITEM_LIFE_SHROOM') for i in range(10))
         class TraceFinish(gdb.FinishBreakpoint):
