@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -353,6 +353,82 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'star-recovery' in phases:
+        baseline = os.environ.get('STAR_RECOVERY_BASELINE') == '1'
+        message_parts = re.search(r'#define MSG_Menus_Battle_TargetMario MESSAGE_ID\((0x[0-9A-Fa-f]+), (0x[0-9A-Fa-f]+)\)', source_path('include/message_ids.h').read_text()).groups()
+        mario_message = (int(message_parts[0],16) << 16) + int(message_parts[1],16)
+        put('gPlayerData.maxStarPower',5)
+        put('gPlayerData.starPower',5*256)
+        enter_road_battle()
+        for mode,move in ((1,'MOVE_SMOOCH'),(1,'MOVE_REFRESH'),(0,'MOVE_SMOOCH'),(0,'MOVE_REFRESH')):
+            name = str(mode)+'-'+move
+            cmd('call ttyd64_mode_select_file(1)')
+            put('gPlayerData.partners[$slicePartner].level',2)
+            cmd('call ttyd64_set_partner_hp($slicePartner,3)')
+            cmd(f'call ttyd64_mode_select_file({mode})')
+            put('gPlayerData.curHP',1)
+            put('gPlayerData.curFP',1)
+            put('gPlayerData.starPower',5*256)
+            wheel('BTL_MENU_TYPE_STAR_POWERS')
+            wait('gBattleSubState == 61')
+            tick(15)
+            index = next(i for i in range(val('MovesOptionCount')) if val(f'gBattleStatus.submenuMoves[MovesOptionIndices[MovesOptionIndexMap[{i}]]]') == val(move))
+            for _ in range(12):
+                current = val('MovesCursorPos')
+                if current == index: break
+                key('w' if index < current else 's')
+            key('x')
+            wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+            check(name+'-native-team-targets',val('gBattleStatus.playerActor->targetListLength') == (1 if baseline or mode == 0 else 2) and not val('gBattleStatus.curTargetListFlags & TARGET_FLAG_SELECT_ONE'))
+            tick(20)  # Wait for the ordinary target-name slide-in animation.
+            until('btl_state_draw_select_target')
+            until('draw_msg')
+            message = val('msgID')
+            encoded = bytes(gdb.selected_inferior().read_memory(message,16)) if message > 0xffffffff else b''
+            label = ''.join(' ' if byte == 0xf7 else chr(byte+0x20) for byte in encoded.split(b'\xfd')[0])
+            check(name+'-team-label-native-draw',message == mario_message if baseline or mode == 0 else label == 'Mario & Partner')
+            team_trace.append({'event':'team-label','move':move,'message_id_or_pointer':message,'decoded_text':label})
+            capture(name+'-target')
+            key('c')
+            wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 61')
+            check(name+'-cancel-preserves-resource-and-health',hp() == 3 and val('gPlayerData.curHP') == 1 and val('gPlayerData.starPower') == 5*256)
+            tick(15)
+            key('x')
+            wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+            key('x')
+            wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING',2400)
+            amount = 20 if move == 'MOVE_SMOOCH' else 5
+            check(name+'-native-partner-heal',hp() == (3 if mode == 0 or (baseline and move == 'MOVE_SMOOCH') else min(3+amount,val('ttyd64_get_partner_max_hp($slicePartner)'))))
+            check(name+'-mario-heal',val('gPlayerData.curHP') == min(1+amount,20))
+            check(name+'-native-payment-and-turn',val('gPlayerData.starPower') == 5*256-(3*256 if move == 'MOVE_SMOOCH' else 256) and val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED') and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
+            check(name+'-partner-scale-restored',all(float(gdb.parse_and_eval('gBattleStatus.partnerActor->scale.'+axis)) == 1.0 for axis in ('x','y','z')))
+            capture(name+'-recovered')
+            spend_turn()
+        if not baseline:
+            cmd('call ttyd64_mode_select_file(1)')
+            old_state = val('gBattleState')
+            put('gBattleState',val('BATTLE_STATE_SELECT_TARGET'))
+            for move in ('MOVE_REFRESH','MOVE_SMOOCH'):
+                put('gBattleStatus.moveCategory',val('BTL_MENU_TYPE_STAR_POWERS'))
+                put('gBattleStatus.selectedMoveID',val(move))
+                name = move
+                for boundary in ('dead','vanilla','unsupported','unbound'):
+                    cmd('call ttyd64_set_partner_hp($slicePartner,0)' if boundary == 'dead' else 'call ttyd64_set_partner_hp($slicePartner,3)')
+                    if boundary == 'vanilla': cmd('call ttyd64_mode_select_file(0)')
+                    if boundary == 'unsupported': put('gPlayerData.curPartner',val('PARTNER_PARAKARRY'))
+                    actor = val('gBattleStatus.partnerActor')
+                    if boundary == 'unbound': put('gBattleStatus.partnerActor',0)
+                    put('gBattleStatus.curTargetListFlags',val('TARGET_FLAG_PLAYER'))
+                    cmd('call create_target_list(gBattleStatus.playerActor,0)')
+                    check(name+'-'+boundary+'-no-team-admission',not val('ttyd64_partner_combat_recovers_team('+move+')') and val('gBattleStatus.playerActor->targetListLength') == 1)
+                    put('gBattleStatus.partnerActor',actor)
+                    put('gPlayerData.curPartner',partner_id)
+                    cmd('call ttyd64_mode_select_file(1)')
+            put('gBattleState',old_state)
+            cmd('call ttyd64_set_partner_hp($slicePartner,3)')
+            check('unrelated-star-power-no-team-admission',not val('ttyd64_partner_combat_recovers_team(MOVE_STAR_STORM)'))
+        team_trace.append({'event':'star-recovery-method','baseline':baseline,'boundary_method':'Injected mode/identity/null actor/HP and target-selection state for native create_target_list and predicate-only admission; no dead/unsupported native Smooch script claim.','setup':'Injected recruitment/rank/wounds/star power/story/map; real keyboard collision, star menu, target confirmation, native scripts/payment/turns; common startup file-select return forced. No forced RNG or guard.'})
+        flee_battle()
     if 'popup-review' in phases:
         # A controlled simultaneous team hit isolates native popup ownership.
         # Damage APIs are called only between ticks; no enemy AI/guard/RNG

@@ -24,6 +24,9 @@ int ttyd64_playtest_startup(void) {
     gPlayerData.curFP = gPlayerData.curMaxFP = gPlayerData.hardMaxFP = 10;
     gPlayerData.hammerLevel = 0;
     gPlayerData.hasActionCommands = true;
+    // Disposable developer files expose Refresh and Smooch for team recovery.
+    gPlayerData.maxStarPower = 5;
+    gPlayerData.starPower = 5 * SP_PER_BAR;
     gPlayerData.curPartner = PARTNER_GOOMBARIO;
     for (s32 id = PARTNER_GOOMBARIO; id <= PARTNER_BOMBETTE; ++id) {
         gPlayerData.partners[id].enabled = true;

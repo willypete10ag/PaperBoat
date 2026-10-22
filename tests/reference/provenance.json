@@ -7,5 +7,7 @@
   "paperboat_move_source_content_sha256": "3cf7995321753ae5c72e725cc7dc94511e394a4bdb829fb30307613e036b8a76",
   "Items.xml_sha256": "fb255a1c52fe100c47e07c5e4d77372d2e059885df4a3c7e229624dac5919114",
   "item-scripts.patch_sha256": "9fc01612d2b6db193b6e8e9de2a84c4dc7cb9451e94e86de0223f80569c2902e",
-  "item-messages.patch_sha256": "717c86ad8cd24d403312dafdfaba460cf7b1fd4873bf732337622268da8c7879"
+  "item-messages.patch_sha256": "717c86ad8cd24d403312dafdfaba460cf7b1fd4873bf732337622268da8c7879",
+  "Smooch.bpat_sha256": "8e778f5e34a30405c36fb8d7b9195330174852cb76ea858b54670c0597e1fdef",
+  "team-targets.patch_sha256": "c141a4add400133fffaa21b77ca45e6f4d7286b8426beaff21d319aeaefc1d26"
 }

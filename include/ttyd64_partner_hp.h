@@ -76,6 +76,7 @@ s32 ttyd64_partner_team_target(b32 back);
 // Living, bound supported partner outside an active death/revival event.
 // Recovery consumers must not depend on an unrelated item's target rules.
 b32 ttyd64_partner_combat_alive(void);
+b32 ttyd64_partner_combat_recovers_team(s32 moveID);
 
 // First ordinary healing-item consumer. Dead partners require revival, not food.
 b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID);

@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 #include "sprite/npc/BattleMisstar.h"
 #include "sprite/player.h"
@@ -27,6 +28,79 @@ Vec2i N(RecoverEffectPositions)[] = {
     { -22, -26 },
     {  10, -35 },
     {  35,   0 },
+};
+
+API_CALLABLE(N(PartnerAlive)) {
+    script->varTable[0] = ttyd64_partner_combat_alive();
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(N(RecoverPartner)) {
+    script->varTable[0] = ttyd64_partner_combat_alive();
+    if (script->varTable[0]) {
+        // Active 05 Smooch.bpat: heal living partner for twenty; no debuff cure.
+        ttyd64_partner_combat_heal(gBattleStatus.partnerActor, 20);
+    }
+    return ApiStatus_DONE2;
+}
+
+EvtScript N(EVS_ScalePartner) = {
+    Loop(2)
+        Call(SetActorScale, ACTOR_PARTNER, Float(1.0), Float(1.0), Float(1.0))
+        Wait(1)
+        Call(SetActorScale, ACTOR_PARTNER, Float(1.1), Float(1.0), Float(1.0))
+        Wait(1)
+        Call(SetActorScale, ACTOR_PARTNER, Float(1.2), Float(0.95), Float(1.0))
+        Wait(1)
+        Call(SetActorScale, ACTOR_PARTNER, Float(1.3), Float(0.9), Float(1.0))
+        Wait(1)
+        Call(SetActorScale, ACTOR_PARTNER, Float(1.35), Float(0.85), Float(1.0))
+        Wait(1)
+        Call(SetActorScale, ACTOR_PARTNER, Float(1.38), Float(0.8), Float(1.0))
+        Wait(1)
+        Call(SetActorScale, ACTOR_PARTNER, Float(1.4), Float(0.8), Float(1.0))
+        Wait(1)
+        Call(SetActorScale, ACTOR_PARTNER, Float(1.3), Float(0.85), Float(1.0))
+        Wait(1)
+        Call(SetActorScale, ACTOR_PARTNER, Float(1.2), Float(0.9), Float(1.0))
+        Wait(1)
+        Call(SetActorScale, ACTOR_PARTNER, Float(1.1), Float(0.95), Float(1.0))
+        Wait(1)
+    EndLoop
+    Call(SetActorScale, ACTOR_PARTNER, Float(1.0), Float(1.0), Float(1.0))
+    Wait(1)
+    Call(SetActorScale, ACTOR_PARTNER, Float(1.1), Float(1.0), Float(1.0))
+    Wait(1)
+    Call(SetActorScale, ACTOR_PARTNER, Float(1.2), Float(0.95), Float(1.0))
+    Wait(1)
+    Call(SetActorScale, ACTOR_PARTNER, Float(1.3), Float(0.9), Float(1.0))
+    Wait(1)
+    Call(SetActorScale, ACTOR_PARTNER, Float(1.35), Float(0.85), Float(1.0))
+    Wait(1)
+    Call(SetActorScale, ACTOR_PARTNER, Float(1.38), Float(0.8), Float(1.0))
+    Wait(1)
+    Call(SetActorScale, ACTOR_PARTNER, Float(1.4), Float(0.8), Float(1.0))
+    Wait(1)
+    Call(SetActorScale, ACTOR_PARTNER, Float(0.9), Float(1.3), Float(1.0))
+    Wait(1)
+    Call(SetActorScale, ACTOR_PARTNER, Float(0.9), Float(1.2), Float(1.0))
+    Wait(1)
+    Call(SetActorScale, ACTOR_PARTNER, Float(0.95), Float(1.1), Float(1.0))
+    Wait(1)
+    Call(SetActorScale, ACTOR_PARTNER, Float(1.0), Float(1.0), Float(1.0))
+    Wait(1)
+    Return
+    End
+};
+
+EvtScript N(EVS_PartnerJump) = {
+    Call(SetActorJumpGravity, ACTOR_PARTNER, Float(1.0))
+    Call(SetActorSpeed, ACTOR_PARTNER, Float(1.0))
+    Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+    Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+    Call(JumpToGoal, ACTOR_PARTNER, 20, false, true, false)
+    Return
+    End
 };
 
 EvtScript N(EVS_UsePower) = {
@@ -92,6 +166,10 @@ EvtScript N(EVS_UsePower) = {
         ExecWait(N(EVS_StarPower_SpiritDeparts))
     EndThread
     Thread
+        Call(N(PartnerAlive))
+        IfNe(LVar0, 0)
+            Exec(N(EVS_ScalePartner))
+        EndIf
         Loop(2)
             Call(SetActorScale, ACTOR_SELF, Float(1.0), Float(1.0), Float(1.0))
             Wait(1)
@@ -155,6 +233,16 @@ EvtScript N(EVS_UsePower) = {
     EndThread
     Call(PlayerYieldTurn)
     Call(PlaySoundAtActor, ACTOR_PLAYER, SOUND_LONG_PLAYER_JUMP)
+    Call(N(RecoverPartner))
+    IfNe(LVar0, 0)
+        Exec(N(EVS_PartnerJump))
+        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Add(LVar1, 35)
+        Call(N(SpawnRecoverFX), LVar0, LVar1, LVar2, 20)
+        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Add(LVar1, 25)
+        Call(ShowStartRecoveryShimmer, LVar0, LVar1, LVar2, 20)
+    EndIf
     Call(SetActorJumpGravity, ACTOR_PLAYER, Float(1.0))
     Call(SetActorSpeed, ACTOR_PLAYER, Float(1.0))
     Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
