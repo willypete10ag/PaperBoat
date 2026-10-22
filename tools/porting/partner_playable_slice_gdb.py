@@ -355,6 +355,8 @@ def run():
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
     if 'star-recovery' in phases:
         baseline = os.environ.get('STAR_RECOVERY_BASELINE') == '1'
+        message_parts = re.search(r'#define MSG_Menus_Battle_TargetMario MESSAGE_ID\((0x[0-9A-Fa-f]+), (0x[0-9A-Fa-f]+)\)', source_path('include/message_ids.h').read_text()).groups()
+        mario_message = (int(message_parts[0],16) << 16) + int(message_parts[1],16)
         put('gPlayerData.maxStarPower',5)
         put('gPlayerData.starPower',5*256)
         enter_road_battle()
@@ -378,12 +380,13 @@ def run():
             key('x')
             wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
             check(name+'-native-team-targets',val('gBattleStatus.playerActor->targetListLength') == (1 if baseline or mode == 0 else 2) and not val('gBattleStatus.curTargetListFlags & TARGET_FLAG_SELECT_ONE'))
+            tick(20)  # Wait for the ordinary target-name slide-in animation.
             until('btl_state_draw_select_target')
             until('draw_msg')
             message = val('msgID')
             encoded = bytes(gdb.selected_inferior().read_memory(message,16)) if message > 0xffffffff else b''
             label = ''.join(' ' if byte == 0xf7 else chr(byte+0x20) for byte in encoded.split(b'\xfd')[0])
-            check(name+'-team-label-native-draw',message == val('MSG_Menus_Battle_TargetMario') if baseline or mode == 0 else label == 'Mario & Partner')
+            check(name+'-team-label-native-draw',message == mario_message if baseline or mode == 0 else label == 'Mario & Partner')
             team_trace.append({'event':'team-label','move':move,'message_id_or_pointer':message,'decoded_text':label})
             capture(name+'-target')
             key('c')
