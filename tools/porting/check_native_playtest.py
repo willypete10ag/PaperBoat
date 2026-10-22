@@ -95,6 +95,8 @@ def observe():
               val('gGameStatus.areaID') == 0 and val('gGameStatus.mapID') == 1)
         check('native Mario stats and gear', val('gPlayerData.curHP') == 15 and val('gPlayerData.curMaxHP') == 20 and
               val('gPlayerData.curFP') == 10 and val('gPlayerData.hammerLevel') == 0 and val('gPlayerData.hasActionCommands') == 1)
+        check('native developer Refresh and Smooch grant', val('gPlayerData.maxStarPower') == 5 and
+              val('gPlayerData.starPower') == 5 * 256)
         check('native developer badge budget and owned inventory', val('gPlayerData.maxBP') == 20 and
               sum(val(f'gPlayerData.badges[{i}]') != 0 for i in range(128)) == 15)
         expected = ('ITEM_DOUBLE_DIP', 'ITEM_DOUBLE_DIP', 'ITEM_FLOWER_SAVER_A',

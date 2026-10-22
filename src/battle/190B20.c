@@ -125,11 +125,12 @@ void create_target_list(Actor* actor, b32 targetHomePos) {
         && (ttyd64_partner_combat_can_heal_with_item(battleStatus->moveArgument)
             || ttyd64_partner_status_can_target_item(battleStatus->moveArgument)
             || ttyd64_status_item_can_target_partner(battleStatus->moveArgument));
-    b32 teamRecovery = actor == playerActor
+    b32 teamRecovery = gBattleState == BATTLE_STATE_SELECT_TARGET
+        && actor == playerActor
         && !(battleStatus->flags1 & BS_FLAGS1_PARTNER_ACTING)
         && battleStatus->moveCategory == BTL_MENU_TYPE_STAR_POWERS
         && (battleStatus->curTargetListFlags & TARGET_FLAG_PLAYER)
-        && ttyd64_partner_combat_recovers_team(battleStatus->moveArgument);
+        && ttyd64_partner_combat_recovers_team(battleStatus->selectedMoveID);
     if ((battleStatus->curTargetListFlags & TARGET_FLAG_PARTNER) || healingPartner || teamRecovery) {
         if (partnerActor != nullptr) {
             targetDataList->actorID = ACTOR_PARTNER;
