@@ -564,3 +564,15 @@ Both native developer launch profiles grant five Star Spirits/five bars for
 this test. Normal files receive no grant. A readable settled-frame check is
 separate from observing the encoded draw text; the native partner HP strip
 requires the team target-name box below its original position.
+
+### Positive conventional food recovery
+
+`food-recovery-1/2/3` share one world/battle route for the supported ground group.
+Original XML supplies the 68-ID world admission matrix. Keyboard scenarios cover
+HP+FP, FP-only, caps, world zero HP/inactive/Mario/Vanilla, cancel, battle
+recipients/consumption/turn return. Dead/Vanilla/special battle boundaries are
+predicate probes. Setup and forced initial file-menu return are disclosed; no
+forced guard/RNG. `PORTING_FOOD_RECOVERY_BASELINE=1` reproduces the old missing
+world recipient and battle target on the committed pre-fix binary. The healing
+developer profile now has Fried Shroom, Honey Syrup and Maple Super, plus 3/10 FP;
+normal files receive no grants. Harmful/special/partner-owned foods remain open.

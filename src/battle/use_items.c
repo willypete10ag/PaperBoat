@@ -88,7 +88,8 @@ b32 ttyd64_item_is_recovery_food(s32 itemID) {
         return false;
     }
     ItemData* item = &gItemTable[itemID];
-    s32 flags = ITEM_TYPE_FLAG_FOOD_OR_DRINK | ITEM_TYPE_FLAG_CONSUMABLE;
+    s32 flags = ITEM_TYPE_FLAG_FOOD_OR_DRINK | ITEM_TYPE_FLAG_CONSUMABLE
+        | ITEM_TYPE_FLAG_WORLD_USABLE | ITEM_TYPE_FLAG_BATTLE_USABLE;
     if ((item->typeFlags & flags) != flags || item->potencyA < 0 || item->potencyB < 0
         || (item->potencyA == 0 && item->potencyB == 0)) {
         return false;

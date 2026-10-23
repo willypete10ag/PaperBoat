@@ -94,7 +94,7 @@ def observe():
         check('native saved TTYD64 mode enabled in Village', val('ttyd64_mode_enabled()') == 1 and
               val('gGameStatus.areaID') == 0 and val('gGameStatus.mapID') == 1)
         check('native Mario stats and gear', val('gPlayerData.curHP') == 15 and val('gPlayerData.curMaxHP') == 20 and
-              val('gPlayerData.curFP') == 10 and val('gPlayerData.hammerLevel') == 0 and val('gPlayerData.hasActionCommands') == 1)
+              val('gPlayerData.curFP') == (3 if profile == 'healing' else 10) and val('gPlayerData.hammerLevel') == 0 and val('gPlayerData.hasActionCommands') == 1)
         check('native developer Refresh and Smooch grant', val('gPlayerData.maxStarPower') == 5 and
               val('gPlayerData.starPower') == 5 * 256)
         check('native developer badge budget and owned inventory', val('gPlayerData.maxBP') == 20 and
@@ -122,6 +122,11 @@ def observe():
               'real keyboard input after native CLI setup')
         open_items()
         check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == (9 if profile == 'healing' else 10), 'real keyboard input after native CLI setup')
+        if profile == 'healing':
+            check('native healing profile positive-food stock', all(
+                sum(val(f'gPlayerData.invItems[{i}]') == val(item) for i in range(10)) == 1
+                for item in ('ITEM_FRIED_SHROOM','ITEM_HONEY_SYRUP','ITEM_MAPLE_SUPER')),
+                'native CLI startup inventory observed, no debugger item grant')
         if descriptions:
             result['description_baseline'] = baseline
             result['description_setup'] = 'native TTYD64 developer file; Vanilla comparison edits only its disposable saved mode and uses native FIO load; stock is reused, not normal Vanilla acquisition'

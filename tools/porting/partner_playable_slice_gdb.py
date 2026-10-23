@@ -355,6 +355,7 @@ def run():
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
     if 'food-recovery' in phases:
         baseline = os.environ.get('FOOD_RECOVERY_BASELINE') == '1'
+        maximum = val('ttyd64_get_partner_max_hp($slicePartner)')
         cmd('call ttyd64_mode_select_file(1)')
         put('gPlayerData.curMaxHP',20)
         put('gPlayerData.curHP',2)
@@ -362,6 +363,17 @@ def run():
         put('gPlayerData.curFP',1)
         inventory('ITEM_FRIED_SHROOM')
         check('food-world-eligibility-before-or-after',bool(val('ttyd64_world_item_can_target_partner(ITEM_FRIED_SHROOM)')) != baseline)
+        if not baseline:
+            import xml.etree.ElementTree as ET
+            special = {'VoltShroom','HustleDrink','LifeShroom','SuperSoda','ElectroPop','StrangeCake','KookyCookie','Coconut'}
+            expected_food = set()
+            for original in ET.fromstring(reference_path('globals/Items.xml').read_text()):
+                a = original.attrib; index = int(a['index'],16)
+                if 0x8a <= index <= 0xdf and int(a['typeFlags'],16) & 0x87 == 0x87 and a['name'] not in special:
+                    h, f = int(a.get('powA','0')), int(a.get('powB','0'))
+                    if h >= 0 and f >= 0 and h + f > 0: expected_food.add(index)
+            admitted = {i for i in range(0xe0) if val(f'ttyd64_world_item_can_target_partner({i})')}
+            check('food-world-independent-source-admission-matrix',len(expected_food) == 68 and admitted == expected_food)
         if baseline:
             open_items(); key('x')
             wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
@@ -372,7 +384,7 @@ def run():
             check('food-world-cancel-preserves-both-pools-and-stock',hp() == 3 and val('gPlayerData.curHP') == 2 and val('gPlayerData.curFP') == 1 and item_count() == 2)
             key('c'); wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
             cases = [('ITEM_FRIED_SHROOM',3,1,9,3),('ITEM_HONEY_SYRUP',3,1,3,6),
-                     ('ITEM_CAKE',3,1,3,16),('ITEM_MAPLE_SUPER',9,19,10,20),
+                     ('ITEM_CAKE',3,1,3,16),('ITEM_MAPLE_SUPER',9,19,min(19,maximum),20),
                      ('ITEM_HONEY_SHROOM',0,1,5,6)]
             for item,initial,fp,expected,expected_fp in cases:
                 inventory(item); cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
@@ -388,10 +400,10 @@ def run():
             inventory('ITEM_FRIED_SHROOM'); open_recipient()
             row = next(i for i in range(val('WorldPopupMenu.numEntries')) if val(f'WorldPopupMenu.userIndex[{i}]') == partner_id)
             consume(row)
-            check('food-world-inactive-recipient-cap-keeps-active-partner',hp() == 10 and val('wCurrentPartnerId') == other and val('gPlayerData.curHP') == 8 and val('gPlayerData.curFP') == 10)
+            check('food-world-inactive-recipient-cap-keeps-active-partner',hp() == min(11,maximum) and val('wCurrentPartnerId') == other and val('gPlayerData.curHP') == 8 and val('gPlayerData.curFP') == 10)
             cmd('call ttyd64_mode_select_file(0)'); inventory('ITEM_FRIED_SHROOM')
             open_items(); key('x'); wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)'); tick(30)
-            check('food-world-vanilla-direct-mario',hp() == 10 and val('gPlayerData.curHP') == 14 and val('gPlayerData.curFP') == 12 and item_count() == 1)
+            check('food-world-vanilla-direct-mario',hp() == min(11,maximum) and val('gPlayerData.curHP') == 14 and val('gPlayerData.curFP') == 12 and item_count() == 1)
         enter_road_battle()
         actor = 'gBattleStatus.playerActor'
         target = actor+'->targetData['+actor+'->targetIndexList['+actor+'->selectedTargetIndex]].actorID'
@@ -402,7 +414,7 @@ def run():
                 check('food-battle-boundary-mode-'+str(mode)+'-hp-'+str(initial),not val('ttyd64_partner_combat_can_heal_with_item(ITEM_FRIED_SHROOM)') and not val('ttyd64_partner_combat_can_heal_with_item(ITEM_HONEY_SYRUP)'))
             cmd('call ttyd64_mode_select_file(1)'); cmd('call ttyd64_set_partner_hp($slicePartner,3)')
             check('food-special-harmful-invalid-still-excluded',all(not val('ttyd64_partner_combat_can_heal_with_item('+item+')') for item in ('ITEM_LIFE_SHROOM','ITEM_STRANGE_CAKE','ITEM_ELECTRO_POP','ITEM_COUPLES_CAKE','ITEM_FIRE_POP','-1','NUM_ITEMS')))
-        for item,initial,fp,expected,expected_fp in [('ITEM_FRIED_SHROOM',3,1,9,3),('ITEM_HONEY_SYRUP',3,1,3,6),('ITEM_MAPLE_SUPER',9,19,10,20)]:
+        for item,initial,fp,expected,expected_fp in [('ITEM_FRIED_SHROOM',3,1,9,3),('ITEM_HONEY_SYRUP',3,1,3,6),('ITEM_MAPLE_SUPER',9,19,min(19,maximum),20)]:
             inventory(item); cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
             put('gPlayerData.curHP',20); put('gPlayerData.curMaxFP',20); put('gPlayerData.curFP',fp)
             wheel('BTL_MENU_TYPE_ITEMS')
