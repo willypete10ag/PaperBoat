@@ -29,7 +29,10 @@ s32 ttyd64_heal_current_partner(s32 amount);
 // World full-rest/Heart Block consumer; does not enable actor HP combat.
 void ttyd64_fully_restore_partner_hp(void);
 
-// Guarded world shroom recipients; selection lives in the native item script.
+// Positive conventional food; dispatch-aware, independent of loaded mode.
+b32 ttyd64_item_is_recovery_food(s32 itemID);
+
+// Guarded world food recipients; selection lives in the native item script.
 b32 ttyd64_world_item_can_target_partner(s32 itemID);
 b32 ttyd64_world_item_target_menu_active(void);
 s32 ttyd64_use_consumable_on_partner(s32 invSlot, s32 partnerID);
@@ -78,7 +81,7 @@ s32 ttyd64_partner_team_target(b32 back);
 b32 ttyd64_partner_combat_alive(void);
 b32 ttyd64_partner_combat_recovers_team(s32 moveID);
 
-// First ordinary healing-item consumer. Dead partners require revival, not food.
+// Ordinary healing-item consumers. Dead partners require revival, not food.
 b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID);
 s32 ttyd64_partner_combat_heal(Actor* actor, s32 amount);
 

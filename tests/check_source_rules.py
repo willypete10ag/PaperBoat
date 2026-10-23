@@ -92,6 +92,55 @@ def check_star_source(source, reference, provenance):
     print('Independent active star source: Smooch partner power/living admission/no cure, two team move identities and exact label; static consumers, not gameplay.')
 
 
+def check_food_source(source, reference, provenance):
+    originals = {}
+    for name in ('Items.xml', 'food.bpat', 'food-team.patch'):
+        path = reference / ('ttyd64-b8d2058-' + name)
+        assert sha(path) == provenance[name + '_sha256'], 'Pinned food source changed'
+        originals[name] = path.read_text()
+    # Source powers/sell prices are DECIMAL; indices and flag masks are HEX.
+    # Exclude special-script items explicitly from this conventional-food slice.
+    special = {'VoltShroom','HustleDrink','LifeShroom','SuperSoda',
+               'ElectroPop','StrangeCake','KookyCookie','Coconut'}
+    blocks = re.split(r'\{\s*//\s*0x([0-9A-Fa-f]+):[^\n]*',
+                      (source / 'src/item_data.inc.c').read_text())
+    native = {int(blocks[i],16):blocks[i+1] for i in range(1,len(blocks),2)}
+    compared = []
+    for row in ET.fromstring(originals['Items.xml']):
+        a = row.attrib
+        flags = int(a['typeFlags'],16)
+        hp, fp = int(a.get('powA','0')), int(a.get('powB','0'))
+        if flags & 0x87 != 0x87 or hp < 0 or fp < 0 or hp + fp == 0 or a['name'] in special:
+            continue
+        index = int(a['index'],16)
+        # Only original native food slots in this batch; new source-only foods
+        # need identity/assets/scripts in a later port.
+        if not 0x8a <= index <= 0xdf:
+            continue
+        assert index in native, 'Missing source food identity: ' + a['name']
+        for field,expected in [('potencyA',hp),('potencyB',fp),('sellValue',int(a['sellValue']))]:
+            actual = int(re.search(r'\.'+field+r'\s*=\s*(-?\d+)',native[index])[1])
+            assert actual == expected, a['name']+'.'+field+' differs from original food source'
+        assert 'TARGET_FLAG_PLAYER' in native[index] and 'ITEM_TYPE_FLAG_FOOD_OR_DRINK' in native[index]
+        compared.append(index)
+    assert len(compared) > 40, 'Food source coverage unexpectedly narrowed'
+    active = re.sub(r'/%.*?%/', '', originals['food.bpat'], flags=re.S)
+    active = active[active.index('#new:Script $Script_UseItem_Food'):]
+    assert re.search(r'Call\s+\$Heal_PlayerTeam\s*\(\s*\*Var7\s+\*VarB', active)
+    assert re.search(r'Call\s+\$RecoverFP\s*\(\s*\*VarC', active)
+    assert 'LB        A0, 5 (V1) % fp' in originals['food-team.patch']
+    script = (source / 'src/battle/move/item/food.c').read_text()
+    body = script[script.index('API_CALLABLE(N(RecoverPartnerFood))'):script.index('API_CALLABLE(N(HasPartnerHP))')]
+    assert 'ttyd64_partner_combat_can_heal_with_item(gBattleStatus.moveArgument)' in body
+    assert 'ttyd64_partner_combat_heal(partner, item->potencyA)' in body
+    assert 'gPlayerData.curFP + item->potencyB' in body and 'MIN(fp, gPlayerData.curMaxFP)' in body
+    partner_script = script[script.index('EvtScript N(EVS_UseOnPartner)'):script.index('EvtScript N(EVS_UseItem)')]
+    assert 'Call(N(RecoverPartnerFood))' in partner_script and 'Call(N(HasPartnerHP))' in partner_script
+    for path in ('src/world_use_item.c','src/ttyd64_partner_hp.c'):
+        assert 'return ttyd64_item_is_recovery_food(itemID);' in (source / path).read_text()
+    print(f'Independent conventional food source: {len(compared)} identities /{3*len(compared)} HP-FP-price cells; active selected-HP/shared-FP source and native consumer wiring. Static checks, not gameplay or special/partner-owned food parity.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, required=True)
@@ -165,6 +214,7 @@ def main():
     assert actual['health'] == rows, 'Compiled partner HP differs from source table'
     check_item_source(source, reference, provenance)
     check_star_source(source, reference, provenance)
+    check_food_source(source, reference, provenance)
     print(f'Source {provenance["ttyd64_commit"]}: {len(expected)} semantic FP/BP rows and33 HP cells match; '
           f'{len(vanilla)} Vanilla base rows preserved. Excluded IDs: '
           + ','.join(hex(index) for index in excluded))

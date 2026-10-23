@@ -60,6 +60,9 @@ int ttyd64_playtest_startup(void) {
         add_item(ITEM_SUPER_SHROOM);
         add_item(ITEM_LIFE_SHROOM);
         add_item(ITEM_LIFE_SHROOM);
+        add_item(ITEM_FRIED_SHROOM);
+        add_item(ITEM_HONEY_SYRUP);
+        add_item(ITEM_MAPLE_SUPER);
     } else {
         add_item(ITEM_COURAGE_SHELL);
         add_item(ITEM_POWER_PUNCH);

@@ -401,7 +401,7 @@ def run():
                 cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
                 check('food-battle-boundary-mode-'+str(mode)+'-hp-'+str(initial),not val('ttyd64_partner_combat_can_heal_with_item(ITEM_FRIED_SHROOM)') and not val('ttyd64_partner_combat_can_heal_with_item(ITEM_HONEY_SYRUP)'))
             cmd('call ttyd64_mode_select_file(1)'); cmd('call ttyd64_set_partner_hp($slicePartner,3)')
-            check('food-special-harmful-invalid-still-excluded',all(not val('ttyd64_partner_combat_can_heal_with_item('+item+')') for item in ('ITEM_LIFE_SHROOM','ITEM_STRANGE_CAKE','ITEM_ELECTRO_POP','ITEM_COUPLES_CAKE','ITEM_MISTAKE','-1','NUM_ITEMS')))
+            check('food-special-harmful-invalid-still-excluded',all(not val('ttyd64_partner_combat_can_heal_with_item('+item+')') for item in ('ITEM_LIFE_SHROOM','ITEM_STRANGE_CAKE','ITEM_ELECTRO_POP','ITEM_COUPLES_CAKE','ITEM_FIRE_POP','-1','NUM_ITEMS')))
         for item,initial,fp,expected,expected_fp in [('ITEM_FRIED_SHROOM',3,1,9,3),('ITEM_HONEY_SYRUP',3,1,3,6),('ITEM_MAPLE_SUPER',9,19,10,20)]:
             inventory(item); cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
             put('gPlayerData.curHP',20); put('gPlayerData.curMaxFP',20); put('gPlayerData.curFP',fp)

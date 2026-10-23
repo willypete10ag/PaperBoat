@@ -121,7 +121,7 @@ def observe():
         check('keyboard moves Mario', float(gdb.parse_and_eval('gPlayerStatus.pos.x')) > old_x,
               'real keyboard input after native CLI setup')
         open_items()
-        check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == (6 if profile == 'healing' else 10), 'real keyboard input after native CLI setup')
+        check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == (9 if profile == 'healing' else 10), 'real keyboard input after native CLI setup')
         if descriptions:
             result['description_baseline'] = baseline
             result['description_setup'] = 'native TTYD64 developer file; Vanilla comparison edits only its disposable saved mode and uses native FIO load; stock is reused, not normal Vanilla acquisition'

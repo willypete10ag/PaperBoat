@@ -1,6 +1,7 @@
 #include "common.h"
 #include "ld_addrs.h"
 #include "battle/battle.h"
+#include "ttyd64_partner_hp.h"
 
 extern EvtScript battle_item_food_EVS_UseItem;
 extern EvtScript battle_item_mushroom_EVS_UseItem;
@@ -78,6 +79,28 @@ s32 ItemKeys[] = {
     ITEM_METEOR_MEAL,
     ITEM_NONE
 };
+
+// Positive conventional food only. Use the real dispatch keys so special
+// scripts (Life Shroom, Electro Pop, regeneration, etc.) retain their own rules.
+// Callers supply world/mode or living-bound-battle eligibility separately.
+b32 ttyd64_item_is_recovery_food(s32 itemID) {
+    if (itemID <= ITEM_NONE || itemID >= NUM_ITEMS) {
+        return false;
+    }
+    ItemData* item = &gItemTable[itemID];
+    s32 flags = ITEM_TYPE_FLAG_FOOD_OR_DRINK | ITEM_TYPE_FLAG_CONSUMABLE;
+    if ((item->typeFlags & flags) != flags || item->potencyA < 0 || item->potencyB < 0
+        || (item->potencyA == 0 && item->potencyB == 0)) {
+        return false;
+    }
+    for (s32 i = 1; ItemKeys[i] != ITEM_NONE; ++i) {
+        if (ItemKeys[i] == itemID) {
+            return itemID == ITEM_MUSHROOM || itemID == ITEM_SUPER_SHROOM
+                || itemID == ITEM_ULTRA_SHROOM || itemID == ITEM_DRIED_SHROOM;
+        }
+    }
+    return true;
+}
 
 BattleMoveEntry gBattleItemTable[] = {
     BTL_ITEM(food),

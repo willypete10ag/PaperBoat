@@ -9,5 +9,17 @@
   "item-scripts.patch_sha256": "9fc01612d2b6db193b6e8e9de2a84c4dc7cb9451e94e86de0223f80569c2902e",
   "item-messages.patch_sha256": "717c86ad8cd24d403312dafdfaba460cf7b1fd4873bf732337622268da8c7879",
   "Smooch.bpat_sha256": "8e778f5e34a30405c36fb8d7b9195330174852cb76ea858b54670c0597e1fdef",
-  "team-targets.patch_sha256": "c141a4add400133fffaa21b77ca45e6f4d7286b8426beaff21d319aeaefc1d26"
+  "team-targets.patch_sha256": "c141a4add400133fffaa21b77ca45e6f4d7286b8426beaff21d319aeaefc1d26",
+  "food.bpat_sha256": "33838ee554d53d5385d61462bc332a4c75b136a8a1eab05d03d0cf77a4fd2d3e",
+  "food.bpat_original": {
+    "path": "battle/item/patch/Item_Food.bpat",
+    "sha256": "33838ee554d53d5385d61462bc332a4c75b136a8a1eab05d03d0cf77a4fd2d3e",
+    "excerpt": false
+  },
+  "food-team.patch_sha256": "8bdfe21aa741ea46cf6ed6e5c9f3d2ec6b9a24dc892d0bd16c46f52c931147eb",
+  "food-team.patch_original": {
+    "path": "globals/patch/PartnersItems.patch",
+    "sha256": "0385959ef70d205f67e64a55bd0cc0bb9e08285d4e81eb8c3809b007c57ccf55",
+    "excerpt": true
+  }
 }

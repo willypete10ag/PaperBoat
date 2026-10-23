@@ -3,6 +3,7 @@
 #include "effects.h"
 #include "entity.h"
 #include "sprite/player.h"
+#include "ttyd64_partner_hp.h"
 
 #define NAMESPACE battle_item_food
 
@@ -45,6 +46,29 @@ API_CALLABLE(N(func_802A12EC_7333BC)) {
         partner->disableEffect->data.disableX->koDuration = 0;
     }
 
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(N(RecoverPartnerFood)) {
+    Actor* partner = gBattleStatus.partnerActor;
+    if (ttyd64_partner_combat_can_heal_with_item(gBattleStatus.moveArgument)) {
+        // Item_Food.bpat: selected team member owns HP; FP is shared.
+        ItemData* item = &gItemTable[gBattleStatus.moveArgument];
+        if (item->potencyA > 0) {
+            ttyd64_partner_combat_heal(partner, item->potencyA);
+            fx_recover(0, partner->curPos.x, partner->curPos.y + 35, partner->curPos.z, item->potencyA);
+        }
+        if (item->potencyB > 0) {
+            s32 fp = gPlayerData.curFP + item->potencyB;
+            gPlayerData.curFP = MIN(fp, gPlayerData.curMaxFP);
+            fx_recover(1, partner->curPos.x + 20, partner->curPos.y + 25, partner->curPos.z, item->potencyB);
+        }
+    }
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(N(HasPartnerHP)) {
+    script->varTable[0] = ttyd64_partner_combat_active(gBattleStatus.partnerActor);
     return ApiStatus_DONE2;
 }
 
@@ -156,8 +180,13 @@ EvtScript N(EVS_UseOnPartner) = {
     Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
     Add(LVar1, 25)
     Call(ShowStartRecoveryShimmer, LVar0, LVar1, LVar2, LVarB)
-    IfGt(LVarB, 0)
-        Call(N(func_802A12EC_7333BC), LVarB)
+    Call(N(HasPartnerHP))
+    IfEq(LVar0, true)
+        Call(N(RecoverPartnerFood))
+    Else
+        IfGt(LVarB, 0)
+            Call(N(func_802A12EC_7333BC), LVarB)
+        EndIf
     EndIf
     Wait(30)
     Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
