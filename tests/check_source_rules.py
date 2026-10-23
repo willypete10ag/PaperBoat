@@ -141,6 +141,40 @@ def check_food_source(source, reference, provenance):
     print(f'Independent conventional food source: {len(compared)} identities /{3*len(compared)} HP-FP-price cells; active selected-HP/shared-FP source and native consumer wiring. Static checks, not gameplay or special/partner-owned food parity.')
 
 
+
+def check_electric_source(source, reference, provenance):
+    items = {row.attrib['name']:row.attrib for row in ET.fromstring(
+        (reference / 'ttyd64-b8d2058-Items.xml').read_text())}
+    blocks = re.split(r'\{\s*//\s*0x([0-9A-Fa-f]+):[^\n]*',
+                      (source / 'src/item_data.inc.c').read_text())
+    native = {int(blocks[i],16):blocks[i+1] for i in range(1,len(blocks),2)}
+    for name, filename in [('VoltShroom','volt_shroom.c'),('ElectroPop','electro_pop.c')]:
+        key = 'electric-'+name+'.patch'
+        path = reference / ('ttyd64-b8d2058-'+key)
+        assert sha(path) == provenance[key+'_sha256'], 'Pinned electric source changed'
+        active = path.read_text()
+        assert re.search(r'Call\s+GetOwnerTarget\s*\(\s*\*Var4', active)
+        assert re.search(r'Call\s+\$Function_InflictStatus\s*\(\s*\*Var4\s+\.Status:Static\s+\*Var0', active)
+        assert re.search(r'Call\s+GetItemPower\s*\(\s*\.Item:VoltShroom\s+\*Var0', active)
+        row = items[name]
+        for field, key in [('potencyA','powA'),('potencyB','powB')]:
+            actual = int(re.search(r'\.'+field+r'\s*=\s*(-?\d+)',native[int(row['index'],16)])[1])
+            assert actual == int(row.get(key,'0')), name+'.'+field+' differs from original source'
+        script = (source / 'src/battle/move/item' / filename).read_text()
+        assert 'Call(N(GetElectricTarget))' in script and 'Call(N(InflictElectric))' in script
+        assert 'Call(GetItemPower, ITEM_VOLT_SHROOM, LVar0, LVar1)' in script
+        assert 'Call(GetActorPos, ACTOR_PLAYER,' not in script
+        if name == 'ElectroPop':
+            assert 'LB        V0, 1C (A2)' in active and 'Call  $Function_HealFP' in active
+            assert 'IfEq(LVar9, ACTOR_PLAYER)' in script
+            assert script.count('Call(N(AddFP), LVar3)') == 1
+    helper = (source / 'src/battle/common/move/ElectricItem.inc.c').read_text()
+    assert 'owner->targetActorID == ACTOR_PARTNER' in helper
+    assert 'ttyd64_partner_status_can_target_item(gBattleStatus.moveArgument)' in helper
+    assert 'inflict_status(target, STATUS_KEY_STATIC, script->varTable[0])' in helper
+    print('Independent electric source:2 identities /4 power cells, active selected-actor Static and shared-FP consumers; static wiring, not gameplay/world/partner-owned parity.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, required=True)
@@ -215,6 +249,7 @@ def main():
     check_item_source(source, reference, provenance)
     check_star_source(source, reference, provenance)
     check_food_source(source, reference, provenance)
+    check_electric_source(source, reference, provenance)
     print(f'Source {provenance["ttyd64_commit"]}: {len(expected)} semantic FP/BP rows and33 HP cells match; '
           f'{len(vanilla)} Vanilla base rows preserved. Excluded IDs: '
           + ','.join(hex(index) for index in excluded))

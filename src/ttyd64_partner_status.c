@@ -53,9 +53,10 @@ static void dismiss_ice(Actor* actor) {
     }
 }
 
-// Tasty Tonic / Super Soda / Refresh clear debuffs, not beneficial statuses.
+// Recovery drinks and electric foods share living-partner target admission.
 b32 ttyd64_partner_status_can_target_item(s32 itemID) {
-    return (itemID == ITEM_TASTY_TONIC || itemID == ITEM_SUPER_SODA)
+    return (itemID == ITEM_TASTY_TONIC || itemID == ITEM_SUPER_SODA
+        || itemID == ITEM_VOLT_SHROOM || itemID == ITEM_ELECTRO_POP)
         && ttyd64_partner_combat_alive();
 }
 

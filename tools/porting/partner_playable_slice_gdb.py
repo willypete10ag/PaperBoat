@@ -363,18 +363,65 @@ def run():
         enter_road_battle()
         actor = 'gBattleStatus.playerActor'
         target = actor+'->targetData['+actor+'->targetIndexList['+actor+'->selectedTargetIndex]].actorID'
-        for item,fp in [('ITEM_VOLT_SHROOM',1),('ITEM_ELECTRO_POP',1)]:
+        if not baseline:
+            for mode,initial in ((0,3),(1,0)):
+                cmd(f'call ttyd64_mode_select_file({mode})')
+                cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
+                check('electric-admission-mode-'+str(mode)+'-hp-'+str(initial),all(not val('ttyd64_partner_status_can_target_item('+item+')') for item in ('ITEM_VOLT_SHROOM','ITEM_ELECTRO_POP')))
+            cmd('call ttyd64_mode_select_file(1)'); cmd('call ttyd64_set_partner_hp($slicePartner,3)')
+            saved_partner = val('gPlayerData.curPartner'); put('gPlayerData.curPartner',4)
+            check('electric-unsupported-binding-excluded',not val('ttyd64_partner_status_can_target_item(ITEM_VOLT_SHROOM)'))
+            put('gPlayerData.curPartner',saved_partner)
+        cases = [('ITEM_VOLT_SHROOM',1,True,1),('ITEM_ELECTRO_POP',1,True,1)]
+        if not baseline:
+            cases += [('ITEM_ELECTRO_POP',1,True,19),('ITEM_VOLT_SHROOM',1,False,1),
+                      ('ITEM_ELECTRO_POP',1,False,1),('ITEM_VOLT_SHROOM',0,False,1),('ITEM_ELECTRO_POP',0,False,1)]
+        for case,(item,mode,partner,fp) in enumerate(cases):
+            label = str(case)+'-'+item
+            if not baseline:
+                cmd('call ttyd64_mode_select_file(1)')
+                cmd('call ttyd64_partner_status_clear(gBattleStatus.partnerActor)')
+                cmd('call ttyd64_set_partner_hp($slicePartner,3)')
+                for field in ('staticStatus','staticDuration','statusAfflicted'):
+                    put(actor+'->'+field,0)
+                cmd('call remove_status_static(gBattleStatus.playerActor->hudElementDataIndex)')
+                if case == 1: cmd('call inflict_status(gBattleStatus.partnerActor, STATUS_KEY_POISON, 3)')
+                for i in range(24):
+                    if val(f'gBattleStatus.enemyActors[{i}]'): put(f'gBattleStatus.enemyActors[{i}]->curHP',99)
+                cmd(f'call ttyd64_mode_select_file({mode})')
             inventory(item)
-            put('gPlayerData.curMaxFP',20); put('gPlayerData.curFP',fp)
+            put('gPlayerData.curHP',20); put('gPlayerData.curMaxFP',20); put('gPlayerData.curFP',fp)
             wheel('BTL_MENU_TYPE_ITEMS')
             wait('gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
             key('x'); wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
-            check(item+'-recipient-list',val(actor+'->targetListLength') == (1 if baseline else 2))
-            key('c'); wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING')
-            key('c'); wait('gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
+            check(label+'-recipient-list',val(actor+'->targetListLength') == (1 if baseline or mode == 0 else 2))
+            if baseline:
+                key('c'); wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING')
+                key('c'); wait('gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
+                continue
+            selected_actor = val('ACTOR_PARTNER' if partner else 'ACTOR_PLAYER')
+            if val(target) != selected_actor: key('d' if partner else 'a')
+            check(label+'-keyboard-recipient',val(target) == selected_actor)
+            if case == 0:
+                key('c'); wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING')
+                check('electric-cancel-preserves-hp-fp-stock-turn',hp() == 3 and val('gPlayerData.curFP') == fp and item_count() == 2 and not val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED'))
+                key('x'); wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+                if val(target) != selected_actor: key('d')
+            key('x')
+            wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+            recipient = 'gBattleStatus.partnerActor' if partner else actor
+            other = actor if partner else 'gBattleStatus.partnerActor'
+            expected_fp = min(20,fp + (15 if item == 'ITEM_ELECTRO_POP' else 0))
+            check(label+'-selected-static-four-shared-fp-once-no-hp',val(recipient+'->staticStatus') == val('STATUS_KEY_STATIC') and val(recipient+'->staticDuration') == 4 and val(other+'->staticDuration') == 0 and hp() == 3 and val('gPlayerData.curHP') == 20 and val('gPlayerData.curFP') == expected_fp and item_count() == 1)
+            check(label+'-mario-turn-only',bool(val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')) and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
+            if case == 1:
+                check('electric-beneficial-status-does-not-cure-poison',val('gBattleStatus.partnerActor->debuff') == val('STATUS_KEY_POISON') and val('gBattleStatus.partnerActor->debuffDuration') == 3)
+                capture('electric-native-partner-static-and-poison')
+            spend_turn()
+        cmd('call ttyd64_mode_select_file(1)')
         flee_battle(3)
         check('electric-native-world-return',val('gGameStatusPtr->context') == val('CONTEXT_WORLD'))
-        team_trace.append({'event':'electric-method','baseline':baseline,'method':'Injected saved mode/recruitment/rank/stock/map/story/HP/FP; real keyboard collision, item menus, target lists, cancel and escape; common initial filemenu_update return forced; no guard or RNG forced. No electric item consumption in baseline.'})
+        team_trace.append({'event':'electric-method','baseline':baseline,'method':'Injected saved mode/recruitment/rank/stock/map/story/HP/FP; fixed cases also clear statuses, inject one poison and restore enemy HP to retain encounter. Real keyboard collision/item target/cancel/native scripts/turn/escape. Common initial filemenu_update return forced; no guard or RNG forced. Dead/Vanilla/unsupported admission probes are injected predicates. Baseline only lists/cancels, no electric consumption. Fixed seven consumptions: partner Volt/Electro, partner Electro FP cap, Mario Volt/Electro, Vanilla Mario Volt/Electro. Not world or partner-owned use.'})
     if 'food-recovery' in phases:
         baseline = os.environ.get('FOOD_RECOVERY_BASELINE') == '1'
         item_extent = re.search(r'#define NUM_ITEMS\s+(\d+)', source_path('include/item_enum.h').read_text())[1]
