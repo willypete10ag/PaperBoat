@@ -204,9 +204,14 @@ def run():
         key('x')
         menu_ready(3)
     def consume(row):
-        for _ in range(row):
-            key('s')
-        assert val('PopupMenu_SelectedIndex') == row
+        # Observe the native cursor after each tap; render/input cadence may
+        # drop a short tap or repeat one. Never force the popup selection.
+        for _ in range(12):
+            current = val('PopupMenu_SelectedIndex')
+            if current == row:
+                break
+            key('s' if current < row else 'w')
+        assert val('PopupMenu_SelectedIndex') == row, f'recipient cursor {val("PopupMenu_SelectedIndex")} != {row}'
         key('x')
         wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         tick(30)
