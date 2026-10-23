@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -77,7 +77,7 @@ def run():
                  'heart_id':val('Ttyd64PausePartnerHeartHID'),'world_owner':val('WorldPartnerID'),
                  'battle_state':val('gBattleState'),'battle_substate':val('gBattleSubState'),
                  'encounter_state':val('gEncounterState'),'combat_partner':val('gPlayerData.curPartner'),'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK'))}
-        if ({'statuses','recovery'} & set(phases)) and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
+        if ({'statuses','recovery','electric-foods'} & set(phases)) and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
             state['partner_status'] = {name:val('gBattleStatus.partnerActor->'+name) for name in ('debuff','debuffDuration','staticStatus','staticDuration','transparentStatus','transparentDuration','stoneStatus','stoneDuration','koStatus','koDuration')}
             state['partner_status']['pillar_owned'] = bool(val('gBattleStatus.partnerActor->icePillarEffect'))
             state['partner_status']['turn_used'] = bool(val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
@@ -358,6 +358,23 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'electric-foods' in phases:
+        baseline = os.environ.get('ELECTRIC_FOODS_BASELINE') == '1'
+        enter_road_battle()
+        actor = 'gBattleStatus.playerActor'
+        target = actor+'->targetData['+actor+'->targetIndexList['+actor+'->selectedTargetIndex]].actorID'
+        for item,fp in [('ITEM_VOLT_SHROOM',1),('ITEM_ELECTRO_POP',1)]:
+            inventory(item)
+            put('gPlayerData.curMaxFP',20); put('gPlayerData.curFP',fp)
+            wheel('BTL_MENU_TYPE_ITEMS')
+            wait('gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            key('x'); wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+            check(item+'-recipient-list',val(actor+'->targetListLength') == (1 if baseline else 2))
+            key('c'); wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING')
+            key('c'); wait('gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
+        flee_battle(3)
+        check('electric-native-world-return',val('gGameStatusPtr->context') == val('CONTEXT_WORLD'))
+        team_trace.append({'event':'electric-method','baseline':baseline,'method':'Injected saved mode/recruitment/rank/stock/map/story/HP/FP; real keyboard collision, item menus, target lists, cancel and escape; common initial filemenu_update return forced; no guard or RNG forced. No electric item consumption in baseline.'})
     if 'food-recovery' in phases:
         baseline = os.environ.get('FOOD_RECOVERY_BASELINE') == '1'
         item_extent = re.search(r'#define NUM_ITEMS\s+(\d+)', source_path('include/item_enum.h').read_text())[1]
