@@ -503,14 +503,7 @@ b32 ttyd64_partner_combat_can_heal_with_item(s32 itemID) {
     if (!ttyd64_partner_combat_alive()) {
         return false;
     }
-    switch (itemID) {
-        case ITEM_MUSHROOM:
-        case ITEM_SUPER_SHROOM:
-        case ITEM_ULTRA_SHROOM:
-        case ITEM_DRIED_SHROOM:
-            return true;
-    }
-    return false;
+    return ttyd64_item_is_recovery_food(itemID);
 }
 
 s32 ttyd64_partner_combat_heal(Actor* actor, s32 amount) {

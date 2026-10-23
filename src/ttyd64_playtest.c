@@ -21,7 +21,8 @@ int ttyd64_playtest_startup(void) {
     evt_set_variable(nullptr, GF_Tutorial_SwapTurnOrder, true);
     gPlayerData.curHP = 15;
     gPlayerData.curMaxHP = gPlayerData.hardMaxHP = 20;
-    gPlayerData.curFP = gPlayerData.curMaxFP = gPlayerData.hardMaxFP = 10;
+    gPlayerData.curFP = profile == 1 ? 3 : 10;
+    gPlayerData.curMaxFP = gPlayerData.hardMaxFP = 10;
     gPlayerData.hammerLevel = 0;
     gPlayerData.hasActionCommands = true;
     // Disposable developer files expose Refresh and Smooch for team recovery.
@@ -60,6 +61,9 @@ int ttyd64_playtest_startup(void) {
         add_item(ITEM_SUPER_SHROOM);
         add_item(ITEM_LIFE_SHROOM);
         add_item(ITEM_LIFE_SHROOM);
+        add_item(ITEM_FRIED_SHROOM);
+        add_item(ITEM_HONEY_SYRUP);
+        add_item(ITEM_MAPLE_SUPER);
     } else {
         add_item(ITEM_COURAGE_SHELL);
         add_item(ITEM_POWER_PUNCH);

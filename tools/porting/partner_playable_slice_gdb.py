@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -204,9 +204,14 @@ def run():
         key('x')
         menu_ready(3)
     def consume(row):
-        for _ in range(row):
-            key('s')
-        assert val('PopupMenu_SelectedIndex') == row
+        # Observe the native cursor after each tap; render/input cadence may
+        # drop a short tap or repeat one. Never force the popup selection.
+        for _ in range(12):
+            current = val('PopupMenu_SelectedIndex')
+            if current == row:
+                break
+            key('s' if current < row else 'w')
+        assert val('PopupMenu_SelectedIndex') == row, f'recipient cursor {val("PopupMenu_SelectedIndex")} != {row}'
         key('x')
         wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         tick(30)
@@ -353,6 +358,95 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'food-recovery' in phases:
+        baseline = os.environ.get('FOOD_RECOVERY_BASELINE') == '1'
+        item_extent = re.search(r'#define NUM_ITEMS\s+(\d+)', source_path('include/item_enum.h').read_text())[1]
+        maximum = val('ttyd64_get_partner_max_hp($slicePartner)')
+        cmd('call ttyd64_mode_select_file(1)')
+        put('gPlayerData.curMaxHP',20)
+        put('gPlayerData.curHP',2)
+        put('gPlayerData.curMaxFP',20)
+        put('gPlayerData.curFP',1)
+        inventory('ITEM_FRIED_SHROOM')
+        check('food-world-eligibility-before-or-after',bool(val('ttyd64_world_item_can_target_partner(ITEM_FRIED_SHROOM)')) != baseline)
+        if not baseline:
+            import xml.etree.ElementTree as ET
+            special = {'VoltShroom','HustleDrink','LifeShroom','SuperSoda','ElectroPop','StrangeCake','KookyCookie','Coconut'}
+            expected_food = set()
+            for source_row in ET.fromstring(reference_path('globals/Items.xml').read_text()):
+                a = source_row.attrib; index = int(a['index'],16)
+                if 0x8a <= index <= 0xdf and int(a['typeFlags'],16) & 0x87 == 0x87 and a['name'] not in special:
+                    h, f = int(a.get('powA','0')), int(a.get('powB','0'))
+                    if h >= 0 and f >= 0 and h + f > 0: expected_food.add(index)
+            admitted = {i for i in range(0xe0) if val(f'ttyd64_world_item_can_target_partner({i})')}
+            check('food-world-independent-source-admission-matrix',len(expected_food) == 68 and admitted == expected_food)
+        if baseline:
+            open_items(); key('x')
+            wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+            tick(30)
+            check('food-before-world-skips-recipient-and-feeds-mario',hp() == 3 and val('gPlayerData.curHP') == 8 and val('gPlayerData.curFP') == 3 and item_count() == 1)
+        else:
+            open_recipient(); key('c'); menu_ready(1)
+            check('food-world-cancel-preserves-both-pools-and-stock',hp() == 3 and val('gPlayerData.curHP') == 2 and val('gPlayerData.curFP') == 1 and item_count() == 2)
+            key('c'); wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+            cases = [('ITEM_FRIED_SHROOM',3,1,9,3),('ITEM_HONEY_SYRUP',3,1,3,6),
+                     ('ITEM_CAKE',3,1,3,16),('ITEM_MAPLE_SUPER',9,19,min(19,maximum),20),
+                     ('ITEM_HONEY_SHROOM',0,1,5,6)]
+            for item,initial,fp,expected,expected_fp in cases:
+                inventory(item); cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
+                put('gPlayerData.curFP',fp)
+                open_recipient()
+                row = next(i for i in range(val('WorldPopupMenu.numEntries')) if val(f'WorldPopupMenu.userIndex[{i}]') == partner_id)
+                consume(row)
+                check('food-world-'+item.lower()+'-recipient-hp-shared-fp-once',hp() == expected and val('gPlayerData.curHP') == 2 and val('gPlayerData.curFP') == expected_fp and item_count() == 1 and val('gPlayerStatus.inputDisabledCount') == 0 and val('gPartnerStatus.inputDisabledCount') == 0)
+            inventory('ITEM_FRIED_SHROOM'); open_recipient(); consume(0)
+            check('food-world-mario-keeps-native-both-pools',hp() == 5 and val('gPlayerData.curHP') == 8 and val('gPlayerData.curFP') == 8 and item_count() == 1)
+            other = 2 if partner_id == 1 else 1
+            cmd(f'call switch_to_partner({other})'); tick(100)
+            inventory('ITEM_FRIED_SHROOM'); open_recipient()
+            row = next(i for i in range(val('WorldPopupMenu.numEntries')) if val(f'WorldPopupMenu.userIndex[{i}]') == partner_id)
+            consume(row)
+            check('food-world-inactive-recipient-cap-keeps-active-partner',hp() == min(11,maximum) and val('wCurrentPartnerId') == other and val('gPlayerData.curHP') == 8 and val('gPlayerData.curFP') == 10)
+            cmd('call ttyd64_mode_select_file(0)'); inventory('ITEM_FRIED_SHROOM')
+            open_items(); key('x'); wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)'); tick(30)
+            check('food-world-vanilla-direct-mario',hp() == min(11,maximum) and val('gPlayerData.curHP') == 14 and val('gPlayerData.curFP') == 12 and item_count() == 1)
+        enter_road_battle()
+        actor = 'gBattleStatus.playerActor'
+        target = actor+'->targetData['+actor+'->targetIndexList['+actor+'->selectedTargetIndex]].actorID'
+        if not baseline:
+            for mode,initial in ((0,3),(1,0)):
+                cmd(f'call ttyd64_mode_select_file({mode})')
+                cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
+                check('food-battle-boundary-mode-'+str(mode)+'-hp-'+str(initial),not val('ttyd64_partner_combat_can_heal_with_item(ITEM_FRIED_SHROOM)') and not val('ttyd64_partner_combat_can_heal_with_item(ITEM_HONEY_SYRUP)'))
+            cmd('call ttyd64_mode_select_file(1)'); cmd('call ttyd64_set_partner_hp($slicePartner,3)')
+            check('food-special-harmful-invalid-still-excluded',all(not val('ttyd64_partner_combat_can_heal_with_item('+item+')') for item in ('ITEM_LIFE_SHROOM','ITEM_STRANGE_CAKE','ITEM_ELECTRO_POP','ITEM_COUPLES_CAKE','ITEM_FIRE_POP','-1',item_extent)))
+        for item,initial,fp,expected,expected_fp in [('ITEM_FRIED_SHROOM',3,1,9,3),('ITEM_HONEY_SYRUP',3,1,3,6),('ITEM_MAPLE_SUPER',9,19,min(19,maximum),20)]:
+            inventory(item); cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
+            put('gPlayerData.curHP',20); put('gPlayerData.curMaxFP',20); put('gPlayerData.curFP',fp)
+            wheel('BTL_MENU_TYPE_ITEMS')
+            wait('gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            key('x'); wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+            check('food-battle-'+item.lower()+'-target-list',val(actor+'->targetListLength') == (1 if baseline else 2))
+            if baseline:
+                key('c'); wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING')
+                key('c'); wait('gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
+                break
+            if val(target) != val('ACTOR_PARTNER'): key('d')
+            check('food-battle-'+item.lower()+'-keyboard-partner',val(target) == val('ACTOR_PARTNER'))
+            if item == 'ITEM_FRIED_SHROOM':
+                key('c'); wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING')
+                check('food-battle-cancel-preserves-stock-hp-fp-turn',item_count() == 2 and hp() == initial and val('gPlayerData.curFP') == fp and not val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED'))
+                key('x'); wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+                if val(target) != val('ACTOR_PARTNER'): key('d')
+            key('x')
+            wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+            check('food-battle-'+item.lower()+'-hp-shared-fp-once',hp() == expected and val('gPlayerData.curHP') == 20 and val('gPlayerData.curFP') == expected_fp and item_count() == 1)
+            check('food-battle-'+item.lower()+'-mario-turn-only',bool(val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED')) and not val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
+            if item == 'ITEM_FRIED_SHROOM': capture('food-native-partner-recovered')
+            spend_turn()
+        flee_battle(3)
+        check('food-native-world-return',val('gGameStatusPtr->context') == val('CONTEXT_WORLD'))
+        team_trace.append({'event':'food-method','baseline':baseline,'method':'Injected saved mode/recruitment/rank/wounds/inventory/map/story/HP/FP; actual keyboard world menus/cancel/recipient/native consumption and battle collision/item selection/target/cancel/native script/turn/flee. Dead/Vanilla/special boundary checks are injected predicate checks only. Initial filemenu_update return forced. No guard or RNG forced. Only listed positive generic food cases, not partner-owned/harmful/special/enemy scripts.'})
     if 'star-recovery' in phases:
         baseline = os.environ.get('STAR_RECOVERY_BASELINE') == '1'
         message_parts = re.search(r'#define MSG_Menus_Battle_TargetMario MESSAGE_ID\((0x[0-9A-Fa-f]+), (0x[0-9A-Fa-f]+)\)', source_path('include/message_ids.h').read_text()).groups()

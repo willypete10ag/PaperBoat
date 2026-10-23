@@ -40,7 +40,7 @@ report; startup verification is not complete playthrough acceptance.
 | Native battle turn/position switch | Z |
 
 Start in Goomba Village with Mario at 15/20 HP, Goombario at 3/10 HP, normal-rank
-boots/hammer, action commands unlocked, three Mushrooms, one Super Shroom and two
+boots/hammer, action commands unlocked, Fried Shroom, Honey Syrup, Maple Super, three Mushrooms, one Super Shroom and two
 Life Shrooms. Only Goombario is recruited and no badges are equipped. Progression
 is controlled setup, not a campaign progression validation.
 

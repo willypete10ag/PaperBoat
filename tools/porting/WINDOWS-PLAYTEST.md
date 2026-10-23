@@ -1,3 +1,24 @@
+# Focused positive-food recipient check (PR22)
+
+Use the green PR22 package linked by the coordination Windows brief. Launch
+`.\Play-TTYD64.cmd -Profile healing`. This deliberate new session starts with
+wounded ground partners, 3/10 FP and Fried Shroom, Honey Syrup and Maple Super
+alongside the prior healing inventory. Normal saves receive no grants.
+
+1. In the world, open items (Left arrow), choose Fried Shroom and cancel the
+   recipient menu once. Stock and HP/FP should stay unchanged. Reopen and choose
+   Goombario: he recovers6 HP (3→9), shared FP recovers2 (3→5), Mario HP stays15.
+2. Start a fresh healing session and enter a Road battle. On Mario's Items menu,
+   select Fried Shroom and choose the partner. Watch HP/shared FP recovery and
+   normal menu return. On a later Mario turn use Honey Syrup on the living
+   partner: shared FP recovers5 up to10, without restoring partner HP. Maple
+   Super restores10 HP and10 shared FP up to the respective maximums.
+
+Actual starting HP may include enemy damage. An optional Kooper/Bombette check
+covers their rendering. Report partner/item, HP/FP before/after and any stuck
+animation or input. No full, Life Shroom, save/continue or Star Power repeat is
+requested. Harmful/special/partner-owned item use remains outside this slice.
+
 # Windows TTYD64 partner playtest
 
 > **Policy supersession:** prior off/unsaved/reset activation policy below is superseded by [ADR 0007](https://github.com/willypete10ag/ttyd64-port/blob/main/docs/decisions/0007-per-save-ttyd64-mode.md). Historical code/results keep their original scope. This branch implements per-save mode; use the milestone PR for current acceptance/CI status.
@@ -48,7 +69,8 @@ and partners, Z position changes and ordinary Road damage/death/Life Shroom.
 Observe badge copy rows, costs and effects; report which partner, item/badges
 and action were involved. Pity Flower is random, and Last Stand needs low HP.
 Try world healing and a Save Block with the alternate **healing** inventory
-(three Mushrooms, a Super Shroom and two Life Shrooms):
+(three Mushrooms, a Super Shroom, two Life Shrooms, Fried Shroom, Honey Syrup
+and Maple Super; 3/10 starting FP):
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Play-TTYD64.ps1 -Profile healing

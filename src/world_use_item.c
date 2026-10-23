@@ -12,14 +12,7 @@ b32 ttyd64_world_item_can_target_partner(s32 itemID) {
         || !ttyd64_has_hp_partner()) {
         return false;
     }
-    switch (itemID) {
-        case ITEM_MUSHROOM:
-        case ITEM_SUPER_SHROOM:
-        case ITEM_ULTRA_SHROOM:
-        case ITEM_DRIED_SHROOM:
-            return true;
-    }
-    return false;
+    return ttyd64_item_is_recovery_food(itemID);
 }
 
 API_CALLABLE(WorldItem_GetHPRecipientPos) {

@@ -29,3 +29,11 @@ included as source text. Hashes are in provenance.json. The star oracle parses
 source partner heal power, semantic move IDs and exact team text independently;
 native input/visual checks remain separate. Broader foods/partner-owned items
 and full choreography/campaign parity are not established by this static check.
+
+Conventional positive food recovery additionally compares original decimal HP/FP/
+price fields across positive world/battle food identities, excluding named special
+scripts. Original Item_Food.bpat and the active Heal_PlayerTeam/RecoverFP excerpt
+from PartnersItems.patch are pinned with full-original/excerpt hashes. The oracle
+checks selected-recipient HP/shared FP and native wiring; native input tests are
+separate. Harmful foods, partner-owned items and full source choreography remain
+open. Vanilla table powers are preserved, not replaced with modified globals.

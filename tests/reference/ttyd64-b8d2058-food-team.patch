@@ -1,0 +1,234 @@
+% Call $Heal_PlayerTeam ( ActorID amount )
+#new:Function $Heal_PlayerTeam
+{
+    PUSH    RA, A0, A1, A2, A3, V1, S0, S1, S2
+    COPY    S2, A0
+    LW	    A1, 0 (S0)
+    JAL     ~Func:get_variable
+    ADDIU	S0, S0, 4
+    COPY    S1, V0 % push arg0 in S1
+    % Arg0 = .Actor:Self ?
+    ADDIU	V0, R0, FF81
+    BNE	    S1, V0, .NotSelf
+    NOP
+    LW	    S1, 0148 (S2) % load actual actorID
+    .NotSelf
+    LW	    A1, 0 (S0)
+    ADDIU	S0, S0, 4
+    JAL     ~Func:get_variable
+    COPY    A0, S2
+    COPY    S0, V0
+    % S1 = ActorID
+    % S0 = Amount to Heal
+    BNE     S1, R0, .HealPartner
+    NOP
+    .HealMario
+    LIO     T0, 8010F292
+    LBU     T1, 0 (T0) % load current hp
+    BEQ     R0, R0, .HealActor
+    LBU     T2, 1 (T0) % load max hp
+    .HealPartner
+    LUI     T0, 8011
+    LABU    T1, 8010F2A2 % Current Partner
+    ORI     T2, R0, 1 % Goombario
+    BEQL    T1, T2, .LoadPartnerHPData
+    ADDIU   T0, T0, F2B1
+    ORI     T2, R0, 2 % Kooper
+    BEQL    T1, T2, .LoadPartnerHPData
+    ADDIU   T0, T0, F2B9
+    ORI     T2, R0, 3 % Bombette
+    BEQL    T1, T2, .LoadPartnerHPData
+    ADDIU   T0, T0, F2C1
+    ORI     T2, R0, 4 % Parakarry
+    BEQL    T1, T2, .LoadPartnerHPData
+    ADDIU   T0, T0, F2C9
+    ORI     T2, R0, 6 % Watt
+    BEQL    T1, T2, .LoadPartnerHPData
+    ADDIU   T0, T0, F2D9
+    ORI     T2, R0, 7 % Sushie
+    BEQL    T1, T2, .LoadPartnerHPData
+    ADDIU   T0, T0, F2E1
+    ORI     T2, R0, 8 % Lakilester
+    BEQL    T1, T2, .LoadPartnerHPData
+    ADDIU   T0, T0, F2E9
+    ORI     T2, R0, 9 % Bow
+    BEQL    T1, T2, .LoadPartnerHPData
+    ADDIU   T0, T0, F2F1
+    .LoadPartnerHPData
+    LBU     T1, 0 (T0) % load current hp
+    LBU     T2, 1 (T0) % load max hp
+    .HealActor
+    ADD     T1, T1, S0
+    % check if HP is below zero
+    BLTZL   T1, .SetHP
+    CLEAR   T0
+    % check max HP cap
+    SLTU    T3, T1, T2
+    BEQL    T3, R0, .SetHP
+    COPY    T1, T2 % if the new amount is >= to max HP just set the HP as Max HP
+    .SetHP
+    SB      T1, 0 (T0) % save new HP
+    POP     RA, A0, A1, A2, A3, V1, S0, S1, S2
+    JR      RA
+    ORI     V0, R0, 2
+}
+
+% Call $HealActor ( ActorID Amount )
+%
+% Why not using vanilla's HealActor?
+%
+% That one already have a heart pop up and a sparkles
+% dispatcher integrated, using that one will cause some
+% problems with the items scripts.
+#new:Function:Battle $HealActor
+{
+    PUSH    RA, A0, A1, A2, A3, V1, S0, S1, S2
+    COPY    S2, A0
+    LW	    A1, 0 (S0)
+    JAL     ~Func:get_variable
+    ADDIU	S0, S0, 4
+    COPY    S1, V0 % push arg0 in S1
+    % Arg0 = .Actor:Self ?
+    ADDIU	V0, R0, FF81
+    BNE	    S1, V0, .NotSelf
+    NOP
+    LW	    S1, 0148 (S2) % load actual actorID
+    .NotSelf
+    LW	    A1, 0 (S0)
+    ADDIU	S0, S0, 4
+    JAL     ~Func:get_variable
+    COPY    A0, S2
+    COPY    S0, V0
+    % S1 = ActorID
+    % S0 = Amount to Heal
+    JAL     ~Func:get_actor % get actor pointer
+    COPY    A0, S1
+    LBU     T1, 1B8 (V0) % load current hp % ActorData(0x1B8) = HP
+    LBU     T2, 1B9 (V0) % load max hp % ActorData(0x1B9) = Max HP
+    .HealActor
+    ADD     T1, T1, S0
+    % check if HP is below zero
+    BLTZL   T1, .SetHP
+    CLEAR   T1
+    % check max HP cap
+    SLTU    T3, T1, T2
+    BEQL    T3, R0, .SetHP
+    COPY    T1, T2 % if the new amount is >= to max HP just set the HP as Max HP
+    .SetHP
+    SB      T1, 1B8 (V0) % save new HP
+    POP     RA, A0, A1, A2, A3, V1, S0, S1, S2
+    JR      RA
+    ORI     V0, R0, 2
+}
+
+% `A0=actorID`
+%
+% `A1=amountToHeal`
+%
+%
+% This function heals any kind of actors.
+%
+% Returns a bool if was possible or not. (Neccesary for partners)
+#export:Function:Battle $heal_actor
+{
+    PUSH    RA, A0, A1, A2, A3, V1, S0, S1
+    COPY    S1, A0
+    COPY    S0, A1
+    % S1 = ActorID
+    % S0 = Amount to Heal
+    %
+    % Actor is an enemy?
+    SLTIU   A0, S1, 200 % .Actor:Enemy0
+    BEQ     A0, R0, .GetActor
+    NOP
+    % Actor is player?
+    BNE     S1, R0, .GetPartnerHP
+    NOP
+    % actor is player
+    LIO     A2, 8010F290 % playerStatus
+    LBU     A0, 2 (A2) % playerHP
+    BEQ     R0, R0, .HealActor
+    LBU     A1, 3 (A2) % playerMaxHP
+    .GetPartnerHP
+    JAL     $GetPartnerHP
+    NOP
+    BLTZL   V0, .End
+    CLEAR   V0
+    COPY    A0, V0
+    JAL     $GetPartnerMaxHP
+    NOP
+    BEQ     R0, R0, .HealActor
+    COPY    A1, V0
+    .GetActor
+    JAL     ~Func:get_actor % get actor pointer
+    COPY    A0, S1
+    LBU     A0, 1B8 (V0) % load current hp % ActorData(0x1B8) = HP
+    LBU     A1, 1B9 (V0) % load max hp % ActorData(0x1B9) = Max HP
+    .HealActor
+    ADD     A0, A0, S0
+    % check if HP is below zero
+    BLTZL   A0, .SetHP
+    CLEAR   A0
+    % check max HP cap
+    SLTU    A2, A0, A1
+    BEQL    A2, R0, .SetHP
+    COPY    A0, A1 % if the new amount is >= to max HP just set the HP as Max HP
+    .SetHP
+    % check type of actor
+    %
+    % Actor is an enemy?
+    SLTIU   A1, S1, 200 % .Actor:Enemy0
+    BEQ     A1, R0, .SetHP_Enemy
+    NOP
+    % Actor is partner?
+    BNE     S1, R0, .SetHP_Partner
+    NOP
+    .SetHP_Player
+    SAB     A0, 8010F292 % playerHP
+    BEQ     R0, R0, .SetBool
+    RESERVED
+    % actor is player
+    .SetHP_Enemy
+    BEQ     R0, R0, .SetBool
+    SB      A0, 1B8 (V0) % save new HP
+    .SetHP_Partner
+    JAL     $SetPartnerHP
+    NOP
+    .SetBool
+    ORI     V0, R0, 1
+    .End
+    POP     RA, A0, A1, A2, A3, V1, S0, S1
+    JR      RA
+    NOP
+}
+
+% Call  $RecoverFP    ( amount )
+#export:Function $RecoverFP
+{
+    0:  ADDIU     SP, SP, FFE8
+    4:  SW        RA, 14 (SP)
+    8:  SW        S0, 10 (SP)
+    C:  LW        V0, C (A0)
+   10:  JAL       ~Func:get_variable
+   14:  LW        A1, 0 (V0)
+   18:  LA        V1, 8010F290
+   20:  LB        A0, 5 (V1) % fp
+   24:  LB        A1, 6 (V1) % fpMax
+   28:  ADDU      A0, A0, V0
+        COPY      S0, V1
+        % Check if FP is below 0
+        BLTZL     A0 .o3C
+        CLEAR     A0
+   2C:  SLT       V0, A1, A0 % check FP cap
+   30:  BEQ       V0, R0, .o3C
+        NOP
+   38:  COPY      A0, A1
+        .o3C
+   3C:  SB        A0, 5 (S0)
+   40:  LW        RA, 14 (SP)
+   44:  LW        S0, 10 (SP)
+   48:  LI        V0, 2
+   4C:  JR        RA
+   50:  ADDIU     SP, SP, 18
+}
+
