@@ -81,6 +81,9 @@ def run():
             state['partner_status'] = {name:val('gBattleStatus.partnerActor->'+name) for name in ('debuff','debuffDuration','staticStatus','staticDuration','transparentStatus','transparentDuration','stoneStatus','stoneDuration','koStatus','koDuration')}
             state['partner_status']['pillar_owned'] = bool(val('gBattleStatus.partnerActor->icePillarEffect'))
             state['partner_status']['turn_used'] = bool(val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
+        if 'electric-foods' in phases and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE'):
+            state['electric'] = {field:val('gBattleStatus.playerActor->'+field) for field in ('staticStatus','staticDuration')}
+            state['electric'].update(fp=val('gPlayerData.curFP'),player_hp=val('gPlayerData.curHP'),target_flags=val('gBattleStatus.curTargetListFlags'),target_count=val('gBattleStatus.playerActor->targetListLength'),selected_index=val('gBattleStatus.playerActor->selectedTargetIndex'))
         if 'regeneration' in phases and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE'):
             state['regeneration'] = {axis:{field:val(f'PartnerModifiers[$slicePartner].{axis}.{field}') for field in ('amount','turns')} for axis in ('hpRegen','fpRegen')}
             state['regeneration']['player_hp'] = val('gPlayerData.curHP')

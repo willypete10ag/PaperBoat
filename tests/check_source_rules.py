@@ -168,6 +168,11 @@ def check_electric_source(source, reference, provenance):
             assert 'LB        V0, 1C (A2)' in active and 'Call  $Function_HealFP' in active
             assert 'IfEq(LVar9, ACTOR_PLAYER)' in script
             assert script.count('Call(N(AddFP), LVar3)') == 1
+    targets = (reference / 'ttyd64-b8d2058-team-targets.patch').read_text()
+    assert 'ORI     T1, T1, 0001' in targets
+    native_targets = (source / 'src/battle/190B20.c').read_text()
+    assert 'if (healingPartner && battleStatus->moveArgument == ITEM_VOLT_SHROOM)' in native_targets
+    assert 'battleStatus->curTargetListFlags |= TARGET_FLAG_SELECT_ONE;' in native_targets
     helper = (source / 'src/battle/common/move/ElectricItem.inc.c').read_text()
     assert 'owner->targetActorID == ACTOR_PARTNER' in helper
     assert 'ttyd64_partner_status_can_target_item(gBattleStatus.moveArgument)' in helper
