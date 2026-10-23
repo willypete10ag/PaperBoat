@@ -368,8 +368,8 @@ def run():
             import xml.etree.ElementTree as ET
             special = {'VoltShroom','HustleDrink','LifeShroom','SuperSoda','ElectroPop','StrangeCake','KookyCookie','Coconut'}
             expected_food = set()
-            for original in ET.fromstring(reference_path('globals/Items.xml').read_text()):
-                a = original.attrib; index = int(a['index'],16)
+            for source_row in ET.fromstring(reference_path('globals/Items.xml').read_text()):
+                a = source_row.attrib; index = int(a['index'],16)
                 if 0x8a <= index <= 0xdf and int(a['typeFlags'],16) & 0x87 == 0x87 and a['name'] not in special:
                     h, f = int(a.get('powA','0')), int(a.get('powB','0'))
                     if h >= 0 and f >= 0 and h + f > 0: expected_food.add(index)
