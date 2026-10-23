@@ -68,3 +68,11 @@ Vanilla/save ABI and exact-head gate remain authoritative; see coordination
 WORKING/NEXT_CHAT for original runtime identities and final status. The owner
 confirmed an existing partner Life Shroom test and cleared continuation; do not
 request a repeat merely for this batch. No exact human build receipt was supplied.
+
+R1-L2/R2-L2 partial PR22 adds conventional positive food recipients, selected
+partner HP/shared FP and dispatch-aware special exclusions. Original source
+oracle covers68 food identities/204 decimal HP-FP-price cells. The healing-only
+developer profile adds three foods and starts3/10 FP; normal files receive no
+grants. Native source choreography/harmful/special/partner-owned item expansion
+remain open. See coordination NEXT_CHAT/current handoff for original actual
+run identities, failed macro-observation attempt and exact-head CI evidence.

@@ -190,7 +190,12 @@ def observe():
         key('Right')
         wait('WorldMenuState == 3 && WorldMenuType == 0 && gPopupState == POPUP_STATE_CHOOSING')
         check('keyboard partner menu lists three', val('WorldPopupMenu.numEntries') == 3, 'real keyboard input after native CLI setup')
-        key('s')
+        wait('gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+        for _ in range(4):
+            if val('WorldPopupMenu.userIndex[PopupMenu_SelectedIndex]') == val('PARTNER_KOOPER'):
+                break
+            key('s')
+        assert val('WorldPopupMenu.userIndex[PopupMenu_SelectedIndex]') == val('PARTNER_KOOPER')
         key('x')
         neutral()
         wait('wCurrentPartnerId == PARTNER_KOOPER')
