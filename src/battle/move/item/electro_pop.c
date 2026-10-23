@@ -8,14 +8,7 @@
 
 #include "battle/common/move/ItemRefund.inc.c"
 
-API_CALLABLE(N(func_802A123C_7307DC)) {
-    BattleStatus* battleStatus = &gBattleStatus;
-    Actor* player = battleStatus->playerActor;
-
-    inflict_status(player, STATUS_KEY_STATIC, script->varTable[0]);
-    player->statusAfflicted = 0;
-    return ApiStatus_DONE2;
-}
+#include "battle/common/move/ElectricItem.inc.c"
 
 API_CALLABLE(N(SpawnHeartRecoveryFX)) {
     Bytecode* args = script->ptrReadPos;
@@ -98,33 +91,40 @@ EvtScript N(EVS_UseItem) = {
     SetConst(LVarA, ITEM_ELECTRO_POP)
     ExecWait(N(UseItemWithEffect))
     ExecWait(N(EatItem))
-    Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+    Call(N(GetElectricTarget))
+    Call(GetActorPos, LVar9, LVar0, LVar1, LVar2)
     Add(LVar1, 20)
     PlayEffect(EFFECT_SNAKING_STATIC, 0, LVar0, LVar1, LVar2, Float(1.0), 30, 0)
     Call(PlaySound, SOUND_VOLT_SHROOM_APPLY)
     Call(GetItemPower, ITEM_VOLT_SHROOM, LVar0, LVar1)
-    Call(N(func_802A123C_7307DC))
+    Call(N(InflictElectric))
     Wait(40)
     Call(N(func_802A14F0_730A90))
-    Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+    Call(GetActorPos, LVar9, LVar0, LVar1, LVar2)
     Add(LVar0, 20)
     Add(LVar1, 25)
     Call(N(SpawnFlowerRecoveryFX), LVar0, LVar1, LVar2, LVar3)
-    Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+    Call(GetActorPos, LVar9, LVar0, LVar1, LVar2)
     Add(LVar1, 25)
     Call(ShowStartRecoveryShimmer, LVar0, LVar1, LVar2, LVar3)
 #if !VERSION_PAL
     Call(N(AddFP), LVar3)
 #endif
     Wait(10)
-    Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_ThumbsUp)
+    IfEq(LVar9, ACTOR_PLAYER)
+        Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_ThumbsUp)
+    EndIf
     Wait(30)
-    Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+    Call(GetActorPos, LVar9, LVar0, LVar1, LVar2)
     Call(ShowRecoveryShimmer, LVar0, LVar1, LVar2, LVar3)
-    Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_Idle)
-    Wait(20)
-    Call(ShowMessageBox, BTL_MSG_PLAYER_CHARGED, 60)
-    Call(WaitForMessageBoxDone)
+    IfEq(LVar9, ACTOR_PLAYER)
+        Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_Idle)
+        Wait(20)
+        Call(ShowMessageBox, BTL_MSG_PLAYER_CHARGED, 60)
+        Call(WaitForMessageBoxDone)
+    Else
+        Wait(30)
+    EndIf
     ExecWait(N(PlayerGoHome))
     Return
     End

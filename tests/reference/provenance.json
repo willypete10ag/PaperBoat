@@ -21,5 +21,17 @@
     "path": "globals/patch/PartnersItems.patch",
     "sha256": "0385959ef70d205f67e64a55bd0cc0bb9e08285d4e81eb8c3809b007c57ccf55",
     "excerpt": true
+  },
+  "electric-VoltShroom.patch_sha256": "628ee2547fc3c9c6cd51ecf5b479f17f9de36bef7998db93676422105bb3ba38",
+  "electric-VoltShroom.patch_original": {
+    "path": "battle/item/patch/Item_VoltShroom.bpat",
+    "sha256": "7849476bb7d9a2ddb4eb94dbce2ac6547339bbf66101a8121ea2e1a3d10da0a8",
+    "excerpt": true
+  },
+  "electric-ElectroPop.patch_sha256": "6094b7ba42d36524adbe57bc99a477be2643b5c42d1aecf52f689cb690f1ca8b",
+  "electric-ElectroPop.patch_original": {
+    "path": "battle/item/patch/Item_ElectroPop.bpat",
+    "sha256": "711e709b1355c1be60bb1b92588a08bcf544549552cdb866bd72715ec08608fa",
+    "excerpt": true
   }
 }

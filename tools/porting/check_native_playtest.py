@@ -121,11 +121,11 @@ def observe():
         check('keyboard moves Mario', float(gdb.parse_and_eval('gPlayerStatus.pos.x')) > old_x,
               'real keyboard input after native CLI setup')
         open_items()
-        check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == (9 if profile == 'healing' else 10), 'real keyboard input after native CLI setup')
+        check('keyboard inventory opens', val('WorldPopupMenu.numEntries') == 10, 'real keyboard input after native CLI setup')
         if profile == 'healing':
             check('native healing profile positive-food stock', all(
                 sum(val(f'gPlayerData.invItems[{i}]') == val(item) for i in range(10)) == 1
-                for item in ('ITEM_FRIED_SHROOM','ITEM_HONEY_SYRUP','ITEM_MAPLE_SUPER')),
+                for item in ('ITEM_FRIED_SHROOM','ITEM_HONEY_SYRUP','ITEM_MAPLE_SUPER','ITEM_VOLT_SHROOM','ITEM_ELECTRO_POP')),
                 'native CLI startup inventory observed, no debugger item grant')
         if descriptions:
             result['description_baseline'] = baseline

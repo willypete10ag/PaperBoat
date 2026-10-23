@@ -1,0 +1,35 @@
+#new:Script $Script_UseItem_VoltShroom
+{
+        SetConst  *VarA  .Item:VoltShroom
+        ExecWait  $BattleScript_ShowItemEntity
+        ExecWait  $BattleScript_EatItem
+        Call  GetOwnerID ( *Var0 )
+        If *Var0 < .Actor:Enemy0 % Only player team
+            Call  InitTargetIterator
+        EndIf
+        Call  GetOwnerTarget ( *Var4 .False )
+        Switch *Var4
+            Case == .Actor:Player
+                Call  SetAnimation  ( .Actor:Player 00000000 00010002 )
+            Case == .Actor:Partner
+                Set   *Var0 0 % idle
+                Exec  $SetPartnerAnimation_Battle
+            Default
+        EndSwitch        
+   40:  Call  GetActorPos   ( *Var4 *Var0 *Var1 *Var2 )
+   5C:  Set   *Var3  00000014
+   6C:  Call  MultiplyByActorScale  ( *Var3 )
+   7C:  Add   *Var1  *Var3
+   8C:  SetF  *Var3  *Fixed[1.0]
+   9C:  Call  MultiplyByActorScale  ( *Var3 )
+   AC:  Call  PlayEffect    ( ~FX:SnakingStatic *Var0 *Var1 *Var2 *Var3 0000001E 00000000 00000000 00000000 00000000 00000000 00000000 00000000 )
+   F0:  Call  PlaySound     ( 00000379 )
+  100:  Call  GetItemPower  ( .Item:VoltShroom *Var0 *Var1 )
+        Call  $Function_InflictStatus ( *Var4 .Status:Static *Var0 )
+        Wait  20`
+        Call  ShowMessageBox        ( 00000010 0000003C )
+        Call  WaitForMessageBoxDone
+        ExecWait  $BattleScript_GoBackToHome_HealingItem
+  15C:  Return
+  164:  End
+}

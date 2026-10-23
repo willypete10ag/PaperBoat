@@ -1,0 +1,97 @@
+#new:Function $Function_ElectroPop_Heal % Function_802A14F0
+{
+    0:  LA        A2, 80089260
+    8:  LA        A1, 8010F290
+   10:  LBU       V0, 5 (A1)
+   14:  LBU       V1, 1B (A2)
+   18:  ADDU      V0, V0, V1
+   1C:  SB        V0, 5 (A1)
+   20:  SLL       V0, V0, 18
+   24:  LB        V1, 6 (A1)
+   28:  SRA       V0, V0, 18
+   2C:  SLT       V1, V1, V0
+   30:  LBU       V0, 6 (A1)
+   34:  BNEL      V1, R0, .o3C
+   38:  SB        V0, 5 (A1)
+        .o3C
+   3C:  LB        V0, 1C (A2)
+   40:  SW        V0, 90 (A0)
+   44:  JR        RA
+   48:  LI        V0, 2
+}
+
+#new:Script $Script_UseItem_ElectroPop
+{
+        SetConst  *VarA  .Item:ElectroPop
+        ExecWait  $BattleScript_ShowItemEntity
+        ExecWait  $BattleScript_EatItem
+        Call  GetOwnerID ( *Var0 )
+        If *Var0 < .Actor:Enemy0 % Only player team
+            Call  InitTargetIterator
+        EndIf
+        Call  GetOwnerTarget ( *Var4 .False )
+        Call  GetOwnerID ( *Var0 ) % The actor didn't used the item on himself?
+        If *Var4 != *Var0
+            Call  UseIdleAnimation  ( *Var4 .False )
+        EndIf
+   28:  Call  GetActorPos   ( *Var4 *Var0 *Var1 *Var2 )
+   44:  Add   *Var1  00000014
+   54:  Call  PlayEffect    ( ~FX:SnakingStatic *Var0 *Var1 *Var2 *Fixed[1.0] 0000001E 00000000 00000000 00000000 00000000 00000000 00000000 00000000 )
+   98:  Call  PlaySound     ( 00000379 )
+   A8:  Call  GetItemPower  ( .Item:VoltShroom *Var0 *Var1 )
+        Call  $Function_InflictStatus ( *Var4 .Status:Static *Var0 )
+   CC:  Wait  40`
+        Call  GetOwnerID ( *Var5 )
+        If *Var5 < .Actor:Enemy0 % Only player team
+            Call  $Function_ElectroPop_Heal
+        Else % Enemy team
+            Call  $Function_ElectroPop_Heal_Enemies
+        EndIf
+   E4:  Call  GetActorPos   ( *Var4 *Var0 *Var1 *Var2 )
+  100:  Add   *Var0  00000014
+  110:  Add   *Var1  00000019
+  120:  Call  $Function_ShowFlyingFlower    ( *Var0 *Var1 *Var2 *Var3 )
+  13C:  Call  GetActorPos   ( *Var4 *Var0 *Var1 *Var2 )
+  158:  Add   *Var1  00000019
+  168:  Call  802D7520      ( *Var0 *Var1 *Var2 *Var3 )
+        Call  GetOwnerID ( *Var0 )
+        If *Var0 < .Actor:Enemy0 % Only player team
+            Call  $Function_HealFP    ( *Var3 )
+        EndIf
+  194:  Wait  10`
+        % check if target is KO'd
+        Call GetStatusFlags ( *Var4 *Var0 )
+        If  *Var0  !&  ~Flags:StatusFlags:Sleep|Frozen|Fear|Paralyze|Dizzy|Stone|Stop % 35D000
+            Switch *Var4
+                    Case == .Actor:Player
+                        Call  SetAnimation  ( .Actor:Player 00000000 .PlayerAnim:ThumbsUp )
+                    Case == .Actor:Partner
+                        Set   *Var0 5 % happy
+                        Exec  $SetPartnerAnimation_Battle
+                    Default
+            EndSwitch
+        EndIf
+  1B8:  Wait  30`
+  1C4:  Call  GetActorPos   ( *Var4 *Var0 *Var1 *Var2 )
+  1E0:  Call  802D75D8      ( *Var0 *Var1 *Var2 *Var3 )
+        % check if target is KO'd
+        Call GetStatusFlags ( *Var4 *Var0 )
+        If  *Var0  !&  ~Flags:StatusFlags:Sleep|Frozen|Fear|Paralyze|Dizzy|Stone|Stop % 35D000
+            Switch *Var4
+                Case == .Actor:Player
+                    Call  SetAnimation  ( .Actor:Player 00000000 00010002 )
+                    Wait  20`
+                    Call  ShowMessageBox        ( 00000010 0000003C )
+                    Call  WaitForMessageBoxDone
+                Case == .Actor:Partner
+                    Set   *Var0 0 % idle
+                    Exec  $SetPartnerAnimation_Battle
+                    Wait  30`
+                Default
+                    Wait  30`
+            EndSwitch
+        EndIf
+        ExecWait  $BattleScript_GoBackToHome_HealingItem
+  24C:  Return
+  254:  End
+}
