@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special', 'roulette-foods'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special', 'roulette-foods'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -77,11 +77,11 @@ def run():
                  'heart_id':val('Ttyd64PausePartnerHeartHID'),'world_owner':val('WorldPartnerID'),
                  'battle_state':val('gBattleState'),'battle_substate':val('gBattleSubState'),
                  'encounter_state':val('gEncounterState'),'combat_partner':val('gPlayerData.curPartner'),'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK'))}
-        if ({'statuses','recovery','electric-foods'} & set(phases)) and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
+        if ({'statuses','recovery','electric-foods','roulette-foods'} & set(phases)) and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
             state['partner_status'] = {name:val('gBattleStatus.partnerActor->'+name) for name in ('debuff','debuffDuration','staticStatus','staticDuration','transparentStatus','transparentDuration','stoneStatus','stoneDuration','koStatus','koDuration')}
             state['partner_status']['pillar_owned'] = bool(val('gBattleStatus.partnerActor->icePillarEffect'))
             state['partner_status']['turn_used'] = bool(val('gBattleStatus.flags2 & BS_FLAGS2_PARTNER_TURN_USED'))
-        if 'electric-foods' in phases and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE'):
+        if {'electric-foods','roulette-foods'} & set(phases) and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE'):
             state['electric'] = {field:val('gBattleStatus.playerActor->'+field) for field in ('staticStatus','staticDuration')}
             state['electric'].update(fp=val('gPlayerData.curFP'),player_hp=val('gPlayerData.curHP'),target_flags=val('gBattleStatus.curTargetListFlags'),target_count=val('gBattleStatus.playerActor->targetListLength'),selected_index=val('gBattleStatus.playerActor->selectedTargetIndex'))
         if 'regeneration' in phases and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE'):
@@ -364,6 +364,94 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'roulette-foods' in phases:
+        baseline = os.environ.get('ROULETTE_FOODS_BASELINE') == '1'
+        enter_road_battle()
+        actor = 'gBattleStatus.playerActor'
+        target = actor+'->targetData['+actor+'->targetIndexList['+actor+'->selectedTargetIndex]].actorID'
+        roulette_events = []
+        class RouletteFinish(gdb.FinishBreakpoint):
+            def __init__(self, ptr, status, turns):
+                super().__init__(internal=True); self.silent = True
+                self.ptr, self.status, self.turns = ptr, status, turns
+            def stop(self):
+                row = {'event':'roulette-status', 'actor':val(f'((Actor*){self.ptr})->actorID'),
+                       'requested':self.status, 'turns':self.turns,
+                       'fp':val('gPlayerData.curFP'), 'player_hp':val('gPlayerData.curHP'), 'partner_hp':hp(),
+                       'applied':{f:val(f'((Actor*){self.ptr})->'+f) for f in ('debuff','debuffDuration','staticStatus','staticDuration','transparentStatus','transparentDuration')}}
+                roulette_events.append(row); team_trace.append(row)
+                return False
+        class RouletteInflict(gdb.Breakpoint):
+            def stop(self):
+                if any('battle_item_strange_cake_' in f.name() for f in [gdb.newest_frame().older()] if f):
+                    RouletteFinish(val('target'), val('statusTypeKey'), val('duration'))
+                return False
+        observer = None if baseline else RouletteInflict('inflict_status', internal=True)
+        cases = [('ITEM_STRANGE_CAKE',1,True,1),('ITEM_KOOKY_COOKIE',1,True,1)]
+        if not baseline:
+            for mode,initial in ((0,3),(1,0)):
+                cmd(f'call ttyd64_mode_select_file({mode})'); cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
+                check('roulette-excludes-mode-'+str(mode)+'-hp-'+str(initial),all(not val('ttyd64_partner_status_can_target_item('+item+')') for item in ('ITEM_STRANGE_CAKE','ITEM_KOOKY_COOKIE')))
+            cmd('call ttyd64_mode_select_file(1)'); cmd('call ttyd64_set_partner_hp($slicePartner,3)')
+            saved_partner=val('gPlayerData.curPartner'); put('gPlayerData.curPartner',4)
+            check('roulette-excludes-unsupported-binding',not val('ttyd64_partner_status_can_target_item(ITEM_KOOKY_COOKIE)'))
+            put('gPlayerData.curPartner',saved_partner)
+            cases += [('ITEM_KOOKY_COOKIE',1,True,39),('ITEM_STRANGE_CAKE',1,False,1),('ITEM_KOOKY_COOKIE',1,False,1),('ITEM_STRANGE_CAKE',0,False,1),('ITEM_KOOKY_COOKIE',0,False,1)]
+        for case,(item,mode,partner,fp) in enumerate(cases):
+            label=str(case)+'-'+item
+            if not baseline:
+                cmd('call ttyd64_mode_select_file(1)')
+                cmd('call ttyd64_partner_status_clear(gBattleStatus.partnerActor)')
+                cmd('call ttyd64_set_partner_hp($slicePartner,3)')
+                for field in ('debuff','debuffDuration','staticStatus','staticDuration','transparentStatus','transparentDuration','statusAfflicted'):
+                    put(actor+'->'+field,0)
+                cmd('call remove_status_debuff(gBattleStatus.playerActor->hudElementDataIndex)')
+                cmd('call remove_status_static(gBattleStatus.playerActor->hudElementDataIndex)')
+                cmd('call remove_status_transparent(gBattleStatus.playerActor->hudElementDataIndex)')
+                for i in range(24):
+                    if val(f'gBattleStatus.enemyActors[{i}]'): put(f'gBattleStatus.enemyActors[{i}]->curHP',99)
+                cmd(f'call ttyd64_mode_select_file({mode})')
+            inventory(item); put('gPlayerData.curHP',99); put('gPlayerData.curMaxHP',99)
+            put('gPlayerData.curMaxFP',40); put('gPlayerData.curFP',fp)
+            wheel('BTL_MENU_TYPE_ITEMS')
+            wait('gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
+            key('x'); wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+            check(label+'-recipient-list',val(actor+'->targetListLength') == (1 if baseline or mode == 0 else 2))
+            if baseline:
+                key('c'); wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING')
+                key('c'); wait('gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
+                continue
+            selected_actor=val('ACTOR_PARTNER' if partner else 'ACTOR_PLAYER')
+            if val(target) != selected_actor: key('d' if partner else 'a')
+            check(label+'-keyboard-recipient',val(target) == selected_actor)
+            if case == 0:
+                key('c'); wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 41 && gPopupState == POPUP_STATE_CHOOSING')
+                check('roulette-cancel-preserves-stock-pools-turn',item_count()==2 and hp()==3 and val('gPlayerData.curFP')==fp and not val('gBattleStatus.flags2 & BS_FLAGS2_PLAYER_TURN_USED'))
+                key('x'); wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
+                if val(target) != selected_actor: key('d')
+            start=len(roulette_events)
+            key('x')
+            for _ in range(1800):
+                if len(roulette_events)>start: break
+                tick()
+            assert len(roulette_events)==start+1, roulette_events
+            event=roulette_events[-1]
+            expected_fp=min(40,fp+(30 if item=='ITEM_KOOKY_COOKIE' else 0))
+            fields={val('STATUS_KEY_STATIC'):('staticStatus','staticDuration'),val('STATUS_KEY_TRANSPARENT'):('transparentStatus','transparentDuration'),val('STATUS_KEY_SLEEP'):('debuff','debuffDuration')}
+            kind,timer=fields[event['requested']]
+            check(label+'-native-roulette-selected-three-turn-status',event['actor']==selected_actor and event['turns']==3 and event['applied'][kind]==event['requested'] and event['applied'][timer]==3)
+            check(label+'-source-fp-two-steps-capped-no-hp',event['fp']==expected_fp and event['partner_hp']==3 and event['player_hp']==99 and item_count()==1)
+            other=actor if partner else 'gBattleStatus.partnerActor'
+            check(label+'-unselected-status-unchanged',all(val(other+'->'+f)==0 for f in ('debuff','staticStatus','transparentStatus')))
+            wait('(gBattleState == BATTLE_STATE_PARTNER_MENU || gBattleState == BATTLE_STATE_PLAYER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+            # Sleep may natively skip a recipient turn. Clear only between uses;
+            # never force roulette, status or turn-guard returns.
+            cmd('call ttyd64_mode_select_file(1)'); cmd('call ttyd64_partner_status_clear(gBattleStatus.partnerActor)')
+            if val('gBattleState')==val('BATTLE_STATE_PARTNER_MENU'): spend_turn()
+        if observer: observer.delete()
+        cmd('call ttyd64_mode_select_file(1)'); flee_battle(3)
+        check('roulette-native-world-return',val('gGameStatusPtr->context')==val('CONTEXT_WORLD'))
+        team_trace.append({'event':'roulette-method','baseline':baseline,'method':'Injected saved mode/recruitment/rank/stock/map/story/HP/FP; fixed cases clear statuses between uses and refill enemy HP99/player99 to retain encounter. Real keyboard collision/item target/cancel/native roulette/scripts/turn/escape. Passive inflict_status entry/finish trace. Common initial filemenu return forced; no guard/RNG/status returns forced. Mode/dead/unsupported are predicate probes only. Fixed7 consumptions per partner; observed random outcomes only, not exhaustive roulette probabilities/expiry/all outcomes or source choreography. Source Kooky FP two additions of15 deliberately preserved; cap40 distinguishes from one addition.'})
     if 'electric-foods' in phases:
         baseline = os.environ.get('ELECTRIC_FOODS_BASELINE') == '1'
         enter_road_battle()
