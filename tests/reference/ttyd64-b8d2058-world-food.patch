@@ -1,0 +1,219 @@
+@Hook 8BFDC % 800F2B2C
+{
+    PUSH    RA, V0, T0, T1, T2, T3, T4
+    % Check if the player is in the overworld
+    LABU    V0, 80074094
+    BNE     V0, R0, .End % 0 = Overworld
+    NOP
+    % Check if the current list is the one from C-Left
+    LIO     V0, 8010D65C % Window Data Pointer
+    LW      V0, 0040 (V0) % Popup Menu Data pointer
+    LW      V0, 0318 (V0) % StyleID / 0 = Items Menu
+    BNE     V0, R0, .End
+    NOP
+    % The game set the list as "A button pressed"
+    % only when this value isn't zero, I dunno
+    % exactly what it does tho :shrunk:
+    LABU    V0, 8010D68E
+    BEQ     V0, R0, .End
+    NOP
+    % Check if the player have any partners
+    JAL     $Function_GetPartnersUnlocked
+    NOP
+    BNE     V0, R0, .PlayerIsntPartnerless
+    NOP
+    % If the player is partnerless nuke all heal menu data
+    % and don't show the heal menu.
+    SAB     R0, $HealingBox_FirstIconIndex
+    SAB     R0, $HealMenu_State
+    LIO     T0, $HealingBox_PartnersOrder
+    SW      R0, 0 (T0)
+    SW      R0, 4 (T0)
+    SW      R0, 8 (T0)
+    SAH     R0, $HealingBox_CursorData
+    BEQ     R0, R0, .End
+    RESERVED
+    .PlayerIsntPartnerless
+    POP     RA, V0, T0, T1, T2, T3, T4
+    % Open the healing menu
+    ORI     V0, R0, 1
+    SAB     V0, $HealMenu_State
+    J       800F364C % skip setting the menu state as "A button pressed"
+    ORI     V0, R0, 2 % Set the menu state as "Froozen"
+    % restore vanilla code
+    .End
+    POP     RA, V0, T0, T1, T2, T3, T4
+    LABU    V0, 8010D68E
+    J       800F2B34
+    RESERVED
+}
+
+#new:Script $UseItem_Init
+{
+    SetGroup  00000000 
+    Call  DisablePlayerInput    ( .True )
+    Call  GetCurrentPartner     ( *Var0 )
+    If  *Var0  !=  .Partner:None 
+        Call  802D2B6C
+        Wait  20`
+    EndIf
+    Call  802C02E4
+    Call  802C0358  ( *VarA )
+    ExecWait  $UseItem_ShowItem
+    If  *VarD  ==  00000000 
+        ExecWait  $UseItem_Eat
+    Else
+        ExecWait  $UseItem_Drink 
+    EndIf
+    If  *VarF  ==  00000001 
+        % Which one is the one about to be healed?
+        Call    $ReadAddress ( $HealingBox_CursorData 0 *Var3 .False .False )
+        Switch *Var3
+            Case == 0 % Mario
+                Call  SetPlayerAnimation    ( .PlayerAnim:StickOutTongue )
+            Case == 1 % Current Partner
+                Set     *Var0 4 % Hurt
+                Set     *Var1 .False
+                Exec    $SetPartnerAnimation
+            Case > 1 % Other partners
+        EndSwitch
+    EndIf
+    If  *VarB  >  00000000 
+        % Which one is the one about to be healed?
+        Call    $ReadAddress ( $HealingBox_CursorData 0 *Var3 .False .False )
+        If *Var3 == 1 % Current Partner
+            Call    GetNpcPos ( .Npc:Partner *Var0 *Var1 *Var2 )
+            Call    GetCurrentPartnerID ( *Var3 )
+            Switch *Var3
+                CaseOR == .Partner:Watt
+                CaseOR == .Partner:Bow
+                    Add *Var1 -10` % y
+            EndSwitch
+        Else
+            Call  GetPlayerPos  ( *Var0 *Var1 *Var2 )
+        EndIf
+        Add   *Var0  00000000 
+        Add   *Var1  00000023 
+        Call  802C00AC      ( *Var0 *Var1 *Var2 *VarB )
+    EndIf
+    If  *VarC  >  00000000 
+        % Which one is the one about to be healed?
+        Call    $ReadAddress ( $HealingBox_CursorData 0 *Var3 .False .False )
+        If *Var3 == 1 % Current Partner
+            Call    GetNpcPos ( .Npc:Partner *Var0 *Var1 *Var2 )
+            Call    GetCurrentPartnerID ( *Var3 )
+            Switch *Var3
+                CaseOR == .Partner:Watt
+                CaseOR == .Partner:Bow
+                    Add *Var1 -10` % y
+            EndSwitch
+        Else
+            Call    GetPlayerPos  ( *Var0 *Var1 *Var2 )
+        EndIf
+        Add   *Var0  00000014 
+        Add   *Var1  00000019 
+        Call  802C016C      ( *Var0 *Var1 *Var2 *VarC )
+    EndIf
+    % Which one is the one about to be healed?
+    Call    $ReadAddress ( $HealingBox_CursorData 0 *Var3 .False .False )
+    If *Var3 == 1 % Current Partner
+        Call    GetNpcPos ( .Npc:Partner *Var0 *Var1 *Var2 )
+        Call    GetCurrentPartnerID ( *Var3 )
+            Switch *Var3
+                CaseOR == .Partner:Watt
+                CaseOR == .Partner:Bow
+                    Add *Var1 -10` % y
+            EndSwitch
+    Else
+        Call    GetPlayerPos  ( *Var0 *Var1 *Var2 )
+    EndIf
+    Add   *Var1  00000019 
+    Call  802D7520      ( *Var0 *Var1 *Var2 *VarB )
+    % VarB = HP to Heal
+    If  *VarB  !=  .False
+        % Which one is the one about to be healed?
+        Call    $ReadAddress ( $HealingBox_CursorData 0 *Var3 .False .False )
+        If *Var3 == 0 % Mario
+            Call    802C022C  ( *VarB ) % RecoverHP
+        Else % Is a partner
+            % Heal partner
+            Call    $ReadAddress ( $HealingBox_PartnersOrder 0 *Var4 *Var3 .False )
+            Switch *Var4 % Partner
+                Case == .Partner:Goombario
+                    Set *Var0 8010F2B0
+                Case == .Partner:Kooper
+                    Set *Var0 8010F2B8
+                Case == .Partner:Bombette
+                    Set *Var0 8010F2C0
+                Case == .Partner:Parakarry
+                    Set *Var0 8010F2C8
+                Case == 5 % Bow
+                    Set *Var0 8010F2F0
+                Case == .Partner:Watt
+                    Set *Var0 8010F2D8
+                Case == .Partner:Sushie
+                    Set *Var0 8010F2E0
+                Case == .Partner:Lakilester
+                    Set *Var0 8010F2E8
+            EndSwitch
+            % var0 = Partner's HP data pointer
+            Call    $ReadAddress ( *Var0 0 *Var1 1 .False ) % load current HP
+            Call    $ReadAddress ( *Var0 0 *Var2 2 .False ) % load max HP
+            % var1 = current hp
+            % var2 = max hp
+            % varB = amount to heal
+            Add     *Var1 *VarB
+            If *Var1 > *Var2
+                Set *Var1 *Var2
+            EndIf
+            % save new hp
+            Call    $WriteAddress ( *Var0 0 *Var1 1 .False )
+        EndIf
+    EndIf
+    % VarC = FP to Recover
+    If  *VarC  !=  .False 
+        Call  802C0288  ( *VarC ) % RecoverFP
+    EndIf
+    If  *VarF  ==  00000000 
+        % Which one is the one about to be healed?
+        Call    $ReadAddress ( $HealingBox_CursorData 0 *Var3 .False .False )
+        If *Var3 == 1 % Current Partner
+            Wait  10`
+            Set   *Var0 5 % Happy
+            Set   *Var1 .False
+            Exec  $SetPartnerAnimation
+            Call  SetPlayerAnimation    ( .PlayerAnim:ThumbsUp )
+            Wait  30`
+        Else
+            Wait  10`
+            Call  SetPlayerAnimation    ( .PlayerAnim:ThumbsUp )
+            Wait  30`
+        EndIf
+    Else
+        Wait  30`
+    EndIf
+    Call    $ReadAddress ( $HealingBox_CursorData 0 *Var3 .False .False )
+    If *Var3 == 1 % Current Partner
+        Call    GetNpcPos ( .Npc:Partner *Var0 *Var1 *Var2 )
+        Call    GetCurrentPartnerID ( *Var3 )
+        Switch *Var3
+            CaseOR == .Partner:Watt
+            CaseOR == .Partner:Bow
+                Add *Var1 -10` % y
+        EndSwitch
+    Else
+        Call    GetPlayerPos  ( *Var0 *Var1 *Var2 )
+    EndIf
+    Call  802D75D8  ( *Var0 *Var1 *Var2 *VarB )
+    Call  SetPlayerAnimation    ( 00010002 )
+    Call    $ReadAddress ( $HealingBox_CursorData 0 *Var3 .False .False )
+    If *Var3 == 1 % Current Partner was healed?
+        Call    EnablePartnerAI
+    EndIf
+    Wait  20`
+    Call  802C03E8
+    Call  DisablePlayerInput    ( .False )
+    Call  802C031C
+    Return
+    End
+}

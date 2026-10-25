@@ -33,5 +33,12 @@
     "path": "battle/item/patch/Item_ElectroPop.bpat",
     "sha256": "711e709b1355c1be60bb1b92588a08bcf544549552cdb866bd72715ec08608fa",
     "excerpt": true
+  },
+  "world-food.patch_sha256": "c3eaaf3668df24a1541f41b68764543402c84a5275b2938d62f3ad9c57e1768c",
+  "world-food.patch_original": {
+    "path": "globals/patch/PartnersHP.patch",
+    "commit": "b8d2058ea057b2dfc168f2d909a2a2ea0927ce17",
+    "sha256": "40593d87c5bde748df385ebed673f25c0c6076bae4c38ada4c6e9f1d2599c9f3",
+    "scope": "Active world recipient hook8BFDC and full $UseItem_Init script excerpts"
   }
 }
