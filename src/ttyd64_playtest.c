@@ -56,12 +56,12 @@ int ttyd64_playtest_startup(void) {
     }
     if (profile == 1) {
         add_item(ITEM_MUSHROOM);
-        add_item(ITEM_MUSHROOM);
+        add_item(ITEM_STRANGE_CAKE);
         add_item(ITEM_VOLT_SHROOM);
         add_item(ITEM_ELECTRO_POP);
         add_item(ITEM_SUPER_SHROOM);
         add_item(ITEM_LIFE_SHROOM);
-        add_item(ITEM_LIFE_SHROOM);
+        add_item(ITEM_KOOKY_COOKIE);
         add_item(ITEM_FRIED_SHROOM);
         add_item(ITEM_HONEY_SYRUP);
         add_item(ITEM_MAPLE_SUPER);

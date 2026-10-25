@@ -420,6 +420,10 @@ def main():
             {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": phases},
         )
     for pid in (1,2,3):
+        add("roulette-foods-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
+            {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"roulette-foods",
+             "ROULETTE_FOODS_BASELINE":os.environ.get("PORTING_ROULETTE_FOODS_BASELINE","0")})
+    for pid in (1,2,3):
         add("world-special-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"world-special",
              "WORLD_SPECIAL_BASELINE":os.environ.get("PORTING_WORLD_SPECIAL_BASELINE","0")})
