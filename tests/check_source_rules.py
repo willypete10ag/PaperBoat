@@ -142,6 +142,28 @@ def check_food_source(source, reference, provenance):
 
 
 
+def check_world_special_source(source, reference, provenance):
+    path = reference / 'ttyd64-b8d2058-world-food.patch'
+    assert sha(path) == provenance['world-food.patch_sha256']
+    active = re.sub(r'/%.*?%/', '', path.read_text(), flags=re.S)
+    assert '@Hook 8BFDC' in active and 'SAB     V0, $HealMenu_State' in active
+    assert re.search(r'If\s+\*VarC\s+!=\s+\.False', active)
+    assert re.search(r'Call\s+802C0288\s*\(\s*\*VarC', active)
+    original = ET.parse(reference / 'ttyd64-b8d2058-Items.xml').getroot()
+    selected = [r.attrib for r in original if r.attrib['name'] in ('ElectroPop','SuperSoda','KookyCookie')]
+    assert len(selected) == 3
+    for row in selected:
+        assert int(row['typeFlags'],16) & 0x87 == 0x87
+        assert int(row.get('powA','0')) == 0 and int(row['powB']) > 0
+    world = (source / 'src/world_use_item.c').read_text()
+    admission = world[world.index('b32 ttyd64_world_item_can_target_partner'):world.index('API_CALLABLE(WorldItem_GetHPRecipientPos)')]
+    cases = set(re.findall(r'case (ITEM_\w+):', admission))
+    assert cases == {'ITEM_ELECTRO_POP','ITEM_SUPER_SODA','ITEM_KOOKY_COOKIE'}
+    assert '!ttyd64_mode_enabled()' in admission and 'CONTEXT_WORLD' in admission
+    assert 'IfNe(LVarB, 0)' in world and 'IfNe(LVarC, 0)' in world
+    print('Independent world-special source:3 world-usable zero-HP FP foods; active recipient hook and guarded native admission. Static checks, not keyboard gameplay or battle-status parity.')
+
+
 def check_electric_source(source, reference, provenance):
     items = {row.attrib['name']:row.attrib for row in ET.fromstring(
         (reference / 'ttyd64-b8d2058-Items.xml').read_text())}
@@ -255,6 +277,7 @@ def main():
     check_star_source(source, reference, provenance)
     check_food_source(source, reference, provenance)
     check_electric_source(source, reference, provenance)
+    check_world_special_source(source, reference, provenance)
     print(f'Source {provenance["ttyd64_commit"]}: {len(expected)} semantic FP/BP rows and33 HP cells match; '
           f'{len(vanilla)} Vanilla base rows preserved. Excluded IDs: '
           + ','.join(hex(index) for index in excluded))

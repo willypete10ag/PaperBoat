@@ -88,6 +88,9 @@ def run():
             state['regeneration'] = {axis:{field:val(f'PartnerModifiers[$slicePartner].{axis}.{field}') for field in ('amount','turns')} for axis in ('hpRegen','fpRegen')}
             state['regeneration']['player_hp'] = val('gPlayerData.curHP')
             state['regeneration']['team_fp'] = val('gPlayerData.curFP')
+        if 'world-special' in phases:
+            state['world_special'] = {'fp':val('gPlayerData.curFP'),'mario_hp':val('gPlayerData.curHP'),
+                'inventory':[val(f'gPlayerData.invItems[{i}]') for i in range(10)]}
         states.append(state)
         if not condition:
             (root/'failed-state.json').write_text(json.dumps({'checks_passed':len(checks),'state':state,'team_trace':team_trace},indent=2)+'\n')
@@ -454,6 +457,14 @@ def run():
                 inventory(item); put('gPlayerData.curFP',1)
                 open_recipient(); consume(0)
                 check('world-special-'+item+'-mario',hp() == 3 and val('gPlayerData.curHP') == 2 and val('gPlayerData.curFP') == 1+gain and item_count() == 1)
+                other = 2 if partner_id == 1 else 1
+                cmd(f'call switch_to_partner({other})'); tick(100)
+                inventory(item); put('gPlayerData.curFP',19)
+                open_recipient()
+                row=next(i for i in range(val('WorldPopupMenu.numEntries')) if val(f'WorldPopupMenu.userIndex[{i}]') == partner_id)
+                consume(row)
+                check('world-special-'+item+'-inactive-cap',hp() == 3 and val('wCurrentPartnerId') == other and val('gPlayerData.curFP') == 20 and item_count() == 1)
+                cmd('call switch_to_partner($slicePartner)'); tick(100)
                 cmd('call ttyd64_mode_select_file(0)'); inventory(item); put('gPlayerData.curFP',1)
                 open_items(); key('x'); wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)'); tick(30)
                 check('world-special-'+item+'-vanilla',hp() == 3 and val('gPlayerData.curFP') == 1+gain and item_count() == 1)

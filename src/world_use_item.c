@@ -12,6 +12,15 @@ b32 ttyd64_world_item_can_target_partner(s32 itemID) {
         || !ttyd64_has_hp_partner()) {
         return false;
     }
+    // PartnersHP.patch world recipient hook and $UseItem_Init use world
+    // recovery powers. These FP foods have special BATTLE dispatch, which
+    // must not prevent world partner selection or import battle statuses.
+    switch (itemID) {
+        case ITEM_ELECTRO_POP:
+        case ITEM_SUPER_SODA:
+        case ITEM_KOOKY_COOKIE:
+            return true;
+    }
     return ttyd64_item_is_recovery_food(itemID);
 }
 
