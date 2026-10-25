@@ -447,6 +447,8 @@ def run():
             # Sleep may natively skip a recipient turn. Clear only between uses;
             # never force roulette, status or turn-guard returns.
             cmd('call ttyd64_mode_select_file(1)'); cmd('call ttyd64_partner_status_clear(gBattleStatus.partnerActor)')
+            put(actor+'->debuff',0); put(actor+'->debuffDuration',0)
+            cmd('call remove_status_debuff(gBattleStatus.playerActor->hudElementDataIndex)')
             if val('gBattleState')==val('BATTLE_STATE_PARTNER_MENU'): spend_turn()
         if observer: observer.delete()
         cmd('call ttyd64_mode_select_file(1)'); flee_battle(3)
