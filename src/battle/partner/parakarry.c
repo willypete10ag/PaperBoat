@@ -1,4 +1,5 @@
 #include "battle/battle.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 #include "hud_element.h"
 #include "effects.h"
@@ -696,6 +697,7 @@ EvtScript N(EVS_Init) = {
     Call(BindIdle, ACTOR_PARTNER, Ref(N(EVS_Idle)))
     Call(BindHandleEvent, ACTOR_PARTNER, Ref(N(EVS_HandleEvent)))
     Call(BindHandlePhase, ACTOR_PARTNER, Ref(N(EVS_HandlePhase)))
+    Call(Ttyd64PartnerRestoreDeadPose)
     Return
     End
 };
@@ -705,18 +707,51 @@ EvtScript N(EVS_Idle) = {
     End
 };
 
+// Source Parakarry reactions omit Vanilla's KO drop for an HP actor.
+EvtScript N(EVS_Ttyd64Drop) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, false)
+        SetConst(LVar1, ANIM_BattleParakarry_HurtStill)
+        ExecWait(EVS_Partner_Drop)
+    EndIf
+    Return
+    End
+};
+
+API_CALLABLE(N(RestoreFlight)) {
+    Actor* actor = gBattleStatus.partnerActor;
+    if (ttyd64_partner_combat_active(actor) && actor->curHP > 0) {
+        actor->homePos.y = actor->curPos.y = ttyd64_partner_battle_home_y(gPlayerData.curPartner);
+    }
+    return ApiStatus_DONE2;
+}
+
 EvtScript N(EVS_HandleEvent) = {
     Call(UseIdleAnimation, ACTOR_PARTNER, false)
     Call(InterruptActionCommand)
     Call(GetLastEvent, ACTOR_PARTNER, LVar0)
     Switch(LVar0)
+        CaseEq(EVENT_DEATH)
+            Call(Ttyd64PartnerHPState)
+            IfNe(LVar0, 0)
+                IfEq(LVar1, 0)
+                    ExecWait(EVS_Ttyd64PartnerDeath)
+                    Return
+                EndIf
+            EndIf
         CaseOrEq(EVENT_HIT_COMBO)
         CaseOrEq(EVENT_HIT)
-            SetConst(LVar1, ANIM_BattleParakarry_HurtStill)
-            SetConst(LVar2, ANIM_BattleParakarry_HurtStill)
+            Call(Ttyd64PartnerHPState)
+            IfEq(LVar0, true)
+                SetConst(LVar1, ANIM_BattleParakarry_Hurt)
+                SetConst(LVar2, ANIM_BattleParakarry_Idle)
+            Else
+                SetConst(LVar1, ANIM_BattleParakarry_HurtStill)
+                SetConst(LVar2, ANIM_BattleParakarry_HurtStill)
+            EndIf
             ExecWait(EVS_Partner_Hit)
             SetConst(LVar1, ANIM_BattleParakarry_HurtStill)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         EndCaseGroup
         CaseOrEq(EVENT_ZERO_DAMAGE)
         CaseOrEq(EVENT_IMMUNE)
@@ -731,21 +766,21 @@ EvtScript N(EVS_HandleEvent) = {
             Set(LVar2, 22)
             ExecWait(EVS_Partner_SpikeContact)
             SetConst(LVar1, ANIM_BattleParakarry_HurtStill)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_BURN_CONTACT)
             SetConst(LVar1, ANIM_BattleParakarry_BurnHurt)
             Set(LVar2, 22)
             SetConst(LVar3, ANIM_BattleParakarry_BurnStill)
             ExecWait(EVS_Partner_BurnContact)
             SetConst(LVar1, ANIM_BattleParakarry_HurtStill)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseOrEq(EVENT_BURN_HIT)
         CaseOrEq(EVENT_15)
             SetConst(LVar1, ANIM_BattleParakarry_BurnHurt)
             SetConst(LVar2, ANIM_BattleParakarry_BurnStill)
             ExecWait(EVS_Partner_BurnHit)
             SetConst(LVar1, ANIM_BattleParakarry_HurtStill)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         EndCaseGroup
         CaseEq(EVENT_SHOCK_HIT)
             SetConst(LVar0, PRT_MAIN)
@@ -754,11 +789,15 @@ EvtScript N(EVS_HandleEvent) = {
             ExecWait(EVS_Partner_ShockHit)
         CaseEq(EVENT_33)
             SetConst(LVar1, ANIM_BattleParakarry_HurtStill)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(N(EVS_Ttyd64Drop))
         CaseEq(EVENT_RECOVER_FROM_KO)
             SetConst(LVar1, ANIM_BattleParakarry_Walk)
             SetConst(LVar2, ANIM_BattleParakarry_Run)
             Set(LVar3, 30)
+            Call(Ttyd64PartnerHPState)
+            IfNe(LVar0, 0)
+                Set(LVar3, 4)
+            EndIf
             ExecWait(EVS_Partner_Recover)
         CaseOrEq(EVENT_18)
         CaseOrEq(EVENT_BLOCK)
@@ -771,6 +810,14 @@ EvtScript N(EVS_HandleEvent) = {
         EndCaseGroup
         CaseDefault
     EndSwitch
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+        Call(N(RestoreFlight))
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, true)
     Return
     End
@@ -795,6 +842,13 @@ EvtScript N(EVS_TakeTurn) = {
 };
 
 EvtScript N(EVS_Celebrate) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, true)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     SetConst(LVar0, PRT_MAIN)
     SetConst(LVar1, ANIM_BattleParakarry_Celebrate)
     SetConst(LVar2, ANIM_BattleParakarry_Walk)
@@ -848,6 +902,13 @@ EvtScript N(firstStrike) = {
 };
 
 EvtScript N(runAway) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, true)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     SetConst(LVar0, PRT_MAIN)
     SetConst(LVar1, ANIM_BattleParakarry_Run)
     ExecWait(EVS_Partner_RunAway)
@@ -856,6 +917,13 @@ EvtScript N(runAway) = {
 };
 
 EvtScript N(runAwayFail) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, true)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, false)
     Call(SetGoalToHome, ACTOR_PARTNER)
     Call(SetActorSpeed, ACTOR_PARTNER, Float(6.0))
@@ -869,6 +937,13 @@ EvtScript N(runAwayFail) = {
 };
 
 EvtScript N(EVS_HandlePhase) = {
+    Call(Ttyd64PartnerHPState)
+    IfEq(LVar0, true)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Return
     End
 };

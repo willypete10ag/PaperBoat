@@ -419,6 +419,12 @@ def main():
             "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER": str(pid), "PARTNER_SLICE_PHASES": phases},
         )
+    # B01 flying lifecycle uses the same native input/ownership route, keeping
+    # per-partner repetition separate from distinct scenario coverage.
+    add("parakarry-lifecycle", "partner_playable_slice_gdb.py", "partner-playable-slice",
+        {"PARTNER_SLICE_PARTNER":"4", "PARTNER_SLICE_PHASES":"team,recovery,statuses,victory,victory-dead"})
+    add("parakarry-food", "partner_playable_slice_gdb.py", "partner-playable-slice",
+        {"PARTNER_SLICE_PARTNER":"4", "PARTNER_SLICE_PHASES":"food-recovery"})
     for pid in (1,2,3):
         add("world-special-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"world-special",

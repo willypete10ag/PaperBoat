@@ -56,7 +56,7 @@ def run():
     cmd('set environment DISPLAY ' + runtime_env['DISPLAY'])
     print('PARTNER_SLICE_DISPLAY=' + runtime_env['DISPLAY'])
     partner_id = int(os.environ.get('PARTNER_SLICE_PARTNER','1'))
-    assert partner_id in (1,2,3)
+    assert partner_id in (1,2,3,4)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
     assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special'}
@@ -375,7 +375,7 @@ def run():
                 cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
                 check('electric-admission-mode-'+str(mode)+'-hp-'+str(initial),all(not val('ttyd64_partner_status_can_target_item('+item+')') for item in ('ITEM_VOLT_SHROOM','ITEM_ELECTRO_POP')))
             cmd('call ttyd64_mode_select_file(1)'); cmd('call ttyd64_set_partner_hp($slicePartner,3)')
-            saved_partner = val('gPlayerData.curPartner'); put('gPlayerData.curPartner',4)
+            saved_partner = val('gPlayerData.curPartner'); put('gPlayerData.curPartner',9)
             check('electric-unsupported-binding-excluded',not val('ttyd64_partner_status_can_target_item(ITEM_VOLT_SHROOM)'))
             put('gPlayerData.curPartner',saved_partner)
         cases = [('ITEM_VOLT_SHROOM',1,True,1),('ITEM_ELECTRO_POP',1,True,1)]
@@ -621,7 +621,7 @@ def run():
                 for boundary in ('dead','vanilla','unsupported','unbound'):
                     cmd('call ttyd64_set_partner_hp($slicePartner,0)' if boundary == 'dead' else 'call ttyd64_set_partner_hp($slicePartner,3)')
                     if boundary == 'vanilla': cmd('call ttyd64_mode_select_file(0)')
-                    if boundary == 'unsupported': put('gPlayerData.curPartner',val('PARTNER_PARAKARRY'))
+                    if boundary == 'unsupported': put('gPlayerData.curPartner',val('PARTNER_BOW'))
                     actor = val('gBattleStatus.partnerActor')
                     if boundary == 'unbound': put('gBattleStatus.partnerActor',0)
                     put('gBattleStatus.curTargetListFlags',val('TARGET_FLAG_PLAYER'))
@@ -1363,7 +1363,7 @@ def run():
         assert partner_id == 1
         cmd('call ttyd64_mode_select_file(1)')
         for i in range(1,12):
-            put(f'gPlayerData.partners[{i}].enabled',int(i in (1,2,3,4)))
+            put(f'gPlayerData.partners[{i}].enabled',int(i in (1,2,3,9)))
         expected_hp = {1:3,2:4,3:6}
         for pid, amount in expected_hp.items():
             put(f'gPlayerData.partners[{pid}].level',0)
@@ -1384,7 +1384,7 @@ def run():
             check(f'ground-world-keyboard-swap-owner-{pid}',val('WorldPartnerID') == pid and val('ttyd64_partner_hp_display_partner()') == pid and val('ttyd64_partner_hp_display()') == expected_hp[pid])
             capture(f'ground-world-{pid}')
         open_party()
-        for pid in (1,2,3,4):
+        for pid in (1,2,3,9):
             for _ in range(8):
                 if selected() == pid:
                     break
@@ -1394,7 +1394,7 @@ def run():
             capture(f'ground-pause-{pid}')
         close_pause()
         # Menu identities cover all supported, recruited ground partners and
-        # retain Mario first. Unsupported Parakarry has no recipient HP route.
+        # retain Mario first. Unsupported Bow has no recipient HP route.
         for pid in (1,2,3):
             inventory()
             assert val(f'ttyd64_set_partner_hp({pid},0)') == 0

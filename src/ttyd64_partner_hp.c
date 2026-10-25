@@ -110,13 +110,9 @@ s32 ttyd64_get_partner_hp(s32 partnerID) {
     return health->curHP < 0 ? 0 : health->curHP;
 }
 
-b32 ttyd64_partner_hp_supported(s32 partnerID) {
-    return partnerID == PARTNER_GOOMBARIO || partnerID == PARTNER_KOOPER || partnerID == PARTNER_BOMBETTE;
-}
-
-b32 ttyd64_has_hp_partner(void) {
+b32 ttyd64_has_world_hp_partner(void) {
     for (s32 i = 1; i < TTYD64_PARTNER_HP_COUNT; i++) {
-        if (ttyd64_partner_hp_supported(i) && gPlayerData.partners[i].enabled) {
+        if (ttyd64_partner_world_ready(i) && gPlayerData.partners[i].enabled) {
             return true;
         }
     }
@@ -224,7 +220,8 @@ void ttyd64_fully_restore_partner_hp(void) {
 
 void ttyd64_partner_hp_bind_actor(Actor* actor) {
     clear_binding();
-    if (actor == nullptr || actor != gBattleStatus.partnerActor || !can_bind_actor()) {
+    if (actor == nullptr || actor != gBattleStatus.partnerActor || !can_bind_actor()
+        || !ttyd64_partner_combat_ready(gPlayerData.curPartner)) {
         return;
     }
     ttyd64_partner_hp_normalize(RuntimePartnerHP, &gPlayerData);
@@ -232,6 +229,11 @@ void ttyd64_partner_hp_bind_actor(Actor* actor) {
     if (health != nullptr) {
         BoundPartnerID = gPlayerData.curPartner;
         BoundPartnerActor = actor;
+        // Battle_FlyingPartners_SpawnPos: Parakarry's source home height is 4.
+        // Keep the original DMA table/Vanilla height intact.
+        if (ttyd64_partner_battle_home_y(BoundPartnerID) > 0) {
+            actor->homePos.y = actor->curPos.y = ttyd64_partner_battle_home_y(BoundPartnerID);
+        }
         sync_bound_actor(BoundPartnerID, health);
         ttyd64_actor_modifiers_bind_partner(actor);
         ttyd64_partner_status_bind(actor);
@@ -248,7 +250,7 @@ void ttyd64_partner_hp_unbind_actor(Actor* actor) {
 
 b32 ttyd64_partner_combat_active(Actor* actor) {
     return can_bind_actor() && actor != nullptr && actor == BoundPartnerActor
-        && actor == gBattleStatus.partnerActor && ttyd64_partner_hp_supported(BoundPartnerID)
+        && actor == gBattleStatus.partnerActor && ttyd64_partner_combat_ready(BoundPartnerID)
         && gPlayerData.curPartner == BoundPartnerID;
 }
 
@@ -527,7 +529,7 @@ static b32 can_display_world_hp(void) {
     return ttyd64_mode_enabled() && gGameStatusPtr->context == CONTEXT_WORLD
         && gGameStatusPtr->demoState == DEMO_STATE_NONE
         && !(gPlayerStatusPtr->animFlags & PA_FLAG_USING_PEACH_PHYSICS)
-        && ttyd64_partner_hp_supported(WorldPartnerID) && gPlayerData.curPartner == WorldPartnerID
+        && ttyd64_partner_world_ready(WorldPartnerID) && gPlayerData.curPartner == WorldPartnerID
         && gPlayerData.partners[WorldPartnerID].enabled;
 }
 
