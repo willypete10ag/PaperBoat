@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -425,6 +425,40 @@ def run():
         flee_battle(3)
         check('electric-native-world-return',val('gGameStatusPtr->context') == val('CONTEXT_WORLD'))
         team_trace.append({'event':'electric-method','baseline':baseline,'method':'Injected saved mode/recruitment/rank/stock/map/story/HP/FP; fixed cases also clear statuses, inject one poison and restore enemy HP to retain encounter. Real keyboard collision/item target/cancel/native scripts/turn/escape. Common initial filemenu_update return forced; no guard or RNG forced. Dead/Vanilla/unsupported admission probes are injected predicates. Baseline only lists/cancels, no electric consumption. Fixed seven consumptions: partner Volt/Electro, partner Electro FP cap, Mario Volt/Electro, Vanilla Mario Volt/Electro. Not world or partner-owned use.'})
+    if 'world-special' in phases:
+        baseline = os.environ.get('WORLD_SPECIAL_BASELINE') == '1'
+        cmd('call ttyd64_mode_select_file(1)')
+        put('gPlayerData.curMaxHP',20); put('gPlayerData.curHP',2)
+        put('gPlayerData.curMaxFP',20)
+        for item, gain in (('ITEM_ELECTRO_POP',15),('ITEM_SUPER_SODA',5),('ITEM_KOOKY_COOKIE',15)):
+            inventory(item)
+            put('gPlayerData.curFP',1)
+            check('world-special-'+item+'-admission',bool(val('ttyd64_world_item_can_target_partner('+item+')')) != baseline)
+            if baseline:
+                open_items(); key('x')
+                wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+                tick(30)
+                check('world-special-'+item+'-baseline-skips-recipient',hp() == 3 and val('gPlayerData.curHP') == 2 and val('gPlayerData.curFP') == 1+gain and item_count() == 1)
+            else:
+                open_recipient(); key('c'); menu_ready(1)
+                check('world-special-'+item+'-cancel',hp() == 3 and val('gPlayerData.curFP') == 1 and item_count() == 2)
+                key('c'); wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+                for initial, fp in ((3,1),(0,19)):
+                    inventory(item); cmd(f'call ttyd64_set_partner_hp($slicePartner,{initial})')
+                    put('gPlayerData.curFP',fp)
+                    open_recipient()
+                    row=next(i for i in range(val('WorldPopupMenu.numEntries')) if val(f'WorldPopupMenu.userIndex[{i}]') == partner_id)
+                    consume(row)
+                    check('world-special-'+item+'-partner-'+str(initial),hp() == initial and val('gPlayerData.curHP') == 2 and val('gPlayerData.curFP') == min(20,fp+gain) and item_count() == 1 and val('gPartnerStatus.inputDisabledCount') == 0)
+                cmd('call ttyd64_set_partner_hp($slicePartner,3)')
+                inventory(item); put('gPlayerData.curFP',1)
+                open_recipient(); consume(0)
+                check('world-special-'+item+'-mario',hp() == 3 and val('gPlayerData.curHP') == 2 and val('gPlayerData.curFP') == 1+gain and item_count() == 1)
+                cmd('call ttyd64_mode_select_file(0)'); inventory(item); put('gPlayerData.curFP',1)
+                open_items(); key('x'); wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)'); tick(30)
+                check('world-special-'+item+'-vanilla',hp() == 3 and val('gPlayerData.curFP') == 1+gain and item_count() == 1)
+                cmd('call ttyd64_mode_select_file(1)')
+        check('world-special-nonfood-and-revival-excluded',all(not val('ttyd64_world_item_can_target_partner('+item+')') for item in ('ITEM_LIFE_SHROOM','ITEM_VOLT_SHROOM','ITEM_HUSTLE_DRINK','ITEM_STRANGE_CAKE','ITEM_COCONUT')))
     if 'food-recovery' in phases:
         baseline = os.environ.get('FOOD_RECOVERY_BASELINE') == '1'
         item_extent = re.search(r'#define NUM_ITEMS\s+(\d+)', source_path('include/item_enum.h').read_text())[1]
@@ -446,7 +480,7 @@ def run():
                     h, f = int(a.get('powA','0')), int(a.get('powB','0'))
                     if h >= 0 and f >= 0 and h + f > 0: expected_food.add(index)
             admitted = {i for i in range(0xe0) if val(f'ttyd64_world_item_can_target_partner({i})')}
-            check('food-world-independent-source-admission-matrix',len(expected_food) == 68 and admitted == expected_food)
+            check('food-world-independent-source-admission-matrix',len(expected_food) == 68 and admitted == expected_food | {val('ITEM_ELECTRO_POP'),val('ITEM_SUPER_SODA'),val('ITEM_KOOKY_COOKIE')})
         if baseline:
             open_items(); key('x')
             wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
