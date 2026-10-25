@@ -2369,6 +2369,11 @@ def run():
         check('ground-combat-native-flee-rebinds-world-owner',val('WorldPartnerID') == partner_id and val('gCurrentEncounter.battleOutcome') == val('OUTCOME_PLAYER_FLED'))
     if 'team' in phases:
         enter_road_battle()
+        if partner_id == 4:
+            check('flight-source-spawn-and-home-height-four',
+                  abs(float(gdb.parse_and_eval('gBattleStatus.partnerActor->curPos.y')) - 4) < .05
+                  and abs(float(gdb.parse_and_eval('gBattleStatus.partnerActor->homePos.y')) - 4) < .05
+                  and val('ttyd64_partner_combat_active(gBattleStatus.partnerActor)') == 1)
         if partner_id == 2:
             for i in range(24):
                 if val(f'gBattleStatus.enemyActors[{i}]'):
@@ -2429,6 +2434,12 @@ def run():
                 break
             spend_turn()
         check('team-ordinary-goomba-hit-revives-once',any(row['event'] == 'target' and row['target'] == val('ACTOR_PARTNER') for row in team_trace) and any(row['event'] == 'damage-store' and row['actor_hp'] < row['before'] for row in team_trace) and len([r for r in team_trace if r['event'] == 'life']) == 1 and life_count() == 1 and hp() > 0)
+        if partner_id == 4:
+            check('flight-natural-life-shroom-restores-height-and-pose',
+                  abs(float(gdb.parse_and_eval('gBattleStatus.partnerActor->curPos.y')) - 4) < .05
+                  and abs(float(gdb.parse_and_eval('gBattleStatus.partnerActor->homePos.y')) - 4) < .05
+                  and val('gBattleStatus.partnerActor->rot.x') == 0)
+            capture('flight-natural-revived')
         check('team-life-shroom-keeps-front-and-restores-pose',val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK') != 0 and val('gBattleStatus.partnerActor->rot.x') == 0)
         check('team-front-partner-opens-next-round',val('gBattleState') == val('BATTLE_STATE_PARTNER_MENU') and val('btl_partner_can_act()') != 0)
         capture('team-natural-revival')
@@ -2440,6 +2451,11 @@ def run():
                 break
             spend_turn()
         check('team-natural-no-item-death-restores-mario-front',hp() == 0 and val('gBattleState') == val('BATTLE_STATE_PLAYER_MENU') and val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK') == 0 and val('gBattleStatus.playerActor->homePos.x > gBattleStatus.partnerActor->homePos.x') != 0 and val('gBattleStatus.partnerActor->rot.x') == 86)
+        if partner_id == 4:
+            check('flight-dead-floor-and-mario-front-planes',
+                  abs(float(gdb.parse_and_eval('gBattleStatus.partnerActor->curPos.y')) - 3) < .05
+                  and abs(float(gdb.parse_and_eval('gBattleStatus.playerActor->curPos.y'))) < .05)
+            capture('flight-natural-dead')
         check('team-dead-partner-target-falls-back-to-mario',val('ttyd64_partner_team_target(0)') == val('ACTOR_PLAYER') and val('ttyd64_partner_team_target(1)') == val('ACTOR_PLAYER') and val('ttyd64_partner_team_resolve_target(ACTOR_PARTNER)') == val('ACTOR_PLAYER') and val('btl_partner_can_act()') == 0)
         capture('team-natural-death')
         after_death = len(team_trace)

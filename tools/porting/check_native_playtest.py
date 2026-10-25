@@ -112,6 +112,12 @@ def observe():
             check('native ground partner ' + str(partner), val(f'gPlayerData.partners[{partner}].enabled') == 1 and
                   val(f'ttyd64_get_partner_hp({partner})') == 3 and
                   val(f'ttyd64_get_partner_max_hp({partner})') == maximum)
+        if profile == 'healing':
+            check('native isolated Parakarry lifecycle setup',
+                  val('gPlayerData.partners[4].enabled') == 1
+                  and val('ttyd64_get_partner_hp(4)') == 3
+                  and val('ttyd64_get_partner_max_hp(4)') == 15,
+                  'observes native developer CLI initialization; no recruitment injection')
         check('native world partner bound', val('wCurrentPartnerId') == 1 and val('WorldPartnerID') == 1)
         save = Path(os.environ['NATIVE_PLAYTEST_SESSION']) / 'saves/file3.json'
         check('native save generated with TTYD64 mode, without a seed', save.is_file() and
