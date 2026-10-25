@@ -1,0 +1,227 @@
+#new:Function $Function_KookyCookie_Heal % Function_802A1A8C
+{
+    0:  LA        A1, 8010F290
+    8:  LBU       V0, 5 (A1)
+    C:  LABU      A2, 8008935C % load Kooky Cookie healing amount
+   14:  LB        V1, 6 (A1)
+   18:  ADDU      V0, V0, A2
+   1C:  SB        V0, 5 (A1)
+   20:  SLL       V0, V0, 18
+   24:  SRA       V0, V0, 18
+   28:  SLT       V1, V1, V0
+   2C:  LBU       V0, 6 (A1)
+   30:  BNEL      V1, R0, .o38
+   34:  SB        V0, 5 (A1)
+        .o38
+   38:  SLL       V0, A2, 18
+   3C:  SRA       V0, V0, 18
+   40:  SW        V0, 90 (A0)
+   44:  JR        RA
+   48:  LI        V0, 2
+}
+
+% Same function as before but skip the part about actually healing FP
+% this function is neccesary to avoid a crash when the flying flower appears.
+@ $Script_UseItem
+{
+    Jump $Script_UseItem_StrangeCake
+    Return
+    End
+}
+
+#new:Script_Use $Script_UseItem_StrangeCake
+{
+    0:  Call  GetMenuSelection  ( *Var0 *Var1 *Var2 )
+   18:  If  *Var1  ==  .Item:KookyCookie % D3
+            SetConst  *VarA  .Item:KookyCookie
+            Call    GetOwnerID ( *Var2 )
+            If *Var2 < .Actor:Enemy0
+                Set   *Var1  0 % Player Team
+                Call  InitTargetIterator
+            Else
+                Set   *Var1  1 % Enemy Team
+            EndIf
+            ExecWait  $BattleScript_ShowItemEntity
+            ExecWait  $BattleScript_EatItem
+            Call  GetOwnerTarget ( *Var4 .False )
+            If *Var4 < .Actor:Enemy0 % Player team
+                Call  $Function_KookyCookie_Heal
+            Else
+                Call  $Function_KookyCookie_Heal_Enemies
+            EndIf
+   6C:  	Call  GetActorPos   ( *Var4 *Var0 *Var1 *Var2 )
+   88:  	Add   *Var0  00000014
+   98:  	Add   *Var1  00000019
+   A8:  	Call  $Function_ShowFlyingFlower    ( *Var0 *Var1 *Var2 *Var3 )
+   C4:  	Call  GetActorPos   ( *Var4 *Var0 *Var1 *Var2 )
+   E0:  	Add   *Var1  00000019
+   F0:  	Call  802D7520      ( *Var0 *Var1 *Var2 *Var3 )%/
+            Call  GetOwnerTarget ( *Var0 .False )
+            If *Var0 < .Actor:Enemy0 % Player team
+                Call  $Function_HealFP    ( *Var3 )
+            EndIf
+  11C:  	Wait  10`
+            Call  GetOwnerTarget    ( *Var0 .False )
+            Call  GetOwnerID ( *Var1 ) % The actor didn't used the item on himself?
+            If *Var0 != *Var1
+                Call  UseIdleAnimation  ( *Var0 .False )
+            EndIf
+            Call  GetOwnerTarget ( *Var4 .False )
+            Call GetStatusFlags ( *Var4 *Var0 )
+            If  *Var0  !&  ~Flags:StatusFlags:Sleep|Frozen|Fear|Paralyze|Dizzy|Stone|Stop % 35D000
+                Switch *Var0
+                    Case  ==  .Actor:Player
+                        Call  SetAnimation  ( .Actor:Player 00000000 .PlayerAnim:ThumbsUp )
+                    Case  ==  .Actor:Partner
+                        Set   *Var0 5 % happy
+                        Exec  $SetPartnerAnimation_Battle
+                    Default
+                EndSwitch
+            EndIf
+  140:  	Wait  30`
+  14C:  	Call  GetActorPos   ( *Var4 *Var0 *Var1 *Var2 )
+  168:  	Call  802D75D8      ( *Var0 *Var1 *Var2 *Var3 )
+            Call  GetOwnerTarget ( *Var0 .False )
+            Call  GetStatusFlags ( *Var0 *Var1 )
+            If  *Var1 !&  ~Flags:StatusFlags:Sleep|Frozen|Fear|Paralyze|Dizzy|Stone|Stop % 35D000
+                Switch *Var0
+                    Case  ==  .Actor:Player
+                        Call  SetAnimation  ( .Actor:Player 00000000 00010002 )
+                        Wait  20`
+                        Call  SetAnimation  ( .Actor:Player 00000000 .PlayerAnim:GotItem )
+                    Case  ==  .Actor:Partner
+                        Set   *Var0 0 % idle
+                        Exec  $SetPartnerAnimation_Battle
+                        Wait  20`
+                        Set   *Var0 7 % got item
+                        Exec  $SetPartnerAnimation_Battle
+                    Default
+                        Wait  20`
+                EndSwitch
+            EndIf
+  1C0:  Else % Strange Cake
+            SetConst  *VarA  .Item:StrangeCake
+            Call    GetOwnerID ( *Var2 )
+            If *Var2 < .Actor:Enemy0
+                Set   *Var1  0 % Player Team
+                Call  InitTargetIterator
+            Else
+                Set   *Var1  1 % Enemy Team
+            EndIf
+            ExecWait  $BattleScript_ShowItemEntity
+            ExecWait  $BattleScript_EatItem
+            Call  GetOwnerTarget    ( *Var0 .False )
+            Call  GetOwnerID ( *Var1 ) % The actor didn't used the item on himself?
+            If *Var0 != *Var1
+                Call  UseIdleAnimation  ( *Var0 .False )
+            EndIf
+            Call GetStatusFlags ( *Var0 *Var1 )
+            If  *Var1  !&  ~Flags:StatusFlags:Sleep|Frozen|Fear|Paralyze|Dizzy|Stone|Stop % 35D000
+                Switch *Var0
+                    Case  ==  .Actor:Player
+                        Call  SetAnimation  ( .Actor:Player 00000000 .PlayerAnim:GotItem )
+                    Case  ==  .Actor:Partner
+                        Set   *Var0 7 % got item
+                        Exec  $SetPartnerAnimation_Battle
+                    Default
+                        Wait  20`
+                EndSwitch
+            EndIf
+  218:  EndIf
+  220:  Wait  10`
+  22C:  Thread
+  234:  	Wait  220`
+  240:  	Call  PlaySoundAtActor  ( .Actor:Self 03F3 )
+  254:  EndThread
+  25C:  Call  PlaySoundAtActor  ( .Actor:Self 0368 )
+  270:  Call  $Function_StrangeCake_Roulette
+  27C:  Wait  2`
+  288:  Switch  *Var0
+  294:  	Case  ==  00000000
+  2A0:  		ExecWait  $Script_RandomEffect_Static
+  2AC:  	Case  ==  00000001
+  2B8:  		ExecWait  $Script_RandomEffect_Invicible
+  2C4:  	Case  ==  00000002
+  2D0:  		ExecWait  $Script_RandomEffect_Sleep
+  2DC:  EndSwitch
+        ExecWait  $BattleScript_GoBackToHome_HealingItem
+  2F0:  Return
+  2F8:  End
+}
+
+#new:Script $Script_RandomEffect_Static % Script_802A2B70
+{
+        Call  GetOwnerTarget    ( *Var4 .False )
+        Switch *Var4
+            Case == .Actor:Player
+                Call  SetAnimation  ( .Actor:Player 00000000 00010002 )
+            Case == .Actor:Partner
+                Set   *Var0 0 % idle
+                Exec  $SetPartnerAnimation_Battle
+            Default
+        EndSwitch
+   18:  Call  GetActorPos   ( *Var4 *Var0 *Var1 *Var2 )
+   34:  Add   *Var1  00000014
+   44:  Call  PlayEffect    ( ~FX:SnakingStatic *Var0 *Var1 *Var2 *Fixed[1.0] 0000001E 00000000 00000000 00000000 00000000 00000000 00000000 00000000 )
+        Call  $Function_InflictStatus ( *Var4 .Status:Static 3 )
+        If *Var4 == .Actor:Player
+            Wait  20`
+            Call  ShowMessageBox        ( 00000010 0000003C )
+            Call  WaitForMessageBoxDone
+        Else
+            Wait  30`
+        EndIf
+   C0:  Return
+   C8:  End
+}
+
+#new:Script $Script_RandomEffect_Invicible % Script_802A2C40
+{
+        Call  GetOwnerTarget    ( *Var4 .False )
+        Switch *Var4
+            Case == .Actor:Player
+                Call  SetAnimation  ( .Actor:Player 00000000 00010002 )
+            Case == .Actor:Partner
+                Set   *Var0 0 % idle
+                Exec  $SetPartnerAnimation_Battle
+            Default
+        EndSwitch
+   18:  Call  GetActorPos   ( *Var4 *Var0 *Var1 *Var2 )
+   34:  Add   *Var1  00000014
+   44:  Call  PlayEffect    ( ~FX:RadialFlowOut:WhiteWaves *Var0 *Var1 *Var2 *Fixed[1.0] 0000001E 00000000 00000000 00000000 00000000 00000000 00000000 00000000 )
+        Call  $Function_InflictStatus ( *Var4 E 3 )
+        If *Var4 == .Actor:Player
+            Wait  20`
+            Call  ShowMessageBox        ( 00000011 0000003C )
+            Call  WaitForMessageBoxDone
+        Else
+            Wait  30`
+        EndIf
+   C0:  Return
+   C8:  End
+}
+
+#new:Script $Script_RandomEffect_Sleep % Script_802A2D10
+{
+        Call  GetOwnerTarget    ( *Var4 .False )
+        Switch *Var4
+            Case == .Actor:Player
+                Call  SetAnimation      ( .Actor:Player 00000000 00030004 ) % sleeping
+            Case == .Actor:Partner
+            Default
+        EndSwitch
+   18:  Call  SetGoalToTarget   ( *Var4 )
+   28:  Call  GetGoalPos        ( *Var4 *Var0 *Var1 *Var2 )
+   44:  Exec  DoSleepHit
+        Call  $Function_TryToInflictStatus ( *Var4 .Status:Sleep 3 )
+        If *Var4 == .Actor:Player
+            Wait  20`
+            Call  ShowMessageBox        ( 0000000B 0000003C )
+            Call  WaitForMessageBoxDone
+        Else
+            Wait  30`
+        EndIf
+   88:  Return
+   90:  End
+}
+

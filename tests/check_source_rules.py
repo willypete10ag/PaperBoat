@@ -142,6 +142,38 @@ def check_food_source(source, reference, provenance):
 
 
 
+def check_roulette_source(source, reference, provenance):
+    original = reference / 'ttyd64-b8d2058-roulette.patch'
+    assert sha(original) == provenance['roulette.patch_sha256']
+    patch = original.read_text()
+    # Active replacement, not the deleted vanilla roulette routines.
+    assert '@ $Script_UseItem' in patch and 'Jump $Script_UseItem_StrangeCake' in patch
+    assert 'If  *Var1  ==  .Item:KookyCookie' in patch
+    for effect, status in [('Static', '.Status:Static'), ('Invicible', 'E'), ('Sleep', '.Status:Sleep')]:
+        block = patch.split('#new:Script $Script_RandomEffect_' + effect, 1)[1].split('\n}', 1)[0]
+        assert 'GetOwnerTarget' in block and '*Var4 .False' in block
+        assert re.search(r'Call\s+\$Function_(?:TryTo)?InflictStatus\s*\(\s*\*Var4\s+' + re.escape(status) + r'\s+3\s*\)', block)
+    # Original Kooky script calls both mutating FP routines, not just one.
+    assert 'SB        V0, 5 (A1)' in patch and '$Function_KookyCookie_Heal' in patch
+    assert re.search(r'Call\s+\$Function_KookyCookie_Heal\s*\n', patch)
+    assert re.search(r'Call\s+\$Function_HealFP\s*\(\s*\*Var3\s*\)', patch)
+    native = (source / 'src/battle/move/item/strange_cake.c').read_text()
+    admission = (source / 'src/ttyd64_partner_status.c').read_text().split('b32 ttyd64_partner_status_can_target_item',1)[1].split('\n}',1)[0]
+    assert 'ITEM_STRANGE_CAKE' in admission and 'ITEM_KOOKY_COOKIE' in admission and 'ttyd64_partner_combat_alive()' in admission
+    helper = native.split('API_CALLABLE(N(GetRouletteTarget))',1)[1].split('\n}',1)[0]
+    for guard in ['owner == gBattleStatus.playerActor', 'owner->targetActorID == ACTOR_PARTNER', 'BS_FLAGS1_PARTNER_ACTING', 'ttyd64_partner_status_can_target_item']:
+        assert guard in helper
+    for name, status in [('func_802A1AD8_731DD8', 'STATIC'), ('func_802A1B14_731E14', 'TRANSPARENT'), ('func_802A1B68_731E68', 'SLEEP')]:
+        block = native.split('API_CALLABLE(N('+name+'))',1)[1].split('\n}',1)[0]
+        assert 'get_actor(script->varTable[9])' in block
+        assert 'inflict_status(recipient, STATUS_KEY_'+status+', 3)' in block
+        assert 'ttyd64_partner_status_sync_ko(recipient)' in block
+    assert 'Call(N(GetRouletteTarget))' in native
+    assert 'playerData->curFP += item->potencyB' in native and 'Call(N(AddFP), LVar3)' in native
+    assert 'Call(GetActorPos, LVar9,' in native and 'IfEq(LVar9, ACTOR_PLAYER)' in native
+    print('Independent roulette source: selected actor /3 status mappings and durations,2 admissions, original two-step Kooky FP recovery; static wiring only, not roulette probabilities/choreography.')
+
+
 def check_world_special_source(source, reference, provenance):
     path = reference / 'ttyd64-b8d2058-world-food.patch'
     assert sha(path) == provenance['world-food.patch_sha256']
@@ -278,6 +310,7 @@ def main():
     check_food_source(source, reference, provenance)
     check_electric_source(source, reference, provenance)
     check_world_special_source(source, reference, provenance)
+    check_roulette_source(source, reference, provenance)
     print(f'Source {provenance["ttyd64_commit"]}: {len(expected)} semantic FP/BP rows and33 HP cells match; '
           f'{len(vanilla)} Vanilla base rows preserved. Excluded IDs: '
           + ','.join(hex(index) for index in excluded))

@@ -53,10 +53,11 @@ static void dismiss_ice(Actor* actor) {
     }
 }
 
-// Recovery drinks and electric foods share living-partner target admission.
+// Recovery drinks, electric foods and roulette foods use living partners.
 b32 ttyd64_partner_status_can_target_item(s32 itemID) {
     return (itemID == ITEM_TASTY_TONIC || itemID == ITEM_SUPER_SODA
-        || itemID == ITEM_VOLT_SHROOM || itemID == ITEM_ELECTRO_POP)
+        || itemID == ITEM_VOLT_SHROOM || itemID == ITEM_ELECTRO_POP
+        || itemID == ITEM_STRANGE_CAKE || itemID == ITEM_KOOKY_COOKIE)
         && ttyd64_partner_combat_alive();
 }
 

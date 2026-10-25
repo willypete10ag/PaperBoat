@@ -40,5 +40,7 @@
     "commit": "b8d2058ea057b2dfc168f2d909a2a2ea0927ce17",
     "sha256": "40593d87c5bde748df385ebed673f25c0c6076bae4c38ada4c6e9f1d2599c9f3",
     "scope": "Active world recipient hook8BFDC and full $UseItem_Init script excerpts"
-  }
+  },
+  "roulette.patch_sha256": "d19f0132a1abc6ff6fb564dafdfeb2b1ce0ae94b2b42e47f9f96ed0253ff8bd6",
+  "roulette.patch_source": "battle/item/patch/Item_StrangeCake.bpat lines731-754,1054-1256 (original bytes)"
 }

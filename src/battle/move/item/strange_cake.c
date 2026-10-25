@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ttyd64_partner_status.h"
 #include "script_api/battle.h"
 #include "effects.h"
 #include "hud_element.h"
@@ -221,34 +222,47 @@ API_CALLABLE(N(func_802A1A8C_731D8C)) {
     return ApiStatus_DONE2;
 }
 
-API_CALLABLE(N(func_802A1AD8_731DD8)) {
-    BattleStatus* battleStatus = &gBattleStatus;
-    Actor* player = battleStatus->playerActor;
+// Item_StrangeCake.bpat resolves GetOwnerTarget for each roulette result.
+// Keep Mario's original path when the saved-mode living partner is unavailable.
+API_CALLABLE(N(GetRouletteTarget)) {
+    Actor* owner = get_actor(script->owner1.actorID);
+    script->varTable[9] = ACTOR_PLAYER;
+    if (owner == gBattleStatus.playerActor && owner->targetActorID == ACTOR_PARTNER
+        && !(gBattleStatus.flags1 & BS_FLAGS1_PARTNER_ACTING)
+        && ttyd64_partner_status_can_target_item(gBattleStatus.moveArgument)) {
+        script->varTable[9] = ACTOR_PARTNER;
+    }
+    return ApiStatus_DONE2;
+}
 
-    inflict_status(player, STATUS_KEY_STATIC, 3);
-    player->statusAfflicted = 0;
+API_CALLABLE(N(func_802A1AD8_731DD8)) {
+    Actor* recipient = get_actor(script->varTable[9]);
+
+    inflict_status(recipient, STATUS_KEY_STATIC, 3);
+    recipient->statusAfflicted = 0;
+    ttyd64_partner_status_sync_ko(recipient);
 
     return ApiStatus_DONE2;
 }
 
 API_CALLABLE(N(func_802A1B14_731E14)) {
-    BattleStatus* battleStatus = &gBattleStatus;
-    Actor* player = battleStatus->playerActor;
-    ActorPart* part = player->partsTable;
+    Actor* recipient = get_actor(script->varTable[9]);
+    ActorPart* part = recipient->partsTable;
 
-    inflict_status(player, STATUS_KEY_TRANSPARENT, 3);
-    player->statusAfflicted = 0;
+    inflict_status(recipient, STATUS_KEY_TRANSPARENT, 3);
+    recipient->statusAfflicted = 0;
+    ttyd64_partner_status_sync_ko(recipient);
     part->flags |= ACTOR_PART_FLAG_TRANSPARENT;
 
     return ApiStatus_DONE2;
 }
 
 API_CALLABLE(N(func_802A1B68_731E68)) {
-    BattleStatus* battleStatus = &gBattleStatus;
-    Actor* player = battleStatus->playerActor;
+    Actor* recipient = get_actor(script->varTable[9]);
 
-    inflict_status(player, STATUS_KEY_SLEEP, 3);
-    player->statusAfflicted = 0;
+    inflict_status(recipient, STATUS_KEY_SLEEP, 3);
+    recipient->statusAfflicted = 0;
+    ttyd64_partner_status_sync_ko(recipient);
 
     return ApiStatus_DONE2;
 }
@@ -258,6 +272,7 @@ extern EvtScript N(script8);
 extern EvtScript N(script9);
 
 EvtScript N(EVS_UseItem) = {
+    Call(N(GetRouletteTarget))
     Call(GetMenuSelection, LVar0, LVar1, LVar2)
     IfEq(LVar1, ITEM_KOOKY_COOKIE)
         SetConst(LVarA, ITEM_KOOKY_COOKIE)
@@ -265,30 +280,38 @@ EvtScript N(EVS_UseItem) = {
         ExecWait(N(UseItemWithEffect))
         ExecWait(N(EatItem))
         Call(N(func_802A1A8C_731D8C))
-        Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Call(GetActorPos, LVar9, LVar0, LVar1, LVar2)
         Add(LVar0, 20)
         Add(LVar1, 25)
         Call(N(SpawnFlowerRecoveryFX), LVar0, LVar1, LVar2, LVar3)
-        Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Call(GetActorPos, LVar9, LVar0, LVar1, LVar2)
         Add(LVar1, 25)
         Call(ShowStartRecoveryShimmer, LVar0, LVar1, LVar2, LVar3)
 #if !VERSION_PAL
         Call(N(AddFP), LVar3)
 #endif
         Wait(10)
-        Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_ThumbsUp)
+        IfEq(LVar9, ACTOR_PLAYER)
+            Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_ThumbsUp)
+        EndIf
         Wait(30)
-        Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Call(GetActorPos, LVar9, LVar0, LVar1, LVar2)
         Call(ShowRecoveryShimmer, LVar0, LVar1, LVar2, LVar3)
-        Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_Idle)
+        IfEq(LVar9, ACTOR_PLAYER)
+            Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_Idle)
+        EndIf
         Wait(20)
-        Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_UsePower)
+        IfEq(LVar9, ACTOR_PLAYER)
+            Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_UsePower)
+        EndIf
     Else
         SetConst(LVarA, ITEM_STRANGE_CAKE)
         Set(LVar1, 0)
         ExecWait(N(UseItemWithEffect))
         ExecWait(N(EatItem))
-        Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_UsePower)
+        IfEq(LVar9, ACTOR_PLAYER)
+            Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_UsePower)
+        EndIf
     EndIf
     Wait(10)
     Thread
@@ -312,8 +335,10 @@ EvtScript N(EVS_UseItem) = {
 };
 
 EvtScript N(script7) = {
-    Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_Idle)
-    Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+    IfEq(LVar9, ACTOR_PLAYER)
+        Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_Idle)
+    EndIf
+    Call(GetActorPos, LVar9, LVar0, LVar1, LVar2)
     Add(LVar1, 20)
     PlayEffect(EFFECT_SNAKING_STATIC, 0, LVar0, LVar1, LVar2, Float(1.0), 30, 0)
     Call(N(func_802A1AD8_731DD8))
@@ -325,8 +350,10 @@ EvtScript N(script7) = {
 };
 
 EvtScript N(script8) = {
-    Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_Idle)
-    Call(GetActorPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+    IfEq(LVar9, ACTOR_PLAYER)
+        Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_Mario1_Idle)
+    EndIf
+    Call(GetActorPos, LVar9, LVar0, LVar1, LVar2)
     Add(LVar1, 20)
     PlayEffect(EFFECT_RADIAL_SHIMMER, 6, LVar0, LVar1, LVar2, Float(1.0), 30, 0)
     Call(N(func_802A1B14_731E14))
@@ -338,9 +365,10 @@ EvtScript N(script8) = {
 };
 
 EvtScript N(script9) = {
-    Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_MarioB1_Sleep)
-    Call(SetGoalToTarget, ACTOR_PLAYER)
-    Call(GetGoalPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+    IfEq(LVar9, ACTOR_PLAYER)
+        Call(SetAnimation, ACTOR_PLAYER, 0, ANIM_MarioB1_Sleep)
+    EndIf
+    Call(GetActorPos, LVar9, LVar0, LVar1, LVar2)
     Exec(EVS_PlaySleepHitFX)
     Call(N(func_802A1B68_731E68))
     Wait(20)
