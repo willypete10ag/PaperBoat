@@ -373,7 +373,13 @@ void btl_state_update_player_menu(void) {
             playerActor->flags &= ~ACTOR_FLAG_USING_IDLE_ANIM;
             playerActor->flags |= ACTOR_FLAG_SHOW_STATUS_ICONS;
             if (partnerActor != nullptr) {
-                partnerActor->flags |= ACTOR_FLAG_USING_IDLE_ANIM;
+                // Native menu entry must not undo a bound HP actor's death
+                // presentation after replacement or a player-turn transition.
+                if (!ttyd64_partner_combat_active(partnerActor) || ttyd64_partner_combat_alive()) {
+                    partnerActor->flags |= ACTOR_FLAG_USING_IDLE_ANIM;
+                } else {
+                    partnerActor->flags &= ~ACTOR_FLAG_USING_IDLE_ANIM;
+                }
                 partnerActor->flags |= ACTOR_FLAG_SHOW_STATUS_ICONS;
             }
             btl_check_can_change_partner();

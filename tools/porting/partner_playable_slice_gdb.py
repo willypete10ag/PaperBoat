@@ -2522,6 +2522,8 @@ def run():
                   and abs(float(gdb.parse_and_eval('gBattleStatus.playerActor->curPos.y'))) < .05)
             capture('flight-natural-dead')
         check('team-dead-partner-target-falls-back-to-mario',val('ttyd64_partner_team_target(0)') == val('ACTOR_PLAYER') and val('ttyd64_partner_team_target(1)') == val('ACTOR_PLAYER') and val('ttyd64_partner_team_resolve_target(ACTOR_PARTNER)') == val('ACTOR_PLAYER') and val('btl_partner_can_act()') == 0)
+        check('team-player-menu-does-not-reenable-dead-idle',
+              not val('gBattleStatus.partnerActor->flags & ACTOR_FLAG_USING_IDLE_ANIM'))
         capture('team-natural-death')
         after_death = len(team_trace)
         spend_turn()

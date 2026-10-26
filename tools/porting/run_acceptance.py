@@ -427,6 +427,9 @@ def main():
         {"PARTNER_SLICE_PARTNER":"4", "PARTNER_SLICE_PHASES":"native-guard"})
     add("parakarry-boundaries", "partner_playable_slice_gdb.py", "partner-playable-slice",
         {"PARTNER_SLICE_PARTNER":"4", "PARTNER_SLICE_PHASES":"flight-boundaries"})
+    for pid in (1,2,3):
+        add("b01-idle-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
+            {"PARTNER_SLICE_PARTNER":str(pid), "PARTNER_SLICE_PHASES":"team"})
     add("parakarry-food", "partner_playable_slice_gdb.py", "partner-playable-slice",
         {"PARTNER_SLICE_PARTNER":"4", "PARTNER_SLICE_PHASES":"food-recovery"})
     for pid in (1,2,3):
