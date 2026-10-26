@@ -77,6 +77,15 @@ def run():
                  'heart_id':val('Ttyd64PausePartnerHeartHID'),'world_owner':val('WorldPartnerID'),
                  'battle_state':val('gBattleState'),'battle_substate':val('gBattleSubState'),
                  'encounter_state':val('gEncounterState'),'combat_partner':val('gPlayerData.curPartner'),'player_in_back':bool(val('gBattleStatus.flags1 & BS_FLAGS1_PLAYER_IN_BACK'))}
+        if partner_id == 4 and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
+            state['flight'] = {
+                'actor_hp': val('gBattleStatus.partnerActor->curHP'),
+                'idle_enabled': bool(val('gBattleStatus.partnerActor->flags & ACTOR_FLAG_USING_IDLE_ANIM')),
+                'rotation_x': float(gdb.parse_and_eval('gBattleStatus.partnerActor->rot.x')),
+                'position_y': float(gdb.parse_and_eval('gBattleStatus.partnerActor->curPos.y')),
+                'home_y': float(gdb.parse_and_eval('gBattleStatus.partnerActor->homePos.y')),
+                'can_act': bool(val('btl_partner_can_act()')),
+            }
         if ({'statuses','recovery','electric-foods'} & set(phases)) and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
             state['partner_status'] = {name:val('gBattleStatus.partnerActor->'+name) for name in ('debuff','debuffDuration','staticStatus','staticDuration','transparentStatus','transparentDuration','stoneStatus','stoneDuration','koStatus','koDuration')}
             state['partner_status']['pillar_owned'] = bool(val('gBattleStatus.partnerActor->icePillarEffect'))
