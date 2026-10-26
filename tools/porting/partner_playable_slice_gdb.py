@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3,4)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special', 'flight-boundaries'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special', 'flight-boundaries'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -364,6 +364,62 @@ def run():
     cmd('call switch_to_partner($slicePartner)')
     tick(100)
     wait('wCurrentPartnerId == $slicePartner && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+    if 'flight-boundaries' in phases:
+        assert partner_id == 4
+        cmd('call ttyd64_mode_select_file(1)')
+        def carry_cycle(label):
+            before = hp()
+            key('Down')
+            wait('world_parakarry_UsingAbility && world_parakarry_AbilityState == 2', 600)
+            check(label + '-native-carry-keeps-hp-owner', hp() == before
+                  and val('WorldPartnerID') == 4 and val('wCurrentPartnerId') == 4)
+            key('c')
+            wait('!world_parakarry_UsingAbility && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)', 600)
+            check(label + '-native-drop-releases-input', hp() == before
+                  and val('ttyd64_partner_hp_display_partner()') == 4)
+        carry_cycle('flight-before-battle')
+        enter_road_battle()
+        actor = 'gBattleStatus.partnerActor'
+        for field, bit in [('gGameStatusPtr->demoBattleFlags', 'DEMO_BTL_FLAG_ENABLED'),
+                           ('gPlayerStatusPtr->animFlags', 'PA_FLAG_USING_PEACH_PHYSICS'),
+                           ('gBattleStatus.flags2', 'BS_FLAGS2_PEACH_BATTLE')]:
+            original_flags = val(field)
+            put(field, original_flags | val(bit))
+            check('flight-context-guard-' + bit, not val(f'ttyd64_partner_combat_active({actor})')
+                  and hp() == 3)
+            put(field, original_flags)
+        check('flight-context-guards-restore-bound-owner', val(f'ttyd64_partner_combat_active({actor})') == 1)
+        key('z')
+        wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
+        cmd('call ttyd64_set_partner_hp(4,1)')
+        for i in range(10):
+            put(f'gPlayerData.invItems[{i}]', 0)
+        for _ in range(12):
+            if hp() == 0:
+                break
+            spend_turn()
+        check('flight-rebind-natural-death-before-swap', hp() == 0 and val(f'{actor}->rot.x') == 86)
+        def swap_dead(pid):
+            battle_partners()
+            for _ in range(10):
+                current = val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]')
+                if current == pid:
+                    break
+                key('w' if current > pid else 's')
+            assert val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == pid
+            key('x',6)
+            wait(f'gPlayerData.curPartner == {pid} && gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState == 1 && BattleMenuState == BTL_MENU_STATE_CHOOSING', 1800)
+        swap_dead(1)
+        check('flight-dead-swap-away-retains-roster-record', hp() == 0 and val('BoundPartnerID') == 1)
+        swap_dead(4)
+        check('flight-dead-swap-back-restores-owned-pose', hp() == 0 and val(f'{actor}->curHP') == 0
+              and val(f'{actor}->rot.x') == 86 and not val('btl_partner_can_act()')
+              and not val(f'{actor}->flags & ACTOR_FLAG_USING_IDLE_ANIM')
+              and abs(float(gdb.parse_and_eval(f'{actor}->curPos.y')) - 3) < .05)
+        capture('flight-dead-rebound')
+        flee_battle()
+        put('gGameStatusPtr->debugEnemyContact', val('DEBUG_CONTACT_CANT_TOUCH'))
+        carry_cycle('flight-zero-hp-after-battle')
     if 'electric-foods' in phases:
         baseline = os.environ.get('ELECTRIC_FOODS_BASELINE') == '1'
         enter_road_battle()
