@@ -328,10 +328,10 @@ static b32 pause_partners_hp_active(void) {
         && gGameStatusPtr->context == CONTEXT_PAUSE
         && gGameStatusPtr->demoState == DEMO_STATE_NONE
         && !(gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
-        && ttyd64_has_hp_partner()
+        && ttyd64_has_world_hp_partner()
         && gPausePartnersCurrentPartnerIdx >= 0
         && gPausePartnersCurrentPartnerIdx < gPausePartnersNumPartners
-        && ttyd64_partner_hp_supported(gPausePartnersPartnerIDs[gPausePartnersPartnerIdx[gPausePartnersCurrentPartnerIdx]]);
+        && ttyd64_partner_world_ready(gPausePartnersPartnerIDs[gPausePartnersPartnerIdx[gPausePartnersCurrentPartnerIdx]]);
 }
 
 static void pause_partners_draw_hp(s32 baseX, s32 baseY, s32 opacity, s32 darkening) {
@@ -655,7 +655,7 @@ void pause_partners_init(MenuPanel* panel) {
         return;
     }
 
-    if (ttyd64_mode_enabled() && ttyd64_has_hp_partner()) {
+    if (ttyd64_mode_enabled() && ttyd64_has_world_hp_partner()) {
         Ttyd64PausePartnerHeartHID = hud_element_create(&HES_StatusHeart);
         hud_element_set_flags(Ttyd64PausePartnerHeartHID, HUD_ELEMENT_FLAG_MANUAL_RENDER);
         hud_element_set_scale(Ttyd64PausePartnerHeartHID, 22.0f / 16.0f);
