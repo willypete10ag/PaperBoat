@@ -55,6 +55,11 @@ int ttyd64_playtest_startup(void) {
         add_item(spare[i]);
     }
     if (profile == 1) {
+        // B01 flying lifecycle playtest; only this isolated developer file
+        // recruits Parakarry. Normal files retain natural recruitment.
+        gPlayerData.partners[PARTNER_PARAKARRY].enabled = true;
+        ttyd64_reset_partner_hp(PARTNER_PARAKARRY);
+        ttyd64_set_partner_hp(PARTNER_PARAKARRY, 3);
         add_item(ITEM_MUSHROOM);
         add_item(ITEM_MUSHROOM);
         add_item(ITEM_VOLT_SHROOM);

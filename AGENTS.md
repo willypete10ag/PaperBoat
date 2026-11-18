@@ -1,5 +1,15 @@
 # TTYD64 port contribution and evidence rules
 
+## Approved B01 scope
+
+The owner approved the reviewed architecture plan and B01 (coordination issue
+#9): separate roster capabilities, preserve ground behavior and integrate
+Parakarry's HP lifecycle. Work only on its feature branch into fork ttyd64/main.
+Stop at B01's review/Windows checkpoint. Later packages and PR25 stay paused;
+PR25 remains draft/unmerged at 524832099614aa8df6ef5aca5d35bb536ad938f6.
+Native merging is not authorized. See port/ttyd64/ROSTER.md for the callsite map.
+R1-L2/R2-L2/R1-L6/R1-L11 remain open at their existing scopes.
+
 Use fork-only integration branch `ttyd64/main`. Every milestone uses its own
 branch and PR into `ttyd64/main`. It is not complete until build.yml is green
 on Linux, Windows and macOS and clang-format.yml is green for the exact PR head.

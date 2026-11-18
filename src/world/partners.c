@@ -497,7 +497,7 @@ s32 use_consumable(s32 invSlot) {
 
 s32 ttyd64_use_consumable_on_partner(s32 invSlot, s32 partnerID) {
     if (invSlot < 0 || invSlot >= ARRAY_COUNT(gPlayerData.invItems)
-        || (!ttyd64_partner_hp_supported(partnerID) || !gPlayerData.partners[partnerID].enabled)
+        || (!ttyd64_partner_world_ready(partnerID) || !gPlayerData.partners[partnerID].enabled)
         || !ttyd64_world_item_can_target_partner(gPlayerData.invItems[invSlot])) {
         return -1;
     }

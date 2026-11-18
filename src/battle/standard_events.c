@@ -8,30 +8,62 @@
 #include "sprite/npc/BattleGoombario.h"
 #include "sprite/npc/BattleKooper.h"
 #include "sprite/npc/BattleBombette.h"
+#include "sprite/npc/BattleParakarry.h"
 
 API_CALLABLE(LifeShroomShroudWorld);
 API_CALLABLE(LifeShroomRevealWorld);
 API_CALLABLE(SetItemAsLifeShroom);
 
-// PartnersHP.patch $PartnerDies + ground partner event scripts. Animation
-// identities stay native; do not reuse source ROM offsets or flying rules.
-static const struct { AnimID hurt, idle, run; } Ttyd64GroundAnims[TTYD64_PARTNER_HP_COUNT] = {
-    [PARTNER_GOOMBARIO] = { ANIM_BattleGoombario_HurtStill, ANIM_BattleGoombario_Idle, ANIM_BattleGoombario_Run },
-    [PARTNER_KOOPER] = { ANIM_BattleKooper_Hurt, ANIM_BattleKooper_Idle, ANIM_BattleKooper_Run },
-    [PARTNER_BOMBETTE] = { ANIM_BattleBombette_Hurt, ANIM_BattleBombette_Idle, ANIM_BattleBombette_Run },
+// Native presentation adapters for admitted lifecycle scripts. Source animation
+// identities are translated by name; no ROM addresses or source packed IDs.
+static const struct { AnimID hurt, idle, run, dead; } Ttyd64PartnerAnims[TTYD64_PARTNER_HP_COUNT] = {
+    [PARTNER_GOOMBARIO] = { ANIM_BattleGoombario_HurtStill, ANIM_BattleGoombario_Idle, ANIM_BattleGoombario_Run, ANIM_BattleGoombario_HurtStill },
+    [PARTNER_KOOPER] = { ANIM_BattleKooper_Hurt, ANIM_BattleKooper_Idle, ANIM_BattleKooper_Run, ANIM_BattleKooper_Hurt },
+    [PARTNER_BOMBETTE] = { ANIM_BattleBombette_Hurt, ANIM_BattleBombette_Idle, ANIM_BattleBombette_Run, ANIM_BattleBombette_Hurt },
+    [PARTNER_PARAKARRY] = { ANIM_BattleParakarry_Hurt, ANIM_BattleParakarry_Walk,
+        ANIM_BattleParakarry_Run, ANIM_BattleParakarry_HurtStill },
 };
+
+API_CALLABLE(Ttyd64PartnerFlightHeight) {
+    script->varTable[0] = ttyd64_partner_combat_active(gBattleStatus.partnerActor)
+        ? ttyd64_partner_battle_home_y(gPlayerData.curPartner) : 0;
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerSetDeadAnimation) {
+    if (ttyd64_partner_combat_active(gBattleStatus.partnerActor)) {
+        set_actor_anim(ACTOR_PARTNER, -1, Ttyd64PartnerAnims[gPlayerData.curPartner].dead);
+    }
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerPreserveSwapHeights) {
+    if (ttyd64_partner_combat_active(gBattleStatus.partnerActor)
+        && ttyd64_partner_battle_home_y(gPlayerData.curPartner) > 0) {
+        gBattleStatus.partnerActor->state.goalPos.y = 3.0f;
+        gBattleStatus.playerActor->state.goalPos.y = 0.0f;
+    }
+    return ApiStatus_DONE2;
+}
 
 API_CALLABLE(Ttyd64PartnerSetHurtAnimation) {
     if (ttyd64_partner_combat_active(gBattleStatus.partnerActor)) {
-        set_actor_anim(ACTOR_PARTNER, -1, Ttyd64GroundAnims[gPlayerData.curPartner].hurt);
+        set_actor_anim(ACTOR_PARTNER, -1, Ttyd64PartnerAnims[gPlayerData.curPartner].hurt);
     }
     return ApiStatus_DONE2;
 }
 
 API_CALLABLE(Ttyd64PartnerRecoveryAnims) {
-    script->varTable[1] = Ttyd64GroundAnims[gPlayerData.curPartner].idle;
-    script->varTable[2] = Ttyd64GroundAnims[gPlayerData.curPartner].run;
-    script->varTable[3] = 0;
+    if (!ttyd64_partner_combat_active(gBattleStatus.partnerActor)) {
+        script->varTable[1] = script->varTable[2] = script->varTable[3] = 0;
+        return ApiStatus_DONE2;
+    }
+    script->varTable[1] = Ttyd64PartnerAnims[gPlayerData.curPartner].idle;
+    script->varTable[2] = Ttyd64PartnerAnims[gPlayerData.curPartner].run;
+    script->varTable[3] = ttyd64_partner_battle_home_y(gPlayerData.curPartner);
+    if (script->varTable[3] != 0) {
+        gBattleStatus.partnerActor->homePos.y = script->varTable[3];
+    }
     return ApiStatus_DONE2;
 }
 
@@ -71,7 +103,10 @@ API_CALLABLE(Ttyd64PartnerRestoreDeadPose) {
     if (ttyd64_partner_combat_death_handled(actor) && ttyd64_get_partner_hp(gPlayerData.curPartner) == 0) {
         actor->rot.x = 86.0f;
         actor->flags &= ~ACTOR_FLAG_USING_IDLE_ANIM;
-        set_actor_anim(ACTOR_PARTNER, -1, Ttyd64GroundAnims[gPlayerData.curPartner].hurt);
+        set_actor_anim(ACTOR_PARTNER, -1, Ttyd64PartnerAnims[gPlayerData.curPartner].dead);
+        if (ttyd64_partner_battle_home_y(gPlayerData.curPartner) != 0) {
+            actor->homePos.y = actor->curPos.y = 3.0f;
+        }
     }
     return ApiStatus_DONE2;
 }
@@ -84,7 +119,7 @@ EvtScript EVS_Ttyd64PartnerRevealWorld = {
     End
 };
 
-// PartnersHP.patch $UseLifeShroom_Actor, shared by the supported ground partners. Native effects,
+// PartnersHP.patch $UseLifeShroom_Actor, shared by admitted partner adapters. Native effects,
 // item ownership and recovery execute in the normal event interpreter.
 EvtScript EVS_Ttyd64PartnerLifeShroom = {
     Call(LifeShroomShroudWorld)
@@ -132,7 +167,20 @@ EvtScript EVS_Ttyd64PartnerLifeShroom = {
     Call(UseBattleCamPreset, BTL_CAM_DEFAULT)
     Call(MoveBattleCamOver, 15)
     Call(Ttyd64PartnerRecoveryAnims)
-    ExecWait(EVS_Partner_Recover)
+    IfEq(LVar3, 0)
+        ExecWait(EVS_Partner_Recover)
+    Else
+        // PartnersHP $UseLifeShroom_Actor: flight resumes at the source
+        // height with a twenty-frame get-up, not the ground recovery path.
+        Call(SetAnimation, ACTOR_PARTNER, -1, LVar2)
+        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Set(LVar1, LVar3)
+        Call(SetActorJumpGravity, ACTOR_PARTNER, Float(0.8))
+        Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(JumpToGoal, ACTOR_PARTNER, 20, false, false, true)
+        Call(Ttyd64PartnerRecoveryAnims)
+        Call(SetAnimation, ACTOR_PARTNER, -1, LVar1)
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, true)
     Label(90)
     Loop(0)
@@ -146,12 +194,30 @@ EvtScript EVS_Ttyd64PartnerLifeShroom = {
     End
 };
 
-// PartnersHP.patch $PartnerDies: ground-partner timing and 86-degree collapse.
+// PartnersHP.patch $PartnerDies: preserve ground timing; flying adapters land first.
 EvtScript EVS_Ttyd64PartnerDeath = {
     Call(Ttyd64PartnerDeathBegin)
     Call(ClearStatusEffects, ACTOR_PARTNER)
     Call(Ttyd64PartnerSetHurtAnimation)
-    Wait(40)
+    Wait(20)
+    Call(Ttyd64PartnerFlightHeight)
+    IfNe(LVar0, 0)
+        // Active PartnersHP $PartnerDies: flying actors fall to y=3,
+        // bounce three times, then share the collapse/revival scheduler.
+        Call(Ttyd64PartnerSetDeadAnimation)
+        Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Set(LVar1, 3)
+        Call(SetActorJumpGravity, ACTOR_PARTNER, Float(1.0))
+        Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(JumpToGoal, ACTOR_PARTNER, 10, false, true, false)
+        Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(JumpToGoal, ACTOR_PARTNER, 8, false, true, false)
+        Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
+        Call(JumpToGoal, ACTOR_PARTNER, 5, false, true, false)
+        Wait(8)
+    Else
+        Wait(20)
+    EndIf
     // Source death keeps the front position for Life Shroom, but moves Mario
     // forward before collapse when no revival item exists (ground partner).
     Call(Ttyd64PartnerNeedsMarioFront)
@@ -160,6 +226,7 @@ EvtScript EVS_Ttyd64PartnerDeath = {
         Call(SetGoalPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
         Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
         Call(SetGoalPos, ACTOR_PLAYER, LVar0, LVar1, LVar2)
+        Call(Ttyd64PartnerPreserveSwapHeights)
         Thread
             Call(RunToGoal, ACTOR_PARTNER, 4, false)
         EndThread
@@ -170,6 +237,7 @@ EvtScript EVS_Ttyd64PartnerDeath = {
         Call(SetHomePos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
         Call(Ttyd64PartnerMarioFrontMoved)
     EndIf
+    Call(Ttyd64PartnerSetDeadAnimation)
     Wait(10)
     ChildThread
         Wait(5)

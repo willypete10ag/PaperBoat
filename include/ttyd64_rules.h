@@ -38,6 +38,11 @@ void ttyd64_modifiers_normalize_size(Ttyd64ActorModifiers* state);
 int ttyd64_consumable_id_at(int index);
 int ttyd64_softener_amount(int defense, int potency);
 int ttyd64_partner_base_max_hp(int partner, int rank);
+int ttyd64_partner_has_hp_data(int partner);
+int ttyd64_partner_world_ready(int partner);
+int ttyd64_partner_combat_ready(int partner);
+// Source battle home Y; -1 for noncombat IDs. Does not imply readiness.
+int ttyd64_partner_battle_home_y(int partner);
 void ttyd64_health_init(Ttyd64PartnerHP* health, const int* ranks);
 void ttyd64_health_normalize(Ttyd64PartnerHP* health, const int* ranks);
 int ttyd64_badge_can_stack(int badge);

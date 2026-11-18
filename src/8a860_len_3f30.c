@@ -159,7 +159,7 @@ static b32 popup_partner_hp_active(void) {
                 && !(gGameStatusPtr->demoBattleFlags & DEMO_BTL_FLAG_ENABLED)))
         && gGameStatusPtr->demoState == DEMO_STATE_NONE
         && !(gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
-        && ttyd64_has_hp_partner();
+        && ttyd64_has_world_hp_partner();
 }
 
 static b32 popup_world_partner_hp_active(void) {
@@ -176,7 +176,7 @@ static void popup_draw_partner_hp(s32 entry, s32 x, s32 y, s32 palette) {
     s32 partnerID = gPopupMenu->userIndex[entry];
     b32 mario = ttyd64_world_item_target_menu_active() && partnerID == PARTNER_NONE;
 
-    if (!mario && !ttyd64_partner_hp_supported(partnerID)) {
+    if (!mario && !ttyd64_partner_world_ready(partnerID)) {
         return;
     }
     draw_msg((intptr_t)label, x + 81, y - 2, PopupMenu_Alpha, palette, DRAW_MSG_STYLE_MENU);

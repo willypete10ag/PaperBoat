@@ -42,9 +42,8 @@ void ttyd64_partner_hp_begin_battle(void);
 void ttyd64_partner_hp_bind_actor(Actor* actor);
 void ttyd64_partner_hp_unbind_actor(Actor* actor);
 
-// Explicit supported ground group; other partners keep native combat.
-b32 ttyd64_partner_hp_supported(s32 partnerID);
-b32 ttyd64_has_hp_partner(void);
+// Recruited world adapters; HP data alone does not admit a recipient or actor.
+b32 ttyd64_has_world_hp_partner(void);
 // Only the currently bound, supported partner can own combat HP.
 b32 ttyd64_partner_combat_active(Actor* actor);
 void ttyd64_partner_combat_load_hp(Actor* actor);
@@ -67,7 +66,7 @@ void ttyd64_partner_combat_begin_player_turn(void);
 b32 ttyd64_partner_combat_turn_blocked(Actor* actor);
 s32 ttyd64_partner_combat_damage_event(Actor* actor, s32 event, s32 elements);
 
-// Source team positions/targeting, scoped to the bound supported ground partner.
+// Source team positions/targeting, scoped to the bound admitted partner.
 // Keep physical position (native PLAYER_IN_BACK) separate from acting turn.
 b32 ttyd64_partner_team_active(void);
 void ttyd64_partner_team_request_swap(void);

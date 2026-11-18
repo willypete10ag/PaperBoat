@@ -187,7 +187,7 @@ static void setup_world_heal_target_popup(PopupMenu* menu) {
     s32 count = 1;
     for (s32 i = 1; i < ARRAY_COUNT(PartnerIDFromMenuIndex); i++) {
         s32 partnerID = PartnerIDFromMenuIndex[i];
-        if (!ttyd64_partner_hp_supported(partnerID) || !gPlayerData.partners[partnerID].enabled) {
+        if (!ttyd64_partner_world_ready(partnerID) || !gPlayerData.partners[partnerID].enabled) {
             continue;
         }
         menu->ptrIcon[count] = wPartnerHudScripts[partnerID];

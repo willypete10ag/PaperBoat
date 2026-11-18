@@ -28,6 +28,31 @@ int ttyd64_partner_base_max_hp(int partner, int rank) {
         rank = 2;
     return PartnerBaseHP[partner][rank];
 }
+// Native IDs, not source compact extra-data order (Bow occupies native ID 9).
+// World presentation/recipient support and combat lifecycle readiness are
+// deliberately separate contracts, even where today's admitted sets coincide.
+static const struct { uint8_t world, combat; int8_t homeY; } PartnerAdapters[TTYD64_PARTNER_HP_COUNT] = {
+    [1] = { 1, 1 }, // Goombario
+    [2] = { 1, 1 }, // Kooper
+    [3] = { 1, 1 }, // Bombette
+    [4] = { 1, 1, 4 }, // Parakarry
+    [6] = { 0, 0, 11 }, // Watt: source height only; adapter not admitted
+    [7] = { 0, 0, 0 }, // Sushie
+    [8] = { 0, 0, 4 }, // Lakilester
+    [9] = { 0, 0, 9 }, // Bow
+};
+int ttyd64_partner_has_hp_data(int partner) {
+    return ttyd64_partner_base_max_hp(partner, 0) >= 0;
+}
+int ttyd64_partner_world_ready(int partner) {
+    return ttyd64_partner_has_hp_data(partner) && PartnerAdapters[partner].world;
+}
+int ttyd64_partner_combat_ready(int partner) {
+    return ttyd64_partner_has_hp_data(partner) && PartnerAdapters[partner].combat;
+}
+int ttyd64_partner_battle_home_y(int partner) {
+    return ttyd64_partner_has_hp_data(partner) ? PartnerAdapters[partner].homeY : -1;
+}
 void ttyd64_health_init(Ttyd64PartnerHP* health, const int* ranks) {
     for (int i = 0; i < TTYD64_PARTNER_HP_COUNT; ++i) {
         int maximum = ttyd64_partner_base_max_hp(i, ranks[i]);

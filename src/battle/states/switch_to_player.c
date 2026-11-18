@@ -1,4 +1,5 @@
 #include "states.h"
+#include "ttyd64_partner_hp.h"
 
 void btl_state_update_switch_to_player(void) {
     Actor* player = gBattleStatus.playerActor;
@@ -14,7 +15,12 @@ void btl_state_update_switch_to_player(void) {
         gBattleStatus.flags1 |= BS_FLAGS1_SHOW_PLAYER_DECORATIONS;
         player->flags |= ACTOR_FLAG_SHOW_STATUS_ICONS;
         if (partner != nullptr) {
-            partner->flags |= (ACTOR_FLAG_SHOW_STATUS_ICONS | ACTOR_FLAG_USING_IDLE_ANIM);
+            partner->flags |= ACTOR_FLAG_SHOW_STATUS_ICONS;
+            if (!ttyd64_partner_combat_active(partner) || ttyd64_partner_combat_alive()) {
+                partner->flags |= ACTOR_FLAG_USING_IDLE_ANIM;
+            } else {
+                partner->flags &= ~ACTOR_FLAG_USING_IDLE_ANIM;
+            }
         }
 
         for (i = 0; i < ARRAY_COUNT(gBattleStatus.enemyActors); i++) {
