@@ -1,5 +1,6 @@
 #include "ttyd64_actor_modifiers.h"
 #include "ttyd64_partner_status.h"
+#include "ttyd64_partner_hp.h"
 #include "common.h"
 #include "sprite.h"
 #include "effects.h"
@@ -874,6 +875,12 @@ void appendGfx_npc_actor(b32 isPartner, s32 actorIndex) {
         actor = battleStatus->enemyActors[actorIndex];
     } else {
         actor = battleStatus->partnerActor;
+    }
+    // Native phase transitions can request idle after a partner's death event.
+    // Enforce the bound HP presentation contract before any part borrows its
+    // living idle table; Vanilla actors and a revived partner retain native idle.
+    if (isPartner && ttyd64_partner_combat_active(actor) && actor->curHP == 0) {
+        actor->flags &= ~ACTOR_FLAG_USING_IDLE_ANIM;
     }
     actorPosX = actor->curPos.x + actor->headOffset.x;
     if (!(actor->flags & ACTOR_FLAG_UPSIDE_DOWN)) {

@@ -84,6 +84,7 @@ def run():
                 'rotation_x': float(gdb.parse_and_eval('gBattleStatus.partnerActor->rot.x')),
                 'position_y': float(gdb.parse_and_eval('gBattleStatus.partnerActor->curPos.y')),
                 'home_y': float(gdb.parse_and_eval('gBattleStatus.partnerActor->homePos.y')),
+                'animation': val('gBattleStatus.partnerActor->partsTable->curAnimation'),
                 'can_act': bool(val('btl_partner_can_act()')),
             }
         if ({'statuses','recovery','electric-foods'} & set(phases)) and val('gGameStatusPtr->context') == val('CONTEXT_BATTLE') and val('gBattleStatus.partnerActor'):
@@ -562,7 +563,8 @@ def run():
             check('laki-death-hides-temporary-spiny',bool(val(f'get_actor_part({actor},2)->flags & ACTOR_PART_FLAG_INVISIBLE')))
         if partner_id == 9:
             check('bow-death-releases-hidden-team',val('gBattleStatus.outtaSightActive') == 0
-                  and val('gBattleStatus.playerActor->partsTable->opacity') == 255)
+                  and val('gBattleStatus.playerActor->partsTable->opacity') == 255
+                  and val(f'{actor}->partsTable->curAnimation') == val('ANIM_BattleBow_Still'))
         capture('roster-specific-death')
         swap_member(1)
         if partner_id == 6:
@@ -620,7 +622,8 @@ def run():
         # encounter API. Setup is injected; battle/flee/resume scripts run.
         for field in ('curHP','curMaxHP','hardMaxHP'): put('gPlayerData.'+field,99)
         inventory()
-        cmd('call start_battle(get_enemy(1)->idleScript,-1)')
+        assert val('get_enemy(1)->aiScript') and val('get_enemy(1)->aiScript->owner1.enemy == get_enemy(1)')
+        cmd('call start_battle(get_enemy(1)->aiScript,-1)')
         wait('gGameStatusPtr->context == CONTEXT_BATTLE && gBattleState == BATTLE_STATE_PLAYER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
         check('sushie-water-battle-binds-hp',val('ttyd64_partner_combat_active(gBattleStatus.partnerActor)')
               and val('gPartnerStatus.shouldResumeAbility') and hp() == 3)
@@ -3000,7 +3003,7 @@ def run():
         cmd('call ttyd64_mode_select_file(0)')
     assert save.read_bytes() == original
     Path(required_env('PARTNER_SLICE_RESULT')).write_text(json.dumps({'partner_id':partner_id,'phases_run':phases,'checks_passed':len(checks),'checks':checks,'native_states':states,'captures':captures,'team_trace':team_trace,
-        'limits':'B02 Watt repeated non-victory turns refill surviving enemy HP to sustain native electrical retaliation; victory disables that maintenance. Family phase uses real kmr_06 encounters and keyboard menus with controlled setup/refills; see family-method trace. Dip phase injects owned/equipped badges, budget, stock, wounds and FP; native pause-equip API followed by real keyboard battle menus, cancel, recipients, item scripts/payment and turn scheduling. No forced menu/guard/RNG returns in dip phase; common startup/file-select return is forced. BP phase injects an over-budget loadout and observes native rendering after keyboard pause input. Recovery-hook matrix injects identity/rank/wounds, item touch and reward substate/timer and calls native callbacks, not a naturally earned level-up. Level-up phase grants a disposable heart and initial99 star points; pickup, encounter, attacks, native rewards/level-up/stat-choice/world return/save use real keyboard. Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; no all-partner UI, source artwork/choreography parity or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
+        'limits':'B02 Watt repeated non-victory turns refill surviving enemy HP to sustain native electrical retaliation; victory disables that maintenance. Family phase uses real kmr_06 encounters and keyboard menus with controlled setup/refills; see family-method trace. Dip phase injects owned/equipped badges, budget, stock, wounds and FP; native pause-equip API followed by real keyboard battle menus, cancel, recipients, item scripts/payment and turn scheduling. No forced menu/guard/RNG returns in dip phase; common startup/file-select return is forced. BP phase injects an over-budget loadout and observes native rendering after keyboard pause input. Recovery-hook matrix injects identity/rank/wounds, item touch and reward substate/timer and calls native callbacks, not a naturally earned level-up. Level-up phase grants a disposable heart and initial99 star points; pickup, encounter, attacks, native rewards/level-up/stat-choice/world return/save use real keyboard. Kooper team/dead-victory enemies use a controlled +1 attack boost to exercise lethal hits through DEF1; their AI/menu/turn/death logic is native. Ground-contracts controls item/contact entry points and initial HP/inventory; Kooper countdown/recovery advances through native keyboard rounds. Only listed phases run. Victory phases use keyboard attacks, native enemy defeat/rewards/world return and keyboard Save Block hit/prompt; map/position, initial HP/items/progression and non-level-up boundary are controlled. Reload calls native FIO, not a title restart. Native keyboard pause and/or world item menu/script phases as listed. Recruitment, inventory, ranks and wounds are controlled; all-eight pause/world/current-recipient UI is covered only by the roster-ui phase, with no full source artwork/choreography or campaign claim. Battle phase controls map/progression, inventory, health and action-command unlock; contact, swap menus, flee outcome, recovery menus and native lifecycle use real keyboard input.'},indent=2)+'\n')
     print('PARTNER_SLICE_PHASES_PASSED=' + ','.join(phases) + ':' + str(len(checks)))
     cmd('kill')
 

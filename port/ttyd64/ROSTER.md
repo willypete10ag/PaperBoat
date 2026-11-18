@@ -67,15 +67,15 @@ team swaps already exchange X/Z only. Replacement actors must not retain stale
 status/effect/script ownership. HP persists by roster identity, while battle
 timers remain unsaved and follow existing active/inactive phase rules.
 
-## Validation boundary and next adapters
+## Validation boundary
 
-The pure checks exercise eight HP records and eight implemented adapters, including
-invalid/noncombat IDs. Noncombat IDs remain negative cases; Bow is now a supported identity. Shared native routes gain
-a separate Parakarry cohort; ground repetitions remain reported separately.
-Builds/pure checks are not gameplay acceptance. Native flight, ordinary/guarded/
-contact/item/lethal damage, Life Shroom/no-item, status/swap, world recovery,
-field carry and save/continue still require pinned actual results and rendered
-observation before B01 can be declared complete.
+B01 is integrated in the base PR26/7f661e7; its original ground/Parakarry and
+owner Windows evidence retain their original identities. B02 pure checks now
+exercise eight HP records and eight implemented adapters, including invalid/
+noncombat boundaries. Runtime cases and per-partner repetitions are separate
+from those pure checks and from full source move/art/campaign acceptance.
+Current pinned results and remaining review gates are recorded in PR27 and
+the coordination repository's results/b02-full-roster-2026-11-17 directory.
 
 B02 implements the remaining four adapters with their own status/effect/part/flight
 rules; admission is implementation state, not validation or full partner completion.
@@ -110,6 +110,13 @@ Partner-owned items, enemy-held items and PR25 rework remain later packages.
 - The active world `PartnersHP.patch` UseItem script lowers Bow/Watt HP/FP gain
   positions by10 before common offsets. Only those active NPC recipients gain
   this adjustment; Mario/inactive recipients keep their existing position route.
+- Contact damage selects the bound adapter blueprint's primary part. Native
+  single-part lookup tolerates invalid0, masking the assumption until Lakilester
+  (main1/projectile2) crashes. Vanilla contact routing is preserved.
+- Native enemy/turn phase transitions can re-enable idle after a death event.
+  Bound zero-HP partners reject living idle at the common presentation boundary,
+  before part animation lookup. This complements existing menu guards without
+  rebuilding every phase consumer; revival/Vanilla idle remain native.
 - The isolated healing developer profile recruits all eight at3HP. The status
   profile retains three ground partners; normal saves gain no recruits/items.
 
