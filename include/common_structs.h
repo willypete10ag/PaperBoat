@@ -3,7 +3,12 @@
 
 #undef __MACTYPES__
 #include "macros.h"
+// fmt's C++ templates use PACKED as a parameter name. Keep our layout macro
+// out of third-party headers, then restore it for the native structs below.
+#pragma push_macro("PACKED")
+#undef PACKED
 #include <libultraship/libultraship.h>
+#pragma pop_macro("PACKED")
 #include "types.h"
 #include "evt.h"
 #include "enums.h"

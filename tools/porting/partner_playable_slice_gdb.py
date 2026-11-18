@@ -59,8 +59,8 @@ def run():
     assert partner_id in (1,2,3,4,6,7,8,9)
     cmd(f'set $slicePartner = {partner_id}')
     phases = ['playtest'] if playtest else os.environ.get('PARTNER_SLICE_PHASES', 'pause,world-items,battle').split(',')
-    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special', 'flight-boundaries', 'roster-ui', 'roster-special'}
-    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special', 'flight-boundaries', 'roster-ui', 'roster-special'}
+    assert phases == ['playtest'] if playtest else phases and set(phases) <= {'pause', 'world-items', 'battle', 'team', 'victory', 'victory-dead', 'ground-ui', 'ground-combat', 'ground-contracts', 'statuses', 'recovery', 'modifiers', 'status-items', 'regeneration', 'recovery-hooks', 'level-up', 'bp', 'dip', 'family', 'native-guard', 'native-status', 'defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special', 'flight-boundaries', 'roster-ui', 'roster-special', 'roster-water'}
+    assert partner_id == 1 or set(phases) <= {'ground-combat','ground-contracts','statuses','recovery','modifiers','status-items','regeneration','recovery-hooks','level-up','team','victory','victory-dead','native-guard','native-status','defeat-review', 'orphan-badges', 'hammer-shrink', 'popup-review', 'star-recovery', 'food-recovery', 'electric-foods', 'world-special', 'flight-boundaries', 'roster-ui', 'roster-special', 'roster-water'}
     checks, states, captures = [], [], []
     team_trace = []
     def hp():
@@ -501,16 +501,25 @@ def run():
                 wait('gBattleState == BATTLE_STATE_SELECT_TARGET && gBattleSubState == 1')
                 check('bow-native-outta-sight-selected',val('gBattleStatus.selectedMoveID') == val('MOVE_OUTTA_SIGHT'))
                 key('x')
-                wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+                wait('gBattleStatus.outtaSightActive != 0',1800)
                 check('bow-native-outta-sight-hides-team',val('gBattleStatus.outtaSightActive') != 0
                       and val('gBattleStatus.playerActor->partsTable->opacity') < 255)
-            conceal(); spend_turn()
+            conceal()
+            wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',2400)
             check('bow-native-phase-reappears',val('gBattleStatus.outtaSightActive') == 0
                   and val('gBattleStatus.playerActor->partsTable->opacity') == 255)
-            conceal(); swap_member(1)
-            check('bow-hidden-replacement-releases-mario',val('gBattleStatus.outtaSightActive') == 0
+            # Native concealment suppresses menu control. Exercise the exact
+            # release boundary directly while hidden, then perform real menu
+            # replacement after normal turn control returns.
+            put('gBattleStatus.flags2',val('gBattleStatus.flags2') & ~val('BS_FLAGS2_PARTNER_TURN_USED'))
+            conceal()
+            cmd('call ttyd64_partner_hp_unbind_actor(gBattleStatus.partnerActor)')
+            check('bow-hidden-native-unbind-releases-mario',val('gBattleStatus.outtaSightActive') == 0
                   and val('gBattleStatus.playerActor->partsTable->opacity') == 255
                   and val('gBattleStatus.playerActor->partsTable->idleAnimations == bMarioIdleAnims'))
+            cmd('call ttyd64_partner_hp_bind_actor(gBattleStatus.partnerActor)')
+            wait('gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',2400)
+            swap_member(1)
             swap_member(9)
             # Controlled turn readiness only for the third concealment setup;
             # the command, FP payment and native concealment script still run.
@@ -549,7 +558,61 @@ def run():
         flee_battle()
         put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
         field_cycle('roster-zero-hp-after-battle')
-        team_trace.append({'event':'roster-special-method','method':'Controlled rank/stock/wounds and direct native contact-event calls for reaction/zero/immune/death routes. Bow uses real ability menus/targets/native concealment/phase return and replacement; final concealment setup clears only the used-turn flag. Laki projectile visibility is injected before native death. Real world Down/C ability input (Sushie land denial only), keyboard Change Member, native flee and world return. No forced RNG/guard or event result. Common file-select return forced.'})
+        team_trace.append({'event':'roster-special-method','method':'Controlled rank/stock/wounds and direct native contact-event calls for reaction/zero/immune/death routes. Bow uses real ability menus/targets/native concealment/phase return; hidden release directly calls native HP unbind/bind, with ordinary keyboard replacement after control returns. Later concealment setup clears the used-turn flag. Laki projectile visibility is injected before native death. Real world Down/C ability input (Sushie land denial only), keyboard Change Member, native flee and world return. No forced RNG/guard or event result. Common file-select return forced.'})
+    if 'roster-water' in phases:
+        assert partner_id == 7
+        cmd('call ttyd64_mode_select_file(1)')
+        put('gGameStatusPtr->debugEnemyContact',val('DEBUG_CONTACT_CANT_TOUCH'))
+        cmd('call get_map_IDs_by_name_checked("jan_10", &gGameStatusPtr->areaID, &gGameStatusPtr->mapID)')
+        put('gGameStatusPtr->entryID',0)
+        cmd('call set_game_mode(GAME_MODE_CHANGE_MAP)')
+        until('state_step_world'); tick(120)
+        wait('gGameStatusPtr->context == CONTEXT_WORLD && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+        # Controlled map-transition resume setup on actual water geometry,
+        # not a forced dock mount, collision result or natural campaign route.
+        cmd('call get_collider_center(0x20, &gCurrentSaveFile.savePos.x, &gCurrentSaveFile.savePos.y, &gCurrentSaveFile.savePos.z)')
+        center = [float(gdb.parse_and_eval('gCurrentSaveFile.savePos.'+a)) for a in ('x','y','z')]
+        water = None
+        for dx,dz in ((0,0),(40,0),(-40,0),(0,40),(0,-40),(80,80),(-80,-80)):
+            x,z = center[0]+dx,center[2]+dz
+            cmd(f'call world_sushie_test_for_water_level(0,{x},{center[1]},{z},0,5)')
+            floor = val('gCollisionStatus.curFloor')
+            if floor >= 0 and val(f'get_collider_flags({floor}) & COLLIDER_FLAGS_SURFACE_TYPE_MASK') == val('SURFACE_TYPE_WATER'):
+                water = (x,float(gdb.parse_and_eval('world_sushie_WaterSurfaceY')),z)
+                break
+        assert water is not None, 'No real water under controlled resume position'
+        for axis,amount in zip(('x','y','z'),water):
+            put('wPartnerNpc->pos.'+axis,amount)
+            put('gPlayerStatus.pos.'+axis,amount+(16 if axis == 'y' else 0))
+        put('gGameStatusPtr->keepUsingPartnerOnMapChange',1)
+        assert val('partner_use_ability()') == 1
+        wait('world_sushie_IsRiding && gPartnerStatus.partnerActionState == PARTNER_ACTION_USE',900)
+        tick(40)
+        check('sushie-native-water-resume-binds-owner',hp() == 3 and val('WorldPartnerID') == 7
+              and val('gCollisionStatus.curFloor') >= 0)
+        key('Down',35)
+        check('sushie-keyboard-dive-uses-native-state',val('world_sushie_DiveState') != 0 and hp() == 3)
+        wait('world_sushie_DiveState == 0',1200)
+        capture('sushie-water-resurfaced')
+        # Start the map's actual Jungle Fuzzy formation through its native
+        # encounter API. Setup is injected; battle/flee/resume scripts run.
+        for field in ('curHP','curMaxHP','hardMaxHP'): put('gPlayerData.'+field,99)
+        inventory()
+        cmd('call start_battle(get_enemy(1)->idleScript,-1)')
+        wait('gGameStatusPtr->context == CONTEXT_BATTLE && gBattleState == BATTLE_STATE_PLAYER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+        check('sushie-water-battle-binds-hp',val('ttyd64_partner_combat_active(gBattleStatus.partnerActor)')
+              and val('gPartnerStatus.shouldResumeAbility') and hp() == 3)
+        flee_battle(5)
+        wait('world_sushie_IsRiding && gPartnerStatus.partnerActionState == PARTNER_ACTION_USE',1200)
+        tick(40)
+        check('sushie-native-flee-resumes-water-owner',val('WorldPartnerID') == 7
+              and val('ttyd64_partner_hp_display_partner()') == 7 and hp() == 3)
+        cmd('call ttyd64_set_partner_hp(7,0)')
+        key('Down',35)
+        check('sushie-zero-hp-water-dive',val('world_sushie_DiveState') != 0 and hp() == 0)
+        wait('world_sushie_DiveState == 0',1200)
+        check('sushie-zero-hp-water-resurface',val('world_sushie_IsRiding') and hp() == 0)
+        team_trace.append({'event':'roster-water-method','method':'Injected jan_10 map/water position, native keepUsingPartnerOnMapChange resume flag and partner_use_ability API. Actual water raycast, keyboard dive/resurface at positive/zero HP. Native start_battle on map Jungle Fuzzy idle script is controlled encounter setup; keyboard flee and native pre/post battle ability resume. No forced collision/dock/RNG/guard/ability result. Not natural dock mount/dismount or campaign progression.'})
     if 'electric-foods' in phases:
         baseline = os.environ.get('ELECTRIC_FOODS_BASELINE') == '1'
         enter_road_battle()
@@ -1563,7 +1626,7 @@ def run():
                   and val(f'ttyd64_get_partner_hp({pid})') == roster.index(pid)+1)
         capture('roster-pause-all-eight')
         close_pause()
-        for pid in (*roster,1):
+        for pid in (*roster[1:],1):
             key('Right'); menu_ready(0)
             ids = [val(f'WorldPopupMenu.userIndex[{i}]') for i in range(val('WorldPopupMenu.numEntries'))]
             assert len(ids) == 8 and set(ids) == set(roster), ids
