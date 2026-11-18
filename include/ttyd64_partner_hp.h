@@ -41,6 +41,10 @@ s32 ttyd64_use_consumable_on_partner(s32 invSlot, s32 partnerID);
 void ttyd64_partner_hp_begin_battle(void);
 void ttyd64_partner_hp_bind_actor(Actor* actor);
 void ttyd64_partner_hp_unbind_actor(Actor* actor);
+// Adapter-owned presentation must be released before the actor is freed.
+void ttyd64_partner_lifecycle_release(s32 partnerID, Actor* actor);
+void ttyd64_bow_clear_hidden_team(Actor* actor);
+void ttyd64_watt_remove_effects(Actor* actor);
 
 // Recruited world adapters; HP data alone does not admit a recipient or actor.
 b32 ttyd64_has_world_hp_partner(void);
@@ -93,8 +97,12 @@ s32 ttyd64_partner_hp_display(void);
 s32 ttyd64_partner_hp_display_partner(void);
 
 API_CALLABLE(Ttyd64PartnerHPState);
+API_CALLABLE(Ttyd64PartnerUsesHP);
+API_CALLABLE(Ttyd64PartnerRestoreFlight);
+API_CALLABLE(Ttyd64PartnerRecoveryHeight);
 API_CALLABLE(Ttyd64PartnerRestoreDeadPose);
 extern EvtScript EVS_Ttyd64PartnerDeath;
+extern EvtScript EVS_Ttyd64PartnerDrop;
 
 #ifdef __cplusplus
 }

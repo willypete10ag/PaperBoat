@@ -1,5 +1,16 @@
 # TTYD64 port contribution and evidence rules
 
+## Approved B02 continuation
+
+The owner explicitly approved merging PR26 and starting B02/#10. PR26 is merged
+only into fork ttyd64/main at7f661e7609589d0af8cb3895184057fdad833ed6 after its
+exact-head gates and recorded human pass. Work now covers Bow/Watt/Sushie/
+Lakilester lifecycle/status/presentation adapters and all-eight current HP/UI/
+recipient coverage on port/ttyd64-full-roster. Preserve native saves and mode.
+Stop at B02 review/Windows checkpoint; its merge is not automatically authorized.
+PR25 remains paused/draft/unmerged at524832099. B03+ remains separate scope.
+This explicit approval supersedes historical B01-only/pending text below.
+
 ## Approved B01 scope
 
 The owner approved the reviewed architecture plan and B01 (coordination issue

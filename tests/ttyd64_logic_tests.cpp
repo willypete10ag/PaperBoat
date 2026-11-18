@@ -112,13 +112,12 @@ int main(int argc, char** argv) {
                                { 15, 20, 30 }, { 10, 20, 30 }, { 0, 0, 0 },    { 0, 0, 0 } };
     int ranks[12] = {};
     const int homeY[12] = { -1, 0, 0, 0, 4, -1, 11, 0, 4, 9, -1, -1 };
-    // Native-ID roster contract: eight HP records, four admitted adapters.
-    // Temporary actors and incomplete Bow/Watt/Sushie/Lakilester adapters must
-    // not become combat/world-ready merely because their HP JSON is valid.
+    // All eight source combat identities now have lifecycle adapters. Temporary
+    // actors remain excluded even if malformed saves claim to recruit them.
     for (int partner : { INT_MIN, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, INT_MAX }) {
         bool health = partner == 1 || partner == 2 || partner == 3 || partner == 4
             || partner == 6 || partner == 7 || partner == 8 || partner == 9;
-        bool ready = partner >= 1 && partner <= 4;
+        bool ready = health;
         CHECK(!!ttyd64_partner_has_hp_data(partner) == health);
         CHECK(!!ttyd64_partner_world_ready(partner) == ready);
         CHECK(!!ttyd64_partner_combat_ready(partner) == ready);

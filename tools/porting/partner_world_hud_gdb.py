@@ -155,9 +155,9 @@ def run():
     capture('world-hud-supported-kooper')
     put('gPlayerData.partners[9].enabled',1)
     switch(9)
-    check('native-unsupported-bow-hides-world-row',display() == -1 and hp() == 6 and hp(2) == 10
-          and val('ttyd64_partner_hp_display_partner()') == 0)
-    capture('world-hud-unsupported-bow')
+    check('native-supported-bow-owns-world-row',display() == 10 and hp() == 6 and hp(2) == 10
+          and val('ttyd64_partner_hp_display_partner()') == 9)
+    capture('world-hud-supported-bow')
     switch(1)
     check('native-swap-back-snaps-saved-health',display() == 6 and hp() == 6)
     capture('world-hud-swap-back')

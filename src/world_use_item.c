@@ -27,13 +27,18 @@ b32 ttyd64_world_item_can_target_partner(s32 itemID) {
 API_CALLABLE(WorldItem_GetHPRecipientPos) {
     Bytecode* args = script->ptrReadPos;
     Vec3f* pos = &gPlayerStatus.pos;
+    f32 offsetY = 0.0f;
 
     if (ttyd64_mode_enabled() && ttyd64_partner_world_ready(script->varTable[14])
         && wCurrentPartnerId == script->varTable[14] && wPartnerNpc != nullptr) {
         pos = &wPartnerNpc->pos;
+        // PartnersHP.patch world UseItem: these two NPCs already hover high.
+        if (wCurrentPartnerId == PARTNER_WATT || wCurrentPartnerId == PARTNER_BOW) {
+            offsetY = -10.0f;
+        }
     }
     evt_set_variable(script, *args++, pos->x);
-    evt_set_variable(script, *args++, pos->y);
+    evt_set_variable(script, *args++, pos->y + offsetY);
     evt_set_variable(script, *args++, pos->z);
     return ApiStatus_DONE2;
 }

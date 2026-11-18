@@ -55,11 +55,15 @@ int ttyd64_playtest_startup(void) {
         add_item(spare[i]);
     }
     if (profile == 1) {
-        // B01 flying lifecycle playtest; only this isolated developer file
-        // recruits Parakarry. Normal files retain natural recruitment.
-        gPlayerData.partners[PARTNER_PARAKARRY].enabled = true;
-        ttyd64_reset_partner_hp(PARTNER_PARAKARRY);
-        ttyd64_set_partner_hp(PARTNER_PARAKARRY, 3);
+        // B02 all-eight lifecycle review; only this isolated developer file
+        // recruits the remaining roster. Normal files retain natural recruitment.
+        for (s32 id = PARTNER_PARAKARRY; id <= PARTNER_BOW; ++id) {
+            if (ttyd64_partner_world_ready(id)) {
+                gPlayerData.partners[id].enabled = true;
+                ttyd64_reset_partner_hp(id);
+                ttyd64_set_partner_hp(id, 3);
+            }
+        }
         add_item(ITEM_MUSHROOM);
         add_item(ITEM_MUSHROOM);
         add_item(ITEM_VOLT_SHROOM);

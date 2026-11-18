@@ -9,6 +9,10 @@
 #include "sprite/npc/BattleKooper.h"
 #include "sprite/npc/BattleBombette.h"
 #include "sprite/npc/BattleParakarry.h"
+#include "sprite/npc/BattleBow.h"
+#include "sprite/npc/BattleWatt.h"
+#include "sprite/npc/BattleSushie.h"
+#include "sprite/npc/BattleLakilester.h"
 
 API_CALLABLE(LifeShroomShroudWorld);
 API_CALLABLE(LifeShroomRevealWorld);
@@ -16,12 +20,71 @@ API_CALLABLE(SetItemAsLifeShroom);
 
 // Native presentation adapters for admitted lifecycle scripts. Source animation
 // identities are translated by name; no ROM addresses or source packed IDs.
-static const struct { AnimID hurt, idle, run, dead; } Ttyd64PartnerAnims[TTYD64_PARTNER_HP_COUNT] = {
+// Lakilester's cloud is part of the main sprite; part 2 is the temporary Spiny.
+static void ttyd64_lakilester_clear_spiny(Actor* actor) {
+    ActorPart* part = get_actor_part(actor, 2);
+    if (part != nullptr) {
+        part->flags |= ACTOR_PART_FLAG_INVISIBLE;
+    }
+}
+
+static const struct {
+    AnimID hurt, idle, run, dead;
+    void (*defeat)(Actor*);
+    void (*release)(Actor*);
+    AnimID fall;
+} Ttyd64PartnerAnims[TTYD64_PARTNER_HP_COUNT] = {
     [PARTNER_GOOMBARIO] = { ANIM_BattleGoombario_HurtStill, ANIM_BattleGoombario_Idle, ANIM_BattleGoombario_Run, ANIM_BattleGoombario_HurtStill },
     [PARTNER_KOOPER] = { ANIM_BattleKooper_Hurt, ANIM_BattleKooper_Idle, ANIM_BattleKooper_Run, ANIM_BattleKooper_Hurt },
     [PARTNER_BOMBETTE] = { ANIM_BattleBombette_Hurt, ANIM_BattleBombette_Idle, ANIM_BattleBombette_Run, ANIM_BattleBombette_Hurt },
     [PARTNER_PARAKARRY] = { ANIM_BattleParakarry_Hurt, ANIM_BattleParakarry_Walk,
         ANIM_BattleParakarry_Run, ANIM_BattleParakarry_HurtStill },
+    [PARTNER_BOW] = { ANIM_BattleBow_Hurt, ANIM_BattleBow_Idle, ANIM_BattleBow_Run,
+        ANIM_BattleBow_Still, ttyd64_bow_clear_hidden_team, ttyd64_bow_clear_hidden_team, ANIM_BattleBow_Hurt },
+    [PARTNER_WATT] = { ANIM_BattleWatt_Hurt, ANIM_BattleWatt_Idle, ANIM_BattleWatt_Run,
+        ANIM_BattleWatt_Still, nullptr, ttyd64_watt_remove_effects, ANIM_BattleWatt_Hurt },
+    [PARTNER_SUSHIE] = { ANIM_BattleSushie_Injured, ANIM_BattleSushie_Idle,
+        ANIM_BattleSushie_Run, ANIM_BattleSushie_Still },
+    [PARTNER_LAKILESTER] = { ANIM_BattleLakilester_Hurt, ANIM_BattleLakilester_Walk,
+        ANIM_BattleLakilester_Run, ANIM_BattleLakilester_Still, ttyd64_lakilester_clear_spiny,
+        nullptr, ANIM_BattleLakilester_Hurt },
+};
+
+void ttyd64_partner_lifecycle_release(s32 partnerID, Actor* actor) {
+    if (actor != nullptr && ttyd64_partner_combat_ready(partnerID)
+        && Ttyd64PartnerAnims[partnerID].release != nullptr) {
+        Ttyd64PartnerAnims[partnerID].release(actor);
+    }
+}
+
+API_CALLABLE(Ttyd64PartnerUsesHP) {
+    script->varTable[0] = ttyd64_partner_combat_active(gBattleStatus.partnerActor);
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerRestoreFlight) {
+    Actor* actor = gBattleStatus.partnerActor;
+    if (ttyd64_partner_combat_active(actor) && actor->curHP > 0) {
+        actor->homePos.y = actor->curPos.y = ttyd64_partner_battle_home_y(gPlayerData.curPartner);
+    }
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerRecoveryHeight) {
+    if (ttyd64_partner_combat_active(gBattleStatus.partnerActor)) {
+        script->varTable[3] = ttyd64_partner_battle_home_y(gPlayerData.curPartner);
+    }
+    return ApiStatus_DONE2;
+}
+
+// Unlike HPState this preserves the caller's LVar1 animation argument.
+EvtScript EVS_Ttyd64PartnerDrop = {
+    Call(Ttyd64PartnerUsesHP)
+    IfEq(LVar0, false)
+        ExecWait(EVS_Partner_Drop)
+    EndIf
+    Return
+    End
 };
 
 API_CALLABLE(Ttyd64PartnerFlightHeight) {
@@ -33,6 +96,14 @@ API_CALLABLE(Ttyd64PartnerFlightHeight) {
 API_CALLABLE(Ttyd64PartnerSetDeadAnimation) {
     if (ttyd64_partner_combat_active(gBattleStatus.partnerActor)) {
         set_actor_anim(ACTOR_PARTNER, -1, Ttyd64PartnerAnims[gPlayerData.curPartner].dead);
+    }
+    return ApiStatus_DONE2;
+}
+
+API_CALLABLE(Ttyd64PartnerSetFallAnimation) {
+    if (ttyd64_partner_combat_active(gBattleStatus.partnerActor)) {
+        AnimID anim = Ttyd64PartnerAnims[gPlayerData.curPartner].fall;
+        set_actor_anim(ACTOR_PARTNER, -1, anim ? anim : Ttyd64PartnerAnims[gPlayerData.curPartner].dead);
     }
     return ApiStatus_DONE2;
 }
@@ -76,6 +147,10 @@ API_CALLABLE(Ttyd64PartnerHPState) {
 
 API_CALLABLE(Ttyd64PartnerDeathBegin) {
     ttyd64_partner_combat_mark_dead(gBattleStatus.partnerActor);
+    if (ttyd64_partner_combat_active(gBattleStatus.partnerActor)
+        && Ttyd64PartnerAnims[gPlayerData.curPartner].defeat != nullptr) {
+        Ttyd64PartnerAnims[gPlayerData.curPartner].defeat(gBattleStatus.partnerActor);
+    }
     return ApiStatus_DONE2;
 }
 
@@ -101,6 +176,9 @@ API_CALLABLE(Ttyd64PartnerUseLifeShroom) {
 API_CALLABLE(Ttyd64PartnerRestoreDeadPose) {
     Actor* actor = gBattleStatus.partnerActor;
     if (ttyd64_partner_combat_death_handled(actor) && ttyd64_get_partner_hp(gPlayerData.curPartner) == 0) {
+        if (Ttyd64PartnerAnims[gPlayerData.curPartner].defeat != nullptr) {
+            Ttyd64PartnerAnims[gPlayerData.curPartner].defeat(actor);
+        }
         actor->rot.x = 86.0f;
         actor->flags &= ~ACTOR_FLAG_USING_IDLE_ANIM;
         set_actor_anim(ACTOR_PARTNER, -1, Ttyd64PartnerAnims[gPlayerData.curPartner].dead);
@@ -204,7 +282,7 @@ EvtScript EVS_Ttyd64PartnerDeath = {
     IfNe(LVar0, 0)
         // Active PartnersHP $PartnerDies: flying actors fall to y=3,
         // bounce three times, then share the collapse/revival scheduler.
-        Call(Ttyd64PartnerSetDeadAnimation)
+        Call(Ttyd64PartnerSetFallAnimation)
         Call(GetActorPos, ACTOR_PARTNER, LVar0, LVar1, LVar2)
         Set(LVar1, 3)
         Call(SetActorJumpGravity, ACTOR_PARTNER, Float(1.0))

@@ -242,6 +242,7 @@ void ttyd64_partner_hp_bind_actor(Actor* actor) {
 
 void ttyd64_partner_hp_unbind_actor(Actor* actor) {
     if (actor == BoundPartnerActor) {
+        ttyd64_partner_lifecycle_release(BoundPartnerID, actor);
         ttyd64_partner_status_unbind(actor);
         ttyd64_actor_modifiers_unbind_partner(actor);
         clear_binding();

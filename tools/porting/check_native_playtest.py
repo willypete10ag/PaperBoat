@@ -113,11 +113,12 @@ def observe():
                   val(f'ttyd64_get_partner_hp({partner})') == 3 and
                   val(f'ttyd64_get_partner_max_hp({partner})') == maximum)
         if profile == 'healing':
-            check('native isolated Parakarry lifecycle setup',
-                  val('gPlayerData.partners[4].enabled') == 1
-                  and val('ttyd64_get_partner_hp(4)') == 3
-                  and val('ttyd64_get_partner_max_hp(4)') == 15,
-                  'observes native developer CLI initialization; no recruitment injection')
+            for partner, maximum in ((4,15),(6,10),(7,15),(8,15),(9,10)):
+                check('native isolated roster lifecycle setup '+str(partner),
+                      val(f'gPlayerData.partners[{partner}].enabled') == 1
+                      and val(f'ttyd64_get_partner_hp({partner})') == 3
+                      and val(f'ttyd64_get_partner_max_hp({partner})') == maximum,
+                      'observes native developer CLI initialization; no recruitment injection')
         check('native world partner bound', val('wCurrentPartnerId') == 1 and val('WorldPartnerID') == 1)
         save = Path(os.environ['NATIVE_PLAYTEST_SESSION']) / 'saves/file3.json'
         check('native save generated with TTYD64 mode, without a seed', save.is_file() and
@@ -196,8 +197,8 @@ def observe():
         key('Right')
         wait('WorldMenuState == 3 && WorldMenuType == 0 && gPopupState == POPUP_STATE_CHOOSING')
         check('keyboard partner menu lists profile roster',
-              val('WorldPopupMenu.numEntries') == (4 if profile == 'healing' else 3),
-              'real keyboard input after native CLI setup; B01 healing profile includes Parakarry')
+              val('WorldPopupMenu.numEntries') == (8 if profile == 'healing' else 3),
+              'real keyboard input after native CLI setup; B02 healing profile includes all eight')
         wait('gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
         for _ in range(4):
             if val('WorldPopupMenu.userIndex[PopupMenu_SelectedIndex]') == val('PARTNER_KOOPER'):

@@ -1,6 +1,7 @@
 #include "common.h"
 #include "effects.h"
 #include "battle/battle.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 #include "battle/action_cmd/hammer.h"
 #include "battle/action_cmd/squirt.h"
@@ -471,6 +472,7 @@ EvtScript N(EVS_Init) = {
     Call(BindIdle, ACTOR_SELF, Ref(N(EVS_Idle)))
     Call(BindHandleEvent, ACTOR_SELF, Ref(N(EVS_HandleEvent)))
     Call(BindHandlePhase, ACTOR_SELF, Ref(N(EVS_HandlePhase)))
+    Call(Ttyd64PartnerRestoreDeadPose)
     Return
     End
 };
@@ -485,13 +487,21 @@ EvtScript N(EVS_HandleEvent) = {
     Call(InterruptActionCommand)
     Call(GetLastEvent, ACTOR_PARTNER, LVar0)
     Switch(LVar0)
+        CaseEq(EVENT_DEATH)
+            Call(Ttyd64PartnerHPState)
+            IfNe(LVar0, 0)
+                IfEq(LVar1, 0)
+                    ExecWait(EVS_Ttyd64PartnerDeath)
+                    Return
+                EndIf
+            EndIf
         CaseOrEq(EVENT_HIT_COMBO)
         CaseOrEq(EVENT_HIT)
             SetConst(LVar1, ANIM_BattleSushie_Hurt)
             SetConst(LVar2, ANIM_BattleSushie_Hurt)
             ExecWait(EVS_Partner_Hit)
             SetConst(LVar1, ANIM_BattleSushie_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(EVS_Ttyd64PartnerDrop)
         EndCaseGroup
         CaseOrEq(EVENT_ZERO_DAMAGE)
         CaseOrEq(EVENT_IMMUNE)
@@ -505,32 +515,33 @@ EvtScript N(EVS_HandleEvent) = {
             Set(LVar2, 20)
             ExecWait(EVS_Partner_SpikeContact)
             SetConst(LVar1, ANIM_BattleSushie_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(EVS_Ttyd64PartnerDrop)
         CaseEq(EVENT_BURN_CONTACT)
             SetConst(LVar1, ANIM_BattleSushie_BurnHurt)
             Set(LVar2, 20)
             SetConst(LVar3, ANIM_BattleSushie_BurnStill)
             ExecWait(EVS_Partner_BurnContact)
             SetConst(LVar1, ANIM_BattleSushie_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(EVS_Ttyd64PartnerDrop)
         CaseEq(EVENT_BURN_HIT)
             SetConst(LVar1, ANIM_BattleSushie_BurnHurt)
             SetConst(LVar2, ANIM_BattleSushie_BurnStill)
             ExecWait(EVS_Partner_BurnHit)
             SetConst(LVar1, ANIM_BattleSushie_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(EVS_Ttyd64PartnerDrop)
         CaseEq(EVENT_SHOCK_HIT)
             SetConst(LVar1, ANIM_BattleSushie_Hurt)
             Set(LVar2, 20)
             ExecWait(EVS_Partner_ShockHit)
         CaseEq(EVENT_33)
             SetConst(LVar1, ANIM_BattleSushie_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(EVS_Ttyd64PartnerDrop)
         CaseEq(EVENT_RECOVER_FROM_KO)
             SetConst(LVar0, PRT_MAIN)
             SetConst(LVar1, ANIM_BattleSushie_Idle)
             SetConst(LVar2, ANIM_BattleSushie_Run)
             Set(LVar3, 0)
+            Call(Ttyd64PartnerRecoveryHeight)
             ExecWait(EVS_Partner_Recover)
         CaseOrEq(EVENT_18)
         CaseOrEq(EVENT_BLOCK)
@@ -542,6 +553,14 @@ EvtScript N(EVS_HandleEvent) = {
         EndCaseGroup
         CaseDefault
     EndSwitch
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+        Call(Ttyd64PartnerRestoreFlight)
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, true)
     Return
     End
@@ -564,6 +583,13 @@ EvtScript N(EVS_TakeTurn) = {
 };
 
 EvtScript N(EVS_Celebrate) = {
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Call(SetAnimation, ACTOR_PARTNER, -1, ANIM_BattleSushie_Celebrate)
     Wait(36)
     Call(SetAnimation, ACTOR_PARTNER, -1, ANIM_BattleSushie_Idle)
@@ -572,6 +598,13 @@ EvtScript N(EVS_Celebrate) = {
 };
 
 EvtScript N(EVS_RunAway) = {
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     SetConst(LVar0, PRT_MAIN)
     SetConst(LVar1, ANIM_BattleSushie_Run)
     ExecWait(EVS_Partner_RunAway)
@@ -580,6 +613,13 @@ EvtScript N(EVS_RunAway) = {
 };
 
 EvtScript N(EVS_RunAwayFail) = {
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, false)
     Call(SetGoalToHome, ACTOR_PARTNER)
     Call(SetActorSpeed, ACTOR_PARTNER, Float(6.0))
@@ -593,6 +633,13 @@ EvtScript N(EVS_RunAwayFail) = {
 };
 
 EvtScript N(EVS_HandlePhase) = {
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Return
     End
 };
