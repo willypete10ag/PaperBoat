@@ -293,7 +293,8 @@ jobs:
 
   build-macos:
     name: macOS
-    runs-on: macos-14
+    # macos-14 Arm64 is no longer offered by the hosted runner service.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v6
         with:

@@ -100,6 +100,15 @@ def run():
         if 'world-special' in phases:
             state['world_special'] = {'fp':val('gPlayerData.curFP'),'mario_hp':val('gPlayerData.curHP'),
                 'inventory':[val(f'gPlayerData.invItems[{i}]') for i in range(10)]}
+        if 'roster-ui' in phases:
+            state['roster_ui'] = {'fp':val('gPlayerData.curFP'),'mario_hp':val('gPlayerData.curHP'),
+                'stock':item_count(),'cursor':val('PopupMenu_SelectedIndex'),
+                'hp':{str(p):val(f'RuntimePartnerHP[{p}].curHP') for p in (1,2,3,4,6,7,8,9)}}
+        if 'roster-water' in phases and val('wPartnerNpc'):
+            state['water'] = {'riding':val('world_sushie_IsRiding'),'dive':val('world_sushie_DiveState'),
+                'action':val('gPlayerStatus.actionState'),'floor':val('gCollisionStatus.curFloor'),
+                'npc_y':float(gdb.parse_and_eval('wPartnerNpc->pos.y')),
+                'surface_y':float(gdb.parse_and_eval('world_sushie_WaterSurfaceY'))}
         states.append(state)
         if not condition:
             (root/'failed-state.json').write_text(json.dumps({'checks_passed':len(checks),'state':state,'team_trace':team_trace},indent=2)+'\n')
@@ -219,9 +228,11 @@ def run():
         key('x')
         menu_ready(3)
     def consume(row):
+        before_stock = item_count()
         # Observe the native cursor after each tap; render/input cadence may
         # drop a short tap or repeat one. Never force the popup selection.
         for _ in range(12):
+            wait('gPopupState == POPUP_STATE_CHOOSING && PopupDelayTime == 0')
             current = val('PopupMenu_SelectedIndex')
             if current == row:
                 break
@@ -229,6 +240,11 @@ def run():
         assert val('PopupMenu_SelectedIndex') == row, f'recipient cursor {val("PopupMenu_SelectedIndex")} != {row}'
         key('x')
         wait('WorldMenuState == 0 && !(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
+        # Closing the menu can precede the asynchronous use script. Observe
+        # real consumption, including scrolled recipient rows, before judging.
+        stock = ' + '.join(f'(gPlayerData.invItems[{i}] != ITEM_NONE)' for i in range(10))
+        wait(f'({stock}) == {before_stock-1}',900)
+        wait('!(gPlayerStatus.flags & PS_FLAG_INPUT_DISABLED)')
         tick(30)
     def enter_road_battle(family=None, formation=None):
         cmd('call ttyd64_mode_select_file(1)')
@@ -486,11 +502,12 @@ def run():
                 key('w' if current > pid else 's')
             assert val('gPopupMenu->userIndex[PopupMenu_SelectedIndex]') == pid
             key('x',6)
-            wait(f'gPlayerData.curPartner == {pid} && gBattleState == BATTLE_STATE_PLAYER_MENU && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
+            wait(f'gPlayerData.curPartner == {pid} && (gBattleState == BATTLE_STATE_PLAYER_MENU || gBattleState == BATTLE_STATE_PARTNER_MENU) && gBattleSubState < 4 && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
         if partner_id == 9:
             def conceal():
                 put('gPlayerData.curFP',10)
-                key('z')
+                if val('gBattleState') == val('BATTLE_STATE_PLAYER_MENU'):
+                    key('z')
                 wait('gBattleState == BATTLE_STATE_PARTNER_MENU && gBattleSubState == 3 && BattleMenuState == BTL_MENU_STATE_CHOOSING')
                 wheel('BTL_MENU_TYPE_ABILITY')
                 wait('gBattleSubState == 11 && MovesMenuState == BTL_SUBMENU_STATE_CHOOSING')
@@ -584,12 +601,17 @@ def run():
         for axis,amount in zip(('x','y','z'),water):
             put('wPartnerNpc->pos.'+axis,amount)
             put('gPlayerStatus.pos.'+axis,amount+(16 if axis == 'y' else 0))
+        # The resume branch inherits riding action/collision state from its
+        # prior map. Establish those native entry preconditions explicitly.
+        cmd('call set_action_state(ACTION_STATE_RIDE)')
+        cmd('call disable_player_static_collisions()')
         put('gGameStatusPtr->keepUsingPartnerOnMapChange',1)
         assert val('partner_use_ability()') == 1
         wait('world_sushie_IsRiding && gPartnerStatus.partnerActionState == PARTNER_ACTION_USE',900)
         tick(40)
         check('sushie-native-water-resume-binds-owner',hp() == 3 and val('WorldPartnerID') == 7
-              and val('gCollisionStatus.curFloor') >= 0)
+              and val('gCollisionStatus.curFloor') >= 0 and val('gPlayerStatus.actionState') == val('ACTION_STATE_RIDE'))
+        capture('sushie-water-resumed')
         key('Down',35)
         check('sushie-keyboard-dive-uses-native-state',val('world_sushie_DiveState') != 0 and hp() == 3)
         wait('world_sushie_DiveState == 0',1200)
@@ -612,7 +634,7 @@ def run():
         check('sushie-zero-hp-water-dive',val('world_sushie_DiveState') != 0 and hp() == 0)
         wait('world_sushie_DiveState == 0',1200)
         check('sushie-zero-hp-water-resurface',val('world_sushie_IsRiding') and hp() == 0)
-        team_trace.append({'event':'roster-water-method','method':'Injected jan_10 map/water position, native keepUsingPartnerOnMapChange resume flag and partner_use_ability API. Actual water raycast, keyboard dive/resurface at positive/zero HP. Native start_battle on map Jungle Fuzzy idle script is controlled encounter setup; keyboard flee and native pre/post battle ability resume. No forced collision/dock/RNG/guard/ability result. Not natural dock mount/dismount or campaign progression.'})
+        team_trace.append({'event':'roster-water-method','method':'Injected jan_10 map/water position, native riding action/static-collision preconditions, keepUsingPartnerOnMapChange resume flag and partner_use_ability API. Actual water raycast, keyboard dive/resurface at positive/zero HP. Native start_battle on map Jungle Fuzzy idle script is controlled encounter setup; keyboard flee and native pre/post battle ability resume. No forced collision/dock/RNG/guard/ability result. Not natural dock mount/dismount or campaign progression.'})
     if 'electric-foods' in phases:
         baseline = os.environ.get('ELECTRIC_FOODS_BASELINE') == '1'
         enter_road_battle()
@@ -1612,6 +1634,13 @@ def run():
         assert partner_id == 1
         cmd('call ttyd64_mode_select_file(1)')
         roster = (1,2,3,4,6,7,8,9)
+        for field in ('curHP','curMaxHP','hardMaxHP'): put('gPlayerData.'+field,20)
+        class WorldUseTrace(gdb.Breakpoint):
+            def stop(self):
+                team_trace.append({'event':'native-world-use-start','recipient':val('partnerID'),
+                    'slot':val('invSlot'),'item':val('gPlayerData.invItems[invSlot]')})
+                return False
+        world_use_trace = WorldUseTrace('start_consumable',internal=True); world_use_trace.silent=True
         for pid in roster:
             put(f'gPlayerData.partners[{pid}].enabled',1)
             put(f'gPlayerData.partners[{pid}].level',0)
@@ -1652,7 +1681,8 @@ def run():
             check('roster-world-zero-hp-food-once-'+str(pid),val(f'ttyd64_get_partner_hp({pid})') == 6
                   and val('gPlayerData.curFP') == 5 and val('gPlayerData.curHP') == 20 and item_count() == 1
                   and val('wCurrentPartnerId') == 1)
-        team_trace.append({'event':'roster-ui-method','method':'Injected all-eight recruitment/rank/unique wounds and food/FP stock. Real keyboard pause carousel, world partner selection and nine-row recipient selection. Zero HP food use tests active Goombario plus seven inactive recipients; selected HP6/shared FP3-to5 once, one stock consumed. No RNG or menu result forced; common startup/file-select return forced.'})
+        world_use_trace.delete()
+        team_trace.append({'event':'roster-ui-method','method':'Injected all-eight recruitment/rank/unique wounds, consistent Mario20HP/maxima and food/FP stock. Real keyboard pause carousel, world partner selection and nine-row recipient selection, waiting for native scroll/input readiness and actual stock consumption. Passive native start_consumable recipient trace. Zero HP food use tests active Goombario plus seven inactive recipients; selected HP6/shared FP3-to5 once, one stock consumed. No RNG or menu result forced; common startup/file-select return forced.'})
     if 'ground-ui' in phases:
         assert partner_id == 1
         cmd('call ttyd64_mode_select_file(1)')
