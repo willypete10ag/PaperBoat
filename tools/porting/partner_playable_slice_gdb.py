@@ -637,7 +637,11 @@ def run():
         wait('world_sushie_IsRiding && gPartnerStatus.partnerActionState == PARTNER_ACTION_USE',1200)
         tick(40)
         check('sushie-native-flee-resumes-water-owner',val('WorldPartnerID') == 7
-              and val('ttyd64_partner_hp_display_partner()') == 7 and hp() == 3)
+              and val('ttyd64_partner_hp_display_partner()') == 7 and hp() == 3
+              and val('gPlayerStatus.actionState') == val('ACTION_STATE_RIDE'))
+        key('Down',35)
+        check('sushie-positive-hp-post-flee-water-dive',val('world_sushie_DiveState') != 0 and hp() == 3)
+        wait('world_sushie_DiveState == 0',1200)
         cmd('call ttyd64_set_partner_hp(7,0)')
         key('Down',35)
         check('sushie-zero-hp-water-dive',val('world_sushie_DiveState') != 0 and hp() == 0)

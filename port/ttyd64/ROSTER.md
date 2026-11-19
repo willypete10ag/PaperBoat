@@ -119,6 +119,11 @@ Partner-owned items, enemy-held items and PR25 rework remain later packages.
   rebuilding every phase consumer; revival/Vanilla idle remain native.
 - The isolated healing developer profile recruits all eight at3HP. The status
   profile retains three ground partners; normal saves gain no recruits/items.
+- Sushie's normal TTYD64 post-battle callback restores the native riding action,
+  static-collision and resume-flag prerequisites before restarting its ability.
+  Retaining cached IsRiding/HP identity did not resume actual dive input after
+  flee. Current partner/NPC instance, saved mode and world/demo/Peach guards
+  scope this repair; the inherited Vanilla callback remains unchanged.
 
 Current source/build/runtime acceptance belongs to the feature PR and coordination
 evidence, with exact revisions, methods and failed attempts. Source implementation
