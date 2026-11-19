@@ -1322,7 +1322,11 @@ def run():
             def stop(self):
                 self.row.update(player_after=val('gPlayerData.curHP'),partner_after=hp(),
                                 blocked=bool(val('gBattleStatus.flags1 & BS_FLAGS1_ATK_BLOCKED')),
-                                block_result=val('gBattleStatus.blockResult'),damage=val('gBattleStatus.lastAttackDamage'))
+                                block_result=val('gBattleStatus.blockResult'),shared_damage=val('gBattleStatus.lastAttackDamage'))
+                # Watt's nested electrical retaliation overwrites shared damage
+                # scratch. Attribute damage to the original attack's target.
+                target = 'partner' if self.row['target'] == val('ACTOR_PARTNER') else 'player'
+                self.row['damage'] = self.row[target + '_before'] - self.row[target + '_after']
                 team_trace.append(self.row)
                 return False
         class GuardHit(gdb.Breakpoint):
@@ -2884,6 +2888,12 @@ def run():
         enter_road_battle()
         # Seed a non-level-up reward boundary; attack/HP/outcome/rewards are
         # observed, never forced. Basic attacks intentionally omit timed A.
+        if victory_phase == 'victory':
+            # Living victory requires a healthy start, not the dev profile's
+            # 3 HP. Enemy damage and victory remain natural; no turn refills.
+            assert val('ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))') == 1
+            team_trace.append({'event':'living-victory-healthy-start','hp':hp(),
+                               'method':'One controlled full-HP initial condition; no per-turn refill or forced damage/RNG/outcome.'})
         put('gPlayerData.starPoints',99 if level_up else 0)
         before_level = val('gPlayerData.level')
         inactive_hp = {pid:val(f'ttyd64_get_partner_hp({pid})') for pid in inactive if pid != partner_id}
