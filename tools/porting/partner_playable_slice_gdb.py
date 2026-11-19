@@ -562,9 +562,13 @@ def run():
         if partner_id == 8:
             check('laki-death-hides-temporary-spiny',bool(val(f'get_actor_part({actor},2)->flags & ACTOR_PART_FLAG_INVISIBLE')))
         if partner_id == 9:
+            # Animation names are preprocessor macros, absent from GDB's
+            # symbols. Resolve the named asset from the pinned source header.
+            bow_still = int(re.search(r'^#define ANIM_BattleBow_Still\s+(0x[0-9A-Fa-f]+)',
+                source_path('include/sprite/npc/BattleBow.h').read_text(),re.M)[1],16)
             check('bow-death-releases-hidden-team',val('gBattleStatus.outtaSightActive') == 0
                   and val('gBattleStatus.playerActor->partsTable->opacity') == 255
-                  and val(f'{actor}->partsTable->curAnimation') == val('ANIM_BattleBow_Still'))
+                  and val(f'{actor}->partsTable->curAnimation') == bow_still)
         capture('roster-specific-death')
         swap_member(1)
         if partner_id == 6:
@@ -621,11 +625,13 @@ def run():
         # Start the map's actual Jungle Fuzzy formation through its native
         # encounter API. Setup is injected; battle/flee/resume scripts run.
         for field in ('curHP','curMaxHP','hardMaxHP'): put('gPlayerData.'+field,99)
+        put('gPlayerData.hasActionCommands',1)
         inventory()
         assert val('get_enemy(1)->aiScript') and val('get_enemy(1)->aiScript->owner1.enemy == get_enemy(1)')
         cmd('call start_battle(get_enemy(1)->aiScript,-1)')
         wait('gGameStatusPtr->context == CONTEXT_BATTLE && gBattleState == BATTLE_STATE_PLAYER_MENU && BattleMenuState == BTL_MENU_STATE_CHOOSING',1800)
         check('sushie-water-battle-binds-hp',val('ttyd64_partner_combat_active(gBattleStatus.partnerActor)')
+              and val('gBattleStatus.actionCommandMode') == val('AC_MODE_LEARNED')
               and val('gPartnerStatus.shouldResumeAbility') and hp() == 3)
         flee_battle(5)
         wait('world_sushie_IsRiding && gPartnerStatus.partnerActionState == PARTNER_ACTION_USE',1200)
