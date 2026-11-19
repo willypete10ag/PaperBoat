@@ -2891,7 +2891,8 @@ def run():
         if victory_phase == 'victory':
             # Living victory requires a healthy start, not the dev profile's
             # 3 HP. Enemy damage and victory remain natural; no turn refills.
-            assert val('ttyd64_set_partner_hp($slicePartner,ttyd64_get_partner_max_hp($slicePartner))') == 1
+            maximum = val('ttyd64_get_partner_max_hp($slicePartner)')
+            assert val(f'ttyd64_set_partner_hp($slicePartner,{maximum})') == maximum
             team_trace.append({'event':'living-victory-healthy-start','hp':hp(),
                                'method':'One controlled full-HP initial condition; no per-turn refill or forced damage/RNG/outcome.'})
         put('gPlayerData.starPoints',99 if level_up else 0)
