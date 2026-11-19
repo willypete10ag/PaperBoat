@@ -987,7 +987,11 @@ s32 dispatch_damage_event_partner(s32 damageAmount, s32 event, s32 stopMotion) {
     }
 
     if (!stopMotion) {
-        set_goal_pos_to_part(state, ACTOR_PARTNER, 0);
+        // Native Lakilester has main part 1 and projectile part 2, but no
+        // part 0. Bound HP adapters use their blueprint's primary part.
+        s32 partID = ttyd64_partner_combat_active(partner)
+            ? partner->partsTable->staticData->index : 0;
+        set_goal_pos_to_part(state, ACTOR_PARTNER, partID);
     }
 
     show_next_damage_popup(state->goalPos.x, state->goalPos.y, state->goalPos.z,

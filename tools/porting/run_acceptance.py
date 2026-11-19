@@ -432,6 +432,16 @@ def main():
             {"PARTNER_SLICE_PARTNER":str(pid), "PARTNER_SLICE_PHASES":"team"})
     add("parakarry-food", "partner_playable_slice_gdb.py", "partner-playable-slice",
         {"PARTNER_SLICE_PARTNER":"4", "PARTNER_SLICE_PHASES":"food-recovery"})
+    add("roster-ui", "partner_playable_slice_gdb.py", "partner-playable-slice",
+        {"PARTNER_SLICE_PARTNER":"1", "PARTNER_SLICE_PHASES":"roster-ui"})
+    add("roster-water", "partner_playable_slice_gdb.py", "partner-playable-slice",
+        {"PARTNER_SLICE_PARTNER":"7", "PARTNER_SLICE_PHASES":"roster-water"})
+    for pid in (6,7,8,9):
+        for suffix, phases in (("lifecycle","ground-combat,team,recovery,statuses,victory,victory-dead"),
+                               ("special","roster-special"),("food","food-recovery"),("guard","native-guard"),
+                               ("victory","victory,victory-dead")):
+            add(f"roster-{pid}-{suffix}", "partner_playable_slice_gdb.py", "partner-playable-slice",
+                {"PARTNER_SLICE_PARTNER":str(pid), "PARTNER_SLICE_PHASES":phases})
     for pid in (1,2,3):
         add("world-special-"+str(pid), "partner_playable_slice_gdb.py", "partner-playable-slice",
             {"PARTNER_SLICE_PARTNER":str(pid),"PARTNER_SLICE_PHASES":"world-special",

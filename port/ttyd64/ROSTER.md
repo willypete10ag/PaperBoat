@@ -1,7 +1,7 @@
-# B01 roster and lifecycle contracts
+# B02 roster and lifecycle contracts
 
-Owner approved architecture ADR0008 and B01 in ttyd64-port issues #8/#9.
-Base: PaperBoat c133c85527b178854e35c1287726f955dc1c8ca8 (PR24).
+Owner approved PR26 integration and B02/#10 implementation/scoped validation.
+Base: PaperBoat7f661e7609589d0af8cb3895184057fdad833ed6 (PR26, tested head31eb).
 Reference: TTYD64 b8d2058ea057b2dfc168f2d909a2a2ea0927ce17.
 This branch is implementation work in progress, not native acceptance or merge
 permission. PR25/524832099614aa8df6ef5aca5d35bb536ad938f6 remains paused.
@@ -20,10 +20,10 @@ actor/NPC instance ownership still apply after a capability query succeeds.
 | Kooper | 2 | Yes | Existing | Existing; independent flip state | 0 |
 | Bombette | 3 | Yes | Existing | Existing | 0 |
 | Parakarry | 4 | Yes | B01 | B01 flight lifecycle | 4 |
-| Watt | 6 | Yes | Not admitted | Not admitted | 11 |
-| Sushie | 7 | Yes | Not admitted | Not admitted | 0 |
-| Lakilester | 8 | Yes | Not admitted | Not admitted | 4 |
-| Bow | 9 | Yes | Not admitted | Not admitted | 9 |
+| Watt | 6 | Yes | B02 | B02 flight/effect lifecycle | 11 |
+| Sushie | 7 | Yes | B02 | B02 ground lifecycle | 0 |
+| Lakilester | 8 | Yes | B02 | B02 flight/temporary-part lifecycle | 4 |
+| Bow | 9 | Yes | B02 | B02 flight/concealment lifecycle | 9 |
 
 None, Goompa (5), Goombaria (10), Twink (11) and out-of-range IDs have no HP
 record or adapter. Source height data does not admit a partner. Native Vanilla
@@ -67,17 +67,64 @@ team swaps already exchange X/Z only. Replacement actors must not retain stale
 status/effect/script ownership. HP persists by roster identity, while battle
 timers remain unsaved and follow existing active/inactive phase rules.
 
-## Validation boundary and next adapters
+## Validation boundary
 
-The pure checks distinguish eight HP records from four ready adapters, including
-invalid/noncombat IDs. Existing negative cases use unadmitted Bow instead of
-incorrectly continuing to label Parakarry unsupported. Shared native routes gain
-a separate Parakarry cohort; ground repetitions remain reported separately.
-Builds/pure checks are not gameplay acceptance. Native flight, ordinary/guarded/
-contact/item/lethal damage, Life Shroom/no-item, status/swap, world recovery,
-field carry and save/continue still require pinned actual results and rendered
-observation before B01 can be declared complete.
+B01 is integrated in the base PR26/7f661e7; its original ground/Parakarry and
+owner Windows evidence retain their original identities. B02 pure checks now
+exercise eight HP records and eight implemented adapters, including invalid/
+noncombat boundaries. Runtime cases and per-partner repetitions are separate
+from those pure checks and from full source move/art/campaign acceptance.
+Current pinned results and remaining review gates are recorded in PR27 and
+the coordination repository's results/b02-full-roster-2026-11-17 directory.
 
-B02 adds the remaining four adapters with their own status/effect/part/flight
-rules and acceptance. HP data or a known height alone must never enable them.
+B02 implements the remaining four adapters with their own status/effect/part/flight
+rules; admission is implementation state, not validation or full partner completion.
+HP data or a known height alone must never enable a missing adapter.
 Partner-owned items, enemy-held items and PR25 rework remain later packages.
+
+## B02 source and ownership decisions
+
+- Active source partner patches add shared death and omit Vanilla KO drops. Four
+  new native adapters preserve Vanilla drop/recovery scripts when not bound to
+  saved TTYD64 mode. Ground/home timing for the four accepted adapters stays intact.
+- `PartnersHP.patch` `$PartnerDies` and `PartnersItems.patch`
+  `$SetPartnerAnimation_Battle` distinguish the flying fall pose from static
+  collapse. New adapters use native Hurt/Injured for the fall and native Still
+  for collapse; Sushie's ground initial hurt is Injured. Heights are9/11/0/4
+  for Bow/Watt/Sushie/Lakilester. No source packed index or ROM address is copied.
+- A small optional defeat/release callback in the native presentation descriptor
+  owns actor-specific cleanup. HP unbind invokes release before actor destruction.
+  Bow restores Mario/Bow alpha, Mario's ordinary idle table and hidden-team flag
+  on defeat/replacement. Native living Outta Sight/phase behavior is retained;
+  full source move/stylish parity stays in B05.
+- Watt's native sparkle loop suppresses effects/bounce while a bound HP actor is
+  dead and recreates them when alive. It records the exact owning actor; event
+  put-away and HP unbind share idempotent disposal. Native source's individual
+  LifeShroomProc/Revive handlers exist, but dispatches in the source shared
+  revival script are commented; no newly forced event dispatch is invented.
+- Lakilester's cloud belongs to his main sprite. Native/source part2 is the
+  temporary Spiny projectile, not a separate cloud actor; defeat/rebind hides it.
+  Cloud Nine's existing Mario effect/timer remains separate from HP death and
+  Kooper flip. Sushie retains ground presentation and the existing Water Block
+  implementation; broader move mechanics are not accepted from admission alone.
+- The active world `PartnersHP.patch` UseItem script lowers Bow/Watt HP/FP gain
+  positions by10 before common offsets. Only those active NPC recipients gain
+  this adjustment; Mario/inactive recipients keep their existing position route.
+- Contact damage selects the bound adapter blueprint's primary part. Native
+  single-part lookup tolerates invalid0, masking the assumption until Lakilester
+  (main1/projectile2) crashes. Vanilla contact routing is preserved.
+- Native enemy/turn phase transitions can re-enable idle after a death event.
+  Bound zero-HP partners reject living idle at the common presentation boundary,
+  before part animation lookup. This complements existing menu guards without
+  rebuilding every phase consumer; revival/Vanilla idle remain native.
+- The isolated healing developer profile recruits all eight at3HP. The status
+  profile retains three ground partners; normal saves gain no recruits/items.
+- Sushie's normal TTYD64 post-battle callback restores the native riding action,
+  static-collision and resume-flag prerequisites before restarting its ability.
+  Retaining cached IsRiding/HP identity did not resume actual dive input after
+  flee. Current partner/NPC instance, saved mode and world/demo/Peach guards
+  scope this repair; the inherited Vanilla callback remains unchanged.
+
+Current source/build/runtime acceptance belongs to the feature PR and coordination
+evidence, with exact revisions, methods and failed attempts. Source implementation
+here is not all-eight gameplay/move/campaign readiness or native merge permission.

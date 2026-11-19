@@ -67,7 +67,7 @@ def observe():
                 key(('w' if selected // 2 > target // 2 else 's') if selected // 2 != target // 2
                     else ('a' if selected % 2 > target % 2 else 'd'))
             raise AssertionError('Slot navigation')
-        def continue_existing_file():
+        def continue_existing_file(before_init=False):
             wait('filemenu_currentMenu == FILE_MENU_CONFIRM && filemenu_menus[1]->state == FM_CONFIRM_START')
             wait('!(gWindows[WIN_FILES_CONFIRM_OPTIONS].flags & WINDOW_FLAG_INITIAL_ANIMATION)')
             tick(10)
@@ -81,6 +81,9 @@ def observe():
                 print('SAVE_MODE_CONFIRM_RETRY=' + str(attempt + 1), flush=True)
             else:
                 raise AssertionError('Start confirmation did not consume real keyboard input')
+            if before_init:
+                until('state_init_enter_world')
+                return
             wait('CurGameModeID == GAME_MODE_WORLD', 1200)
             until('state_step_world')
         def enter_files():
@@ -125,9 +128,7 @@ def observe():
                     tick(30)
                 choose_slot(1)
                 key('space')
-                wait('filemenu_currentMenu == FILE_MENU_CONFIRM')
-                key('space')
-                until('state_init_enter_world')
+                continue_existing_file(before_init=True)
                 check('selected TTYD64 file owns mode before gameplay initialization', val('ttyd64_mode_enabled()') == 1,
                       'real keyboard Start/file confirmation; no injected state')
             else:

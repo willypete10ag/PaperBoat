@@ -1,6 +1,7 @@
 #include "common.h"
 #include "effects.h"
 #include "battle/battle.h"
+#include "ttyd64_partner_hp.h"
 #include "script_api/battle.h"
 #include "battle/action_cmd/body_slam.h"
 #include "battle/action_cmd/power_shock.h"
@@ -39,6 +40,7 @@ static s32 sWattEffectData_isActive;
 static s32 sWattEffectData_currentEffectIndex;
 static EffectInstance* sWattEffectData_effect1;
 static EffectInstance* sWattEffectData_effect2;
+static Actor* sWattEffectData_owner;
 
 enum N(ActorPartIDs) {
     PRT_MAIN        = 1,
@@ -47,6 +49,7 @@ enum N(ActorPartIDs) {
 
 API_CALLABLE(N(WattFXUpdate)) {
     Actor* partner = gBattleStatus.partnerActor;
+    b32 hpDead = ttyd64_partner_combat_active(partner) && partner->curHP == 0;
     f32 x, y, z;
 
     if (isInitialCall) {
@@ -54,8 +57,12 @@ API_CALLABLE(N(WattFXUpdate)) {
         sWattEffectData_bouncePhase = 0;
         sWattEffectData_isActive = true;
         sWattEffectData_currentEffectIndex = 0;
-        sWattEffectData_effect1 = fx_static_status(0, partner->curPos.x, partner->curPos.y, partner->curPos.z, 1.0f, 5, 0);
-        sWattEffectData_effect2 = fx_static_status(1, partner->curPos.x, NPC_DISPOSE_POS_Y, partner->curPos.z, 1.0f, 5, 0);
+        sWattEffectData_owner = partner;
+        sWattEffectData_effect1 = sWattEffectData_effect2 = nullptr;
+        if (!hpDead) {
+            sWattEffectData_effect1 = fx_static_status(0, partner->curPos.x, partner->curPos.y, partner->curPos.z, 1.0f, 5, 0);
+            sWattEffectData_effect2 = fx_static_status(1, partner->curPos.x, NPC_DISPOSE_POS_Y, partner->curPos.z, 1.0f, 5, 0);
+        }
         sWattEffectData_initialized = true;
     }
 
@@ -63,12 +70,12 @@ API_CALLABLE(N(WattFXUpdate)) {
         return ApiStatus_DONE2;
     }
 
-    if (sWattEffectData_isBouncing) {
+    if (sWattEffectData_isBouncing && !hpDead) {
         sWattEffectData_bouncePhase += 15;
         sWattEffectData_bouncePhase = clamp_angle(sWattEffectData_bouncePhase);
     }
 
-    partner->verticalRenderOffset = sin_rad(DEG_TO_RAD(sWattEffectData_bouncePhase)) * 3.0f;
+    partner->verticalRenderOffset = hpDead ? 0.0f : sin_rad(DEG_TO_RAD(sWattEffectData_bouncePhase)) * 3.0f;
     x = partner->curPos.x + partner->headOffset.x;
     y = partner->curPos.y + partner->headOffset.y + partner->verticalRenderOffset + 12.0f;
     z = partner->curPos.z + partner->headOffset.z;
@@ -76,7 +83,7 @@ API_CALLABLE(N(WattFXUpdate)) {
         y = NPC_DISPOSE_POS_Y;
     }
 
-    if (sWattEffectData_isActive) {
+    if (sWattEffectData_isActive && !hpDead) {
         switch (sWattEffectData_currentEffectIndex) {
             case 0:
                 if (sWattEffectData_effect1 == nullptr) {
@@ -117,7 +124,10 @@ API_CALLABLE(N(WattFXUpdate)) {
     return ApiStatus_BLOCK;
 }
 
-API_CALLABLE(N(WattFXRemove)) {
+void ttyd64_watt_remove_effects(Actor* actor) {
+    if (sWattEffectData_owner != actor) {
+        return;
+    }
     sWattEffectData_initialized = false;
     if (sWattEffectData_effect1 != nullptr) {
         remove_effect(sWattEffectData_effect1);
@@ -125,7 +135,12 @@ API_CALLABLE(N(WattFXRemove)) {
     if (sWattEffectData_effect2 != nullptr) {
         remove_effect(sWattEffectData_effect2);
     }
+    sWattEffectData_effect1 = sWattEffectData_effect2 = nullptr;
+    sWattEffectData_owner = nullptr;
+}
 
+API_CALLABLE(N(WattFXRemove)) {
+    ttyd64_watt_remove_effects(gBattleStatus.partnerActor);
     return ApiStatus_DONE2;
 }
 
@@ -530,6 +545,7 @@ EvtScript N(EVS_Init) = {
     Call(BindIdle, ACTOR_SELF, Ref(N(EVS_Idle)))
     Call(BindHandleEvent, ACTOR_SELF, Ref(N(EVS_HandleEvent)))
     Call(BindHandlePhase, ACTOR_SELF, Ref(N(EVS_HandlePhase)))
+    Call(Ttyd64PartnerRestoreDeadPose)
     Return
     End
 };
@@ -549,13 +565,21 @@ EvtScript N(EVS_HandleEvent) = {
     Call(N(WattFXSetEffect), 0)
     Call(GetLastEvent, ACTOR_PARTNER, LVar0)
     Switch(LVar0)
+        CaseEq(EVENT_DEATH)
+            Call(Ttyd64PartnerHPState)
+            IfNe(LVar0, 0)
+                IfEq(LVar1, 0)
+                    ExecWait(EVS_Ttyd64PartnerDeath)
+                    Return
+                EndIf
+            EndIf
         CaseOrEq(EVENT_HIT_COMBO)
         CaseOrEq(EVENT_HIT)
             SetConst(LVar1,  ANIM_BattleWatt_Hurt)
             SetConst(LVar2,  ANIM_BattleWatt_Hurt)
             ExecWait(EVS_Partner_Hit)
             SetConst(LVar1,  ANIM_BattleWatt_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(EVS_Ttyd64PartnerDrop)
         EndCaseGroup
         CaseOrEq(EVENT_ZERO_DAMAGE)
         CaseOrEq(EVENT_IMMUNE)
@@ -570,7 +594,7 @@ EvtScript N(EVS_HandleEvent) = {
             SetConst(LVar2, 12)
             ExecWait(EVS_Partner_SpikeContact)
             SetConst(LVar1,  ANIM_BattleWatt_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(EVS_Ttyd64PartnerDrop)
         CaseEq(EVENT_BURN_CONTACT)
             Call(N(WattFXDisable))
             SetConst(LVar1,  ANIM_BattleWatt_BurnHurt)
@@ -579,26 +603,27 @@ EvtScript N(EVS_HandleEvent) = {
             ExecWait(EVS_Partner_BurnContact)
             Call(N(WattFXEnable))
             SetConst(LVar1,  ANIM_BattleWatt_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(EVS_Ttyd64PartnerDrop)
         CaseEq(EVENT_BURN_HIT)
             SetConst(LVar1,  ANIM_BattleWatt_BurnHurt)
             SetConst(LVar2, ANIM_BattleWatt_BurnStill)
             ExecWait(EVS_Partner_BurnHit)
             SetConst(LVar1,  ANIM_BattleWatt_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(EVS_Ttyd64PartnerDrop)
         CaseEq(EVENT_SHOCK_HIT)
             SetConst(LVar1,  ANIM_BattleWatt_Hurt)
             Set(LVar2, 12)
             ExecWait(EVS_Partner_ShockHit)
         CaseEq(EVENT_33)
             SetConst(LVar1,  ANIM_BattleWatt_Hurt)
-            ExecWait(EVS_Partner_Drop)
+            ExecWait(EVS_Ttyd64PartnerDrop)
         CaseEq(EVENT_RECOVER_FROM_KO)
             Call(N(WattFXBounce))
             SetConst(LVar0, PRT_MAIN)
             SetConst(LVar1,  ANIM_BattleWatt_Idle)
             SetConst(LVar2,  ANIM_BattleWatt_Run)
             Set(LVar3, 20)
+            Call(Ttyd64PartnerRecoveryHeight)
             ExecWait(EVS_Partner_Recover)
             Call(N(WattFXBounce))
         CaseEq(EVENT_PUT_PARTNER_AWAY)
@@ -617,6 +642,14 @@ EvtScript N(EVS_HandleEvent) = {
             Call(N(WattFXEnable))
         CaseDefault
     EndSwitch
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+        Call(Ttyd64PartnerRestoreFlight)
+    EndIf
     Call(UseIdleAnimation, ACTOR_PARTNER, true)
     Return
     End
@@ -639,6 +672,13 @@ EvtScript N(EVS_TakeTurn) = {
 };
 
 EvtScript N(EVS_Celebrate) = {
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Call(N(WattFXEnable))
     Call(N(WattFXSetEffect), 1)
     SetConst(LVar0, PRT_MAIN)
@@ -651,6 +691,13 @@ EvtScript N(EVS_Celebrate) = {
 };
 
 EvtScript N(EVS_RunAway) = {
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Call(N(WattFXEnable))
     Call(N(WattFXSetEffect), 1)
     SetConst(LVar0, PRT_MAIN)
@@ -661,6 +708,13 @@ EvtScript N(EVS_RunAway) = {
 };
 
 EvtScript N(EVS_RunAwayFail) = {
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Call(N(WattFXEnable))
     Call(N(WattFXSetEffect), 1)
     Call(UseIdleAnimation, ACTOR_PARTNER, false)
@@ -677,6 +731,13 @@ EvtScript N(EVS_RunAwayFail) = {
 };
 
 EvtScript N(EVS_HandlePhase) = {
+    Call(Ttyd64PartnerHPState)
+    IfNe(LVar0, 0)
+        IfEq(LVar1, 0)
+            Call(Ttyd64PartnerRestoreDeadPose)
+            Return
+        EndIf
+    EndIf
     Return
     End
 };

@@ -36,10 +36,10 @@ static const struct { uint8_t world, combat; int8_t homeY; } PartnerAdapters[TTY
     [2] = { 1, 1 }, // Kooper
     [3] = { 1, 1 }, // Bombette
     [4] = { 1, 1, 4 }, // Parakarry
-    [6] = { 0, 0, 11 }, // Watt: source height only; adapter not admitted
-    [7] = { 0, 0, 0 }, // Sushie
-    [8] = { 0, 0, 4 }, // Lakilester
-    [9] = { 0, 0, 9 }, // Bow
+    [6] = { 1, 1, 11 }, // Watt
+    [7] = { 1, 1, 0 }, // Sushie
+    [8] = { 1, 1, 4 }, // Lakilester
+    [9] = { 1, 1, 9 }, // Bow
 };
 int ttyd64_partner_has_hp_data(int partner) {
     return ttyd64_partner_base_max_hp(partner, 0) >= 0;

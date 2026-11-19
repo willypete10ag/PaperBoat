@@ -5,6 +5,7 @@
 #include "sprite/npc/WorldSushie.h"
 #include "sprite.h"
 #include "sprite/player.h"
+#include "ttyd64_mode.h"
 
 #define NAMESPACE world_sushie
 
@@ -909,6 +910,18 @@ void N(post_battle)(Npc* sushie) {
 
     if (partnerStatus->shouldResumeAbility) {
         *sushie = partnerStatus->npc;
+        if (ttyd64_mode_enabled() && gGameStatusPtr->context == CONTEXT_WORLD
+            && gGameStatusPtr->demoState == DEMO_STATE_NONE
+            && !(gPlayerStatus.animFlags & PA_FLAG_USING_PEACH_PHYSICS)
+            && gPlayerData.curPartner == PARTNER_SUSHIE
+            && wCurrentPartnerId == PARTNER_SUSHIE && sushie == wPartnerNpc) {
+            // Pre-battle explicitly left riding and enabled static collisions.
+            // Restore the native resume branch's entry contract for this NPC;
+            // retaining IsRiding/HP identity alone does not resume its script.
+            set_action_state(ACTION_STATE_RIDE);
+            disable_player_static_collisions();
+            gGameStatusPtr->keepUsingPartnerOnMapChange = true;
+        }
         partner_use_ability();
     }
 }
